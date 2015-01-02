@@ -1,0 +1,13 @@
+[package]
+name = "datetime"
+description = "Library for date and time formatting and arithmetic"
+
+authors = [ "ogham@bsago.me" ]
+documentation = "http://bsago.me/doc/datetime/"
+homepage = "https://github.com/ogham/rust-datetime"
+license = "MIT"
+readme = "README.md"
+version = "0.1.0"
+
+[lib]
+name = "datetime"
