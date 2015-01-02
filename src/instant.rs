@@ -9,7 +9,7 @@ use now;
 /// be unsuitable for) instants past GMT 15:30:08, Sunday 4th December,
 /// 292,277,026,596 (yes, that's a year)
 #[deriving(PartialEq, Eq, PartialOrd, Ord, Clone)]
-struct Instant {
+pub struct Instant {
     seconds: i64,
     milliseconds: i16,
 }
@@ -39,10 +39,12 @@ impl Instant {
 		Instant::at(0)
 	}
 
+    /// Returns the number of seconds at this instant
 	pub fn seconds(&self) -> i64 {
 	    self.seconds
 	}
 
+    /// Returns the number of milliseconds at this instant
 	pub fn milliseconds(&self) -> i16 {
 	    self.milliseconds
 	}
@@ -72,7 +74,6 @@ mod test {
     fn epoch() {
         assert_eq!(Instant::at_epoch().seconds(), 0)
     }
-
 
 	#[test]
 	fn sanity() {
