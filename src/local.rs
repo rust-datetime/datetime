@@ -125,6 +125,7 @@ pub struct LocalTime {
     hour:   i8,
     minute: i8,
     second: i8,
+    millisecond: i16,
 }
 
 impl Copy for LocalTime { }
@@ -367,40 +368,66 @@ impl LocalDate {
 }
 
 impl LocalTime {
+
     /// Computes the number of hours, minutes, and seconds, based on the
     /// number of seconds that have elapsed since midnight.
     pub fn from_seconds_since_midnight(seconds: i64) -> LocalTime {
+        LocalTime::from_seconds_and_milliseconds_since_midnight(seconds, 0)
+    }
+
+    /// Computes the number of hours, minutes, and seconds, based on the
+    /// number of seconds that have elapsed since midnight.
+    pub fn from_seconds_and_milliseconds_since_midnight(seconds: i64, millisecond_of_second: i16) -> LocalTime {
         LocalTime {
             hour:   (seconds / 60 / 60) as i8,
             minute: (seconds / 60 % 60) as i8,
             second: (seconds % 60) as i8,
+            millisecond: millisecond_of_second,
         }
     }
 
     /// The time at midnight, with all fields initialised to 0.
     pub fn midnight() -> LocalTime {
-        LocalTime { hour: 0, minute: 0, second: 0 }
+        LocalTime { hour: 0, minute: 0, second: 0, millisecond: 0 }
     }
 
     /// Create a new timestamp instance with the given hour, minute, and
-    /// second fields.
+    /// second fields. The millisecond field is set to 0.
     ///
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return None.
     pub fn hms(hour: i8, minute: i8, second: i8) -> Option<LocalTime> {
-        if hour >= 1 && hour <= 24
-            && minute >= 1 && minute <= 60
-            && second >= 1 && second <= 60
+        if hour >= 0 && hour <= 23
+            && minute >= 0 && minute <= 59
+            && second >= 0 && second <= 59
         {
-            Some(LocalTime { hour: hour, minute: minute, second: second })
+            Some(LocalTime { hour: hour, minute: minute, second: second, millisecond: 0 })
         }
         else {
             None
         }
     }
 
-    /// Calculate the number of seconds since midnight this time is at.
-    /// I mean, at which this time is.
+    /// Create a new timestamp instance with the given hour, minute,
+    /// second, and millisecond fields.
+    ///
+    /// The values are checked for validity before instantiation, and
+    /// passing in values out of range will return None.
+    pub fn hms_ms(hour: i8, minute: i8, second: i8, millisecond: i16) -> Option<LocalTime> {
+        if hour >= 0 && hour <= 23
+            && minute >= 0 && minute <= 59
+            && second >= 0 && second <= 59
+            && millisecond >= 0 && millisecond <= 999
+        {
+            Some(LocalTime { hour: hour, minute: minute, second: second, millisecond: millisecond })
+        }
+        else {
+            None
+        }
+    }
+
+    /// Calculate the number of seconds since midnight this time is at,
+    /// ignoring milliseconds.
     fn to_seconds(&self) -> i64 {
         self.hour as i64 * 3600
             + self.minute as i64 * 60
@@ -411,8 +438,15 @@ impl LocalTime {
 impl LocalDateTime {
 
     /// Computes a complete date-time based on the number of seconds that
-    /// have elapsed since **midnight, 1st January, 1970**.
+    /// have elapsed since **midnight, 1st January, 1970**, setting the
+    /// number of milliseconds to 0.
     pub fn at(seconds_since_1970_epoch: i64) -> LocalDateTime {
+        LocalDateTime::at_ms(seconds_since_1970_epoch, 0)
+    }
+
+    /// Computes a complete date-time based on the number of seconds that
+    /// have elapsed since **midnight, 1st January, 1970**,
+    pub fn at_ms(seconds_since_1970_epoch: i64, millisecond_of_second: i16) -> LocalDateTime {
         let seconds = seconds_since_1970_epoch - EPOCH;
 
         // Just split the input value into days and seconds, and let
@@ -421,9 +455,14 @@ impl LocalDateTime {
 
         LocalDateTime {
             date: LocalDate::from_days_since_epoch(days),
-            time: LocalTime::from_seconds_since_midnight(secs),
+            time: LocalTime::from_seconds_and_milliseconds_since_midnight(secs, millisecond_of_second),
         }
     }
+
+    /// Computes a complete date-time based on the number of seconds
+    /// *and milliseconds* that have elapsed since **midnight, 1st
+    /// January, 1970**.
+
 
     /// The date portion of this date-time stamp.
     pub fn date(&self) -> LocalDate {
@@ -437,8 +476,8 @@ impl LocalDateTime {
 
     /// Creates a new date-time stamp set to the current time.
     pub fn now() -> LocalDateTime {
-        let (s, _) = unsafe { now::now() };
-        LocalDateTime::at(s)
+        let (s, ms) = unsafe { now::now() };
+        LocalDateTime::at_ms(s, ms)
     }
 
     pub fn to_seconds(&self) -> i64 {
@@ -525,6 +564,9 @@ pub trait TimePiece {
 
     /// The second of the minute.
     fn second(&self) -> i8;
+
+    /// The millisecond of the second.
+    fn millisecond(&self) -> i16;
 }
 
 impl DatePiece for LocalDate {
@@ -539,12 +581,13 @@ impl TimePiece for LocalTime {
     fn hour(&self) -> i8 { self.hour }
     fn minute(&self) -> i8 { self.minute }
     fn second(&self) -> i8 { self.second }
+    fn millisecond(&self) -> i16 { self.millisecond }
 }
 
 impl DatePiece for LocalDateTime {
-    fn year(&self) -> i64 { self.date.year() }
-    fn month(&self) -> Month { self.date.month() }
-    fn day(&self) -> i8 { self.date.day() }
+    fn year(&self) -> i64 { self.date.ymd.year }
+    fn month(&self) -> Month { self.date.ymd.month }
+    fn day(&self) -> i8 { self.date.ymd.day }
     fn yearday(&self) -> i16 { self.date.yearday }
     fn weekday(&self) -> Weekday { self.date.weekday }
 }
@@ -553,6 +596,7 @@ impl TimePiece for LocalDateTime {
     fn hour(&self) -> i8 { self.time.hour }
     fn minute(&self) -> i8 { self.time.minute }
     fn second(&self) -> i8 { self.time.second }
+    fn millisecond(&self) -> i16 { self.time.millisecond }
 }
 
 // ---- helper implementations ----
@@ -581,7 +625,7 @@ mod tests {
                     weekday: Weekday::Sunday, yearday: 114,
                 },
                 time: LocalTime {
-                    hour: 22, minute: 13, second: 20
+                    hour: 22, minute: 13, second: 20, millisecond: 0,
                 },
             };
 
@@ -611,7 +655,7 @@ mod tests {
                     weekday: Weekday::Sunday, yearday: 252,
                 },
                 time: LocalTime {
-                    hour: 1, minute: 46, second: 40,
+                    hour: 1, minute: 46, second: 40, millisecond: 0,
                 },
             };
 
@@ -627,7 +671,7 @@ mod tests {
                     weekday: Weekday::Friday, yearday: 44,
                 },
                 time: LocalTime {
-                    hour: 23, minute: 31, second: 30,
+                    hour: 23, minute: 31, second: 30, millisecond: 0,
                 },
             };
 
@@ -643,7 +687,7 @@ mod tests {
                     weekday: Weekday::Tuesday, yearday: 19,
                 },
                 time: LocalTime {
-                    hour: 3, minute: 14, second: 7,
+                    hour: 3, minute: 14, second: 7, millisecond: 0,
                 },
             };
 
@@ -659,7 +703,7 @@ mod tests {
                     weekday: Weekday::Sunday, yearday: 339,
                 },
                 time: LocalTime {
-                    hour: 15, minute: 30, second: 7,
+                    hour: 15, minute: 30, second: 7, millisecond: 0,
                 },
             };
 
