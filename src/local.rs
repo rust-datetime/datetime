@@ -4,6 +4,7 @@ extern crate regex_macros;
 use now;
 use parse;
 use instant::Instant;
+use duration::Duration;
 
 use self::Month::*;
 
@@ -438,6 +439,12 @@ impl LocalTime {
 
 impl LocalDateTime {
 
+    /// Computes a complete date-time based on the values in the given
+    /// Instant parameter.
+    pub fn from_instant(instant: Instant) -> LocalDateTime {
+        LocalDateTime::at_ms(instant.seconds(), instant.milliseconds())
+    }
+
     /// Computes a complete date-time based on the number of seconds that
     /// have elapsed since **midnight, 1st January, 1970**, setting the
     /// number of milliseconds to 0.
@@ -609,10 +616,23 @@ impl PartialEq for LocalDate {
     }
 }
 
+impl Add<Duration, LocalDateTime> for LocalDateTime {
+    fn add(self, duration: Duration) -> LocalDateTime {
+        LocalDateTime::from_instant(self.to_instant() + duration)
+    }
+}
+
+impl Sub<Duration, LocalDateTime> for LocalDateTime {
+    fn sub(self, duration: Duration) -> LocalDateTime {
+        LocalDateTime::from_instant(self.to_instant() - duration)
+    }
+}
+
+
 // ---- tests ----
 
 #[cfg(test)]
-mod tests {
+mod test {
     pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, YMD};
 
     mod seconds_to_datetimes {
@@ -803,5 +823,23 @@ mod tests {
 
             assert_eq!(-54321234567890, res)
         }
+    }
+
+    mod arithmetic {
+        use super::*;
+        use duration::Duration;
+
+        #[test]
+        fn addition() {
+            let date = LocalDateTime::at(10000);
+            assert_eq!(LocalDateTime::at(10001), date + Duration::of(1))
+        }
+
+        #[test]
+        fn subtraction() {
+            let date = LocalDateTime::at(100000000);
+            assert_eq!(LocalDateTime::at(99999999), date - Duration::of(1))
+        }
+
     }
 }
