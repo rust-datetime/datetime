@@ -8,3 +8,4 @@ mod now;
 mod parse;
 pub mod local;
 pub mod instant;
+pub mod duration;

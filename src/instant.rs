@@ -1,5 +1,6 @@
 use std::fmt;
 use now;
+use duration::Duration;
 
 /// An **Instant** is an exact point on the timeline, irrespective of time
 /// zone or calendar format, with millisecond precision.
@@ -13,6 +14,8 @@ pub struct Instant {
     seconds: i64,
     milliseconds: i16,
 }
+
+impl Copy for Instant { }
 
 impl Instant {
 	/// Creates a new Instant set to the number of seconds since the Unix
@@ -56,9 +59,29 @@ impl fmt::Show for Instant {
     }
 }
 
+impl Add<Duration, Instant> for Instant {
+    fn add(self, duration: Duration) -> Instant {
+        let (seconds, milliseconds) = duration.lengths();
+        Instant {
+            seconds: self.seconds + seconds,
+            milliseconds: self.milliseconds + milliseconds,
+        }
+    }
+}
+
+impl Sub<Duration, Instant> for Instant {
+    fn sub(self, duration: Duration) -> Instant {
+        let (seconds, milliseconds) = duration.lengths();
+        Instant {
+            seconds: self.seconds - seconds,
+            milliseconds: self.milliseconds - milliseconds,
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-	use super::Instant;
+	pub use super::Instant;
 
 	#[test]
 	fn seconds() {
@@ -80,5 +103,21 @@ mod test {
 	    // Test that the system call has worked at all.
 	    // If this fails then you have gone back in time, or something?
 	    assert!(Instant::now().seconds() != 0)
+	}
+
+	mod duration_arithmetic {
+	    use super::*;
+        use duration::Duration;
+
+	    #[test]
+	    fn addition() {
+	        assert_eq!(Instant::at(10), Instant::at(3) + Duration::of(7))
+	    }
+
+        #[test]
+        fn subtraction() {
+            assert_eq!(Instant::at(20), Instant::at(50) - Duration::of(30))
+        }
+
 	}
 }
