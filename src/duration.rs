@@ -1,6 +1,8 @@
+use std::ops::{Add, Sub, Mul};
+
 /// A **Duration** is a length of time on the timeline, irrespective of
 /// time zone or calendar format, with millisecond precision,
-#[deriving(Clone, PartialEq, Eq, Show)]
+#[derive(Clone, PartialEq, Eq, Show)]
 pub struct Duration {
     seconds: i64,
     milliseconds: i16,
@@ -39,7 +41,9 @@ impl Duration {
     // way, it's clear that there are two separate values being returned.
 }
 
-impl Add<Duration, Duration> for Duration {
+impl Add<Duration> for Duration {
+	type Output = Duration;
+
     fn add(self, rhs: Duration) -> Duration {
         let ms = self.milliseconds + rhs.milliseconds;
         if ms >= 1000 {
@@ -51,7 +55,9 @@ impl Add<Duration, Duration> for Duration {
     }
 }
 
-impl Sub<Duration, Duration> for Duration {
+impl Sub<Duration> for Duration {
+	type Output = Duration;
+	
     fn sub(self, rhs: Duration) -> Duration {
         let ms = self.milliseconds - rhs.milliseconds;
         if ms < 0 {
@@ -63,7 +69,9 @@ impl Sub<Duration, Duration> for Duration {
     }
 }
 
-impl Mul<i64, Duration> for Duration {
+impl Mul<i64> for Duration {
+	type Output = Duration;
+	
     fn mul(self, amount: i64) -> Duration {
         let ms = self.milliseconds as i64 * amount;
         Duration::of_ms(self.seconds * amount + ms / 1000, (ms % 1000) as i16)

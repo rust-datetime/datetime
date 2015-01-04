@@ -1,6 +1,9 @@
 #[phase(plugin)]
 extern crate regex_macros;
 
+use std::ops::{Add, Sub};
+use std::num::FromPrimitive;
+
 use now;
 use parse;
 use instant::Instant;
@@ -73,7 +76,7 @@ const TIME_TRIANGLE: &'static [i64; 11] =
 ///
 /// This is stored as an enum instead of just a number to prevent
 /// off-by-one errors: is month 2 February (1-indexed) or March (0-indexed)?
-#[deriving(FromPrimitive, PartialEq, Eq, PartialOrd, Ord, Show, Clone)]
+#[derive(FromPrimitive, PartialEq, Eq, PartialOrd, Ord, Show, Clone)]
 pub enum Month {
     January, February, March, April, May, June, July,
     August, September, October, November, December,
@@ -87,7 +90,7 @@ impl Copy for Month { }
 /// much an arbitrary choice, and if you don't use the FromPrimitive trait,
 /// it won't affect you at all. If you want to change it, the only thing
 /// that should be affected is LocalDate::days_to_weekday.
-#[deriving(FromPrimitive, PartialEq, Eq, Show, Clone)]
+#[derive(FromPrimitive, PartialEq, Eq, Show, Clone)]
 pub enum Weekday {
     Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday,
 }
@@ -101,7 +104,7 @@ impl Copy for Weekday { }
 
 /// A **local date-time** is an exact instant on the timeline, *without a
 /// time zone*.
-#[deriving(PartialEq, Show, Clone)]
+#[derive(PartialEq, Show, Clone)]
 pub struct LocalDateTime {
     date: LocalDate,
     time: LocalTime,
@@ -111,7 +114,7 @@ impl Copy for LocalDateTime { }
 
 /// A **local date** is a day-long span on the timeline, *without a time
 /// zone*.
-#[deriving(Eq, Show, Clone)]
+#[derive(Eq, Show, Clone)]
 pub struct LocalDate {
     ymd:     YMD,
     yearday: i16,
@@ -122,7 +125,7 @@ impl Copy for LocalDate { }
 
 /// A **local time** is a time on the timeline that recurs once a day,
 /// *without a time zone*.
-#[deriving(PartialEq, Show, Clone)]
+#[derive(PartialEq, Show, Clone)]
 pub struct LocalTime {
     hour:   i8,
     minute: i8,
@@ -143,7 +146,7 @@ impl Copy for LocalTime { }
 /// create an instance of the 74th of March, for example, but you're
 /// free to create such an instance of YMD. For this reason, it is not
 /// exposed to implementors of this library.
-#[deriving(PartialEq, Eq, Clone, Show)]
+#[derive(PartialEq, Eq, Clone, Show)]
 struct YMD {
     year:    i64,
     month:   Month,
@@ -616,13 +619,17 @@ impl PartialEq for LocalDate {
     }
 }
 
-impl Add<Duration, LocalDateTime> for LocalDateTime {
+impl Add<Duration> for LocalDateTime {
+	type Output = LocalDateTime;
+	
     fn add(self, duration: Duration) -> LocalDateTime {
         LocalDateTime::from_instant(self.to_instant() + duration)
     }
 }
 
-impl Sub<Duration, LocalDateTime> for LocalDateTime {
+impl Sub<Duration> for LocalDateTime {
+	type Output = LocalDateTime;
+
     fn sub(self, duration: Duration) -> LocalDateTime {
         LocalDateTime::from_instant(self.to_instant() - duration)
     }

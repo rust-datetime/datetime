@@ -1,4 +1,6 @@
 use std::fmt;
+use std::ops::{Add, Sub};
+
 use now;
 use duration::Duration;
 
@@ -9,7 +11,7 @@ use duration::Duration;
 /// 16-bit integer of milliseconds. This means that it will overflow (and thus
 /// be unsuitable for) instants past GMT 15:30:08, Sunday 4th December,
 /// 292,277,026,596 (yes, that's a year)
-#[deriving(PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Instant {
     seconds: i64,
     milliseconds: i16,
@@ -59,7 +61,9 @@ impl fmt::Show for Instant {
     }
 }
 
-impl Add<Duration, Instant> for Instant {
+impl Add<Duration> for Instant {
+	type Output = Instant;
+	
     fn add(self, duration: Duration) -> Instant {
         let (seconds, milliseconds) = duration.lengths();
         Instant {
@@ -69,7 +73,9 @@ impl Add<Duration, Instant> for Instant {
     }
 }
 
-impl Sub<Duration, Instant> for Instant {
+impl Sub<Duration> for Instant {
+	type Output = Instant;
+	
     fn sub(self, duration: Duration) -> Instant {
         let (seconds, milliseconds) = duration.lengths();
         Instant {
