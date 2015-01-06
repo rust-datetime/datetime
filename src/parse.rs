@@ -12,51 +12,20 @@ pub fn parse_iso_ymd(input: &str) -> Option<(i64, i8, i8)> {
     }
 }
 
-pub fn parse_iso_ywd(input: &str) -> Option<(i64, i8, i8)> {
-    match regex!(r"^(\d{4})-W(\d{2})-(\d)$").captures(input) {
-        None => None,
-        Some(caps) => {
-            Some((caps.at(1).unwrap().parse().unwrap(),
-                  caps.at(2).unwrap().parse().unwrap(),
-                  caps.at(3).unwrap().parse().unwrap()))
-        },
-    }
-}
-
-pub fn parse_iso_yd(input: &str) -> Option<(i64, i16)> {
-    match regex!(r"^(\d{4})-W(\d{3})$").captures(input) {
-        None => None,
-        Some(caps) => {
-            Some((caps.at(1).unwrap().parse().unwrap(),
-                  caps.at(2).unwrap().parse().unwrap()))
-        },
-    }
-}
-
 #[cfg(test)]
 mod test {
-    pub use super::{parse_iso_ymd, parse_iso_ywd, parse_iso_yd};
+    pub use super::parse_iso_ymd;
 
-    mod ymd {
-        use super::*;
-
-        #[test]
-        fn date() {
-            let date = parse_iso_ymd("1985-04-12");
-            assert_eq!(date, Some((1985, 4, 12)));
-        }
-
-        #[test]
-        fn fail() {
-            let date = parse_iso_ymd("");
-            assert_eq!(date, None)
-        }
+    #[test]
+    fn date() {
+        let date = parse_iso_ymd("1985-04-12");
+        assert_eq!(date, Some((1985, 4, 12)));
     }
 
-    mod ywd {
-    }
-
-    mod yd {
+    #[test]
+    fn fail() {
+        let date = parse_iso_ymd("");
+        assert_eq!(date, None)
     }
 }
 
