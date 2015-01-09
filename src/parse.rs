@@ -1,4 +1,4 @@
-#[phase(plugin)]
+#[plugin]
 extern crate regex_macros;
 
 pub fn parse_iso_ymd(input: &str) -> Option<(i64, i8, i8)> {
