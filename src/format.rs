@@ -156,19 +156,15 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
                 Some((_, 'Y')) => { bit = Some(Field::Year); },
                 Some((_, 'M')) => { bit = Some(Field::MonthName(true)); },
                 Some((_, 'D')) => { bit = Some(Field::Day); },
-                Some((_, '}')) => {
-                    if let Some(b) = bit {
-                        return Ok(b)
-                    }
-                    else {
-                        return Err(FormatError::MissingField);
-                    }
-                },
-                Some(_) => {
-                    args.alignment = Some(Alignment::Centre);
-                },
+                Some((_, '}')) => break,
+                Some((pos, c)) => return Err(FormatError::InvalidChar(c, pos)),
                 None => return Err(FormatError::OpenCurlyBrace),
             }
+        }
+
+        match bit {
+            Some(b) => Ok(b),
+            None    => Err(FormatError::MissingField),
         }
     }
 }
@@ -188,12 +184,12 @@ fn long_month_name(month: local::Month) -> &'static str {
 fn short_month_name(month: local::Month) -> &'static str {
     use local::Month::*;
     match month {
-        January   => "Jan", February  => "Feb",
-        March     => "Mar", April     => "Apr",
-        May       => "May", June      => "Jun",
-        July      => "Jul", August    => "Aug",
-        September => "Sep", October   => "Oct",
-        November  => "Nov", December  => "Dec",
+        January   => "Jan",  February  => "Feb",
+        March     => "Mar",  April     => "Apr",
+        May       => "May",  June      => "Jun",
+        July      => "Jul",  August    => "Aug",
+        September => "Sep",  October   => "Oct",
+        November  => "Nov",  December  => "Dec",
     }
 }
 
