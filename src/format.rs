@@ -12,7 +12,7 @@ pub enum Field<'a> {
     MonthName(bool),
 
     Day,
-    DayOfWeekName(bool),
+    WeekdayName(bool),
 }
 
 impl<'a> Copy for Field<'a> { }
@@ -26,8 +26,8 @@ impl<'a> Field<'a> {
             Field::MonthName(true)      => write!(w, "{}", long_month_name(when.month())),
             Field::MonthName(false)     => write!(w, "{}", short_month_name(when.month())),
             Field::Day                  => write!(w, "{}", when.day()),
-            Field::DayOfWeekName(true)  => write!(w, "{}", long_day_name(when.weekday())),
-            Field::DayOfWeekName(false) => write!(w, "{}", short_day_name(when.weekday())),
+            Field::WeekdayName(true)    => write!(w, "{}", long_day_name(when.weekday())),
+            Field::WeekdayName(false)   => write!(w, "{}", short_day_name(when.weekday())),
         }
     }
 }
@@ -152,14 +152,18 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
         let mut bit = None;
 
         loop {
-            match self.next() {
-                Some((_, 'Y')) => { bit = Some(Field::Year); },
-                Some((_, 'M')) => { bit = Some(Field::MonthName(true)); },
-                Some((_, 'D')) => { bit = Some(Field::Day); },
+            let bitlet = match self.next() {
+                Some((_, 'Y')) => Field::Year,
+                Some((_, 'y')) => Field::YearOfCentury,
+                Some((_, 'M')) => Field::MonthName(true),
+                Some((_, 'D')) => Field::Day,
+                Some((_, 'E')) => Field::WeekdayName(true),
                 Some((_, '}')) => break,
                 Some((pos, c)) => return Err(FormatError::InvalidChar(c, pos)),
                 None => return Err(FormatError::OpenCurlyBrace(open_brace_position)),
-            }
+            };
+
+            bit = Some(bitlet);
         }
 
         match bit {
