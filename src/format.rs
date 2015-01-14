@@ -40,8 +40,8 @@ pub struct DateFormat<'a> {
 #[derive(PartialEq, Eq, Clone, Show)]
 pub enum FormatError {
     InvalidChar(char, usize),
-    OpenCurlyBrace,
-    MissingField,
+    OpenCurlyBrace(usize),
+    MissingField(usize),
 }
 
 impl Copy for FormatError { }
@@ -127,7 +127,7 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
                         self.fields.push(field);
                     }
 
-                    let field = try! { self.parse_a_thing() };
+                    let field = try! { self.parse_a_thing(new_pos) };
                     self.fields.push(field);
                 },
                 Some((pos, c)) => {
@@ -147,7 +147,7 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
         Ok(())
     }
 
-    fn parse_a_thing(&mut self) -> Result<Field<'a>, FormatError> {
+    fn parse_a_thing(&mut self, open_brace_position: usize) -> Result<Field<'a>, FormatError> {
         let mut args = Arguments::empty();
         let mut bit = None;
 
@@ -158,13 +158,13 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
                 Some((_, 'D')) => { bit = Some(Field::Day); },
                 Some((_, '}')) => break,
                 Some((pos, c)) => return Err(FormatError::InvalidChar(c, pos)),
-                None => return Err(FormatError::OpenCurlyBrace),
+                None => return Err(FormatError::OpenCurlyBrace(open_brace_position)),
             }
         }
 
         match bit {
             Some(b) => Ok(b),
-            None    => Err(FormatError::MissingField),
+            None    => Err(FormatError::MissingField(open_brace_position)),
         }
     }
 }
@@ -219,6 +219,7 @@ fn short_day_name(day: local::Weekday) -> &'static str {
 mod test {
     pub use super::DateFormat;
     pub use super::Field::*;
+    pub use super::FormatError;
 
     mod parse {
         use super::*;
@@ -251,6 +252,21 @@ mod test {
         #[test]
         fn a_bunch_of_elements() {
             assert_eq!(DateFormat::parse("{Y}-{M}-{D}").unwrap(), DateFormat { fields: vec![ Year, Literal("-"), MonthName(true), Literal("-"), Day ] })
+        }
+
+        #[test]
+        fn missing_field() {
+            assert_eq!(DateFormat::parse("{}"), Err(FormatError::MissingField(0)))
+        }
+
+        #[test]
+        fn invalid_char() {
+            assert_eq!(DateFormat::parse("{7}"), Err(FormatError::InvalidChar('7', 1)))
+        }
+
+        #[test]
+        fn open_curly_brace() {
+            assert_eq!(DateFormat::parse("{"), Err(FormatError::OpenCurlyBrace(0)))
         }
     }
 }
