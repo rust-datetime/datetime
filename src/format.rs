@@ -131,7 +131,21 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
                     let field = try! { self.parse_a_thing(new_pos) };
                     self.fields.push(field);
                 },
-                Some((pos, '}')) => return Err(FormatError::CloseCurlyBrace(pos)),
+                Some((new_pos, '}')) => {
+                    if let Some((_, '}')) = self.next() {
+                        if let Some(pos) = anchor {
+                            anchor = None;
+                            let field = Field::Literal(self.input.slice(pos, new_pos));
+                            self.fields.push(field);
+                        }
+
+                        let field = Field::Literal(self.input.slice(new_pos, new_pos + 1));
+                        self.fields.push(field);
+                    }
+                    else {
+                        return Err(FormatError::CloseCurlyBrace(new_pos));
+                    }
+                },
                 Some((pos, c)) => {
                     if anchor.is_none() {
                         anchor = Some(pos);
@@ -149,12 +163,25 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
         Ok(())
     }
 
+    // The Literal strings are just slices of the original formatting string,
+    // which shares a lifetime with the formatter object, requiring fewer
+    // allocations. The parser is clever and combines consecutive literal
+    // strings.
+    //
+    // However, because they're slices, we can't transform them
+    // to escape {{ and }} characters. So instead, up to three adjacent
+    // Literal fields can be used to serve '{' or '}' characters, including
+    // one that's the *first character* of the "{{" part. This means it can
+    // still use slices.
+
     fn parse_a_thing(&mut self, open_brace_position: usize) -> Result<Field<'a>, FormatError> {
         let mut args = Arguments::empty();
         let mut bit = None;
+        let mut first = true;
 
         loop {
             match self.next() {
+                Some((pos, '{')) if first => return Ok(Field::Literal(self.input.slice(pos, pos + 1))),
                 Some((pos, ':')) => {
                     let bitlet = match self.next() {
                         Some((_, 'Y')) => Field::Year,
@@ -172,6 +199,8 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
                 Some((pos, c)) => return Err(FormatError::InvalidChar(c, false, pos)),
                 None => return Err(FormatError::OpenCurlyBrace(open_brace_position)),
             };
+
+            first = false;
         }
 
         match bit {
@@ -296,16 +325,28 @@ mod test {
             assert_eq!(DateFormat::parse("This is a test: }"), Err(FormatError::CloseCurlyBrace(16)))
         }
 
+        #[test]
+        fn escaping_open() {
+            assert_eq!(DateFormat::parse("{{").unwrap(), DateFormat { fields: vec![ Literal("{") ] })
+        }
+
+        #[test]
+        fn escaping_close() {
+            assert_eq!(DateFormat::parse("}}").unwrap(), DateFormat { fields: vec![ Literal("}") ] })
+        }
+
+        #[test]
+        fn escaping_middle() {
+            assert_eq!(DateFormat::parse("The character {{ is my favourite!").unwrap(),
+                DateFormat { fields: vec![ Literal("The character "), Literal("{"), Literal(" is my favourite!") ] })
+        }
+
+        #[test]
+        fn escaping_middle_2() {
+            assert_eq!(DateFormat::parse("It's way better than }}.").unwrap(),
+                DateFormat { fields: vec![ Literal("It's way better than "), Literal("}"), Literal(".") ] })
+        }
 
 
-//         #[test]
-//         fn escaping_open() {
-//             assert_eq!(DateFormat::parse("{{").unwrap(), DateFormat { fields: vec![ Literal("{") ] })
-//         }
-//
-//         #[test]
-//         fn escaping_close() {
-//             assert_eq!(DateFormat::parse("}}").unwrap(), DateFormat { fields: vec![ Literal("}") ] })
-//         }
     }
 }
