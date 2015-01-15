@@ -39,10 +39,10 @@ pub struct DateFormat<'a> {
 
 #[derive(PartialEq, Eq, Clone, Show)]
 pub enum FormatError {
-    InvalidChar(char, bool, usize),
-    OpenCurlyBrace(usize),
-    CloseCurlyBrace(usize),
-    MissingField(usize),
+    InvalidChar { c: char, colon: bool, pos: usize },
+    OpenCurlyBrace { open_pos: usize },
+    CloseCurlyBrace { close_pos: usize },
+    MissingField { open_pos: usize, close_pos: usize },
 }
 
 impl Copy for FormatError { }
@@ -143,7 +143,7 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
                         self.fields.push(field);
                     }
                     else {
-                        return Err(FormatError::CloseCurlyBrace(new_pos));
+                        return Err(FormatError::CloseCurlyBrace { close_pos: new_pos });
                     }
                 },
                 Some((pos, c)) => {
@@ -174,9 +174,10 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
     // one that's the *first character* of the "{{" part. This means it can
     // still use slices.
 
-    fn parse_a_thing(&mut self, open_brace_position: usize) -> Result<Field<'a>, FormatError> {
+    fn parse_a_thing(&mut self, open_pos: usize) -> Result<Field<'a>, FormatError> {
         let mut args = Arguments::empty();
         let mut bit = None;
+        let mut close_pos;
         let mut first = true;
 
         loop {
@@ -189,15 +190,15 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
                         Some((_, 'M')) => Field::MonthName(true),
                         Some((_, 'D')) => Field::Day,
                         Some((_, 'E')) => Field::WeekdayName(true),
-                        Some((pos, c)) => return Err(FormatError::InvalidChar(c, true, pos)),
-                        None => return Err(FormatError::OpenCurlyBrace(open_brace_position)),
+                        Some((pos, c)) => return Err(FormatError::InvalidChar { c: c, colon: true, pos: pos }),
+                        None => return Err(FormatError::OpenCurlyBrace { open_pos: open_pos }),
                     };
 
                     bit = Some(bitlet);
                 },
-                Some((_, '}')) => break,
-                Some((pos, c)) => return Err(FormatError::InvalidChar(c, false, pos)),
-                None => return Err(FormatError::OpenCurlyBrace(open_brace_position)),
+                Some((pos, '}')) => { close_pos = pos; break; },
+                Some((pos, c)) => return Err(FormatError::InvalidChar { c: c, colon: false, pos: pos }),
+                None => return Err(FormatError::OpenCurlyBrace { open_pos: open_pos }),
             };
 
             first = false;
@@ -205,7 +206,7 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
 
         match bit {
             Some(b) => Ok(b),
-            None    => Err(FormatError::MissingField(open_brace_position)),
+            None    => Err(FormatError::MissingField { open_pos: open_pos, close_pos: close_pos }),
         }
     }
 }
@@ -297,32 +298,32 @@ mod test {
 
         #[test]
         fn missing_field() {
-            assert_eq!(DateFormat::parse("{}"), Err(FormatError::MissingField(0)))
+            assert_eq!(DateFormat::parse("{}"), Err(FormatError::MissingField { open_pos: 0, close_pos: 1 }))
         }
 
         #[test]
         fn invalid_char() {
-            assert_eq!(DateFormat::parse("{7}"), Err(FormatError::InvalidChar('7', false, 1)))
+            assert_eq!(DateFormat::parse("{7}"), Err(FormatError::InvalidChar { c: '7', colon: false, pos: 1 }))
         }
 
         #[test]
         fn invalid_char_after_colon() {
-            assert_eq!(DateFormat::parse("{:7}"), Err(FormatError::InvalidChar('7', true, 2)))
+            assert_eq!(DateFormat::parse("{:7}"), Err(FormatError::InvalidChar { c: '7', colon: true, pos: 2 }))
         }
 
         #[test]
         fn open_curly_brace() {
-            assert_eq!(DateFormat::parse("{"), Err(FormatError::OpenCurlyBrace(0)))
+            assert_eq!(DateFormat::parse("{"), Err(FormatError::OpenCurlyBrace { open_pos: 0 }))
         }
 
         #[test]
         fn mystery_close_brace() {
-            assert_eq!(DateFormat::parse("}"), Err(FormatError::CloseCurlyBrace(0)))
+            assert_eq!(DateFormat::parse("}"), Err(FormatError::CloseCurlyBrace { close_pos: 0 }))
         }
 
         #[test]
         fn another_mystery_close_brace() {
-            assert_eq!(DateFormat::parse("This is a test: }"), Err(FormatError::CloseCurlyBrace(16)))
+            assert_eq!(DateFormat::parse("This is a test: }"), Err(FormatError::CloseCurlyBrace { close_pos: 16 }))
         }
 
         #[test]
@@ -346,7 +347,5 @@ mod test {
             assert_eq!(DateFormat::parse("It's way better than }}.").unwrap(),
                 DateFormat { fields: vec![ Literal("It's way better than "), Literal("}"), Literal(".") ] })
         }
-
-
     }
 }
