@@ -39,7 +39,7 @@ pub struct DateFormat<'a> {
 
 #[derive(PartialEq, Eq, Clone, Show)]
 pub enum FormatError {
-    InvalidChar(char, usize),
+    InvalidChar(char, bool, usize),
     OpenCurlyBrace(usize),
     MissingField(usize),
 }
@@ -152,18 +152,24 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
         let mut bit = None;
 
         loop {
-            let bitlet = match self.next() {
-                Some((_, 'Y')) => Field::Year,
-                Some((_, 'y')) => Field::YearOfCentury,
-                Some((_, 'M')) => Field::MonthName(true),
-                Some((_, 'D')) => Field::Day,
-                Some((_, 'E')) => Field::WeekdayName(true),
+            match self.next() {
+                Some((pos, ':')) => {
+                    let bitlet = match self.next() {
+                        Some((_, 'Y')) => Field::Year,
+                        Some((_, 'y')) => Field::YearOfCentury,
+                        Some((_, 'M')) => Field::MonthName(true),
+                        Some((_, 'D')) => Field::Day,
+                        Some((_, 'E')) => Field::WeekdayName(true),
+                        Some((pos, c)) => return Err(FormatError::InvalidChar(c, true, pos)),
+                        None => return Err(FormatError::OpenCurlyBrace(open_brace_position)),
+                    };
+
+                    bit = Some(bitlet);
+                },
                 Some((_, '}')) => break,
-                Some((pos, c)) => return Err(FormatError::InvalidChar(c, pos)),
+                Some((pos, c)) => return Err(FormatError::InvalidChar(c, false, pos)),
                 None => return Err(FormatError::OpenCurlyBrace(open_brace_position)),
             };
-
-            bit = Some(bitlet);
         }
 
         match bit {
@@ -240,22 +246,22 @@ mod test {
 
         #[test]
         fn single_element() {
-            assert_eq!(DateFormat::parse("{Y}").unwrap(), DateFormat { fields: vec![ Year ] })
+            assert_eq!(DateFormat::parse("{:Y}").unwrap(), DateFormat { fields: vec![ Year ] })
         }
 
         #[test]
         fn two_long_years() {
-            assert_eq!(DateFormat::parse("{Y}{Y}").unwrap(), DateFormat { fields: vec![ Year, Year ] })
+            assert_eq!(DateFormat::parse("{:Y}{:Y}").unwrap(), DateFormat { fields: vec![ Year, Year ] })
         }
 
         #[test]
         fn surrounded() {
-            assert_eq!(DateFormat::parse("({D})").unwrap(), DateFormat { fields: vec![ Literal("("), Day, Literal(")") ] })
+            assert_eq!(DateFormat::parse("({:D})").unwrap(), DateFormat { fields: vec![ Literal("("), Day, Literal(")") ] })
         }
 
         #[test]
         fn a_bunch_of_elements() {
-            assert_eq!(DateFormat::parse("{Y}-{M}-{D}").unwrap(), DateFormat { fields: vec![ Year, Literal("-"), MonthName(true), Literal("-"), Day ] })
+            assert_eq!(DateFormat::parse("{:Y}-{:M}-{:D}").unwrap(), DateFormat { fields: vec![ Year, Literal("-"), MonthName(true), Literal("-"), Day ] })
         }
 
         #[test]
@@ -265,7 +271,12 @@ mod test {
 
         #[test]
         fn invalid_char() {
-            assert_eq!(DateFormat::parse("{7}"), Err(FormatError::InvalidChar('7', 1)))
+            assert_eq!(DateFormat::parse("{7}"), Err(FormatError::InvalidChar('7', false, 1)))
+        }
+
+        #[test]
+        fn invalid_char_after_colon() {
+            assert_eq!(DateFormat::parse("{:7}"), Err(FormatError::InvalidChar('7', true, 2)))
         }
 
         #[test]
