@@ -41,6 +41,7 @@ pub struct DateFormat<'a> {
 pub enum FormatError {
     InvalidChar(char, bool, usize),
     OpenCurlyBrace(usize),
+    CloseCurlyBrace(usize),
     MissingField(usize),
 }
 
@@ -130,6 +131,7 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
                     let field = try! { self.parse_a_thing(new_pos) };
                     self.fields.push(field);
                 },
+                Some((pos, '}')) => return Err(FormatError::CloseCurlyBrace(pos)),
                 Some((pos, c)) => {
                     if anchor.is_none() {
                         anchor = Some(pos);
@@ -283,5 +285,27 @@ mod test {
         fn open_curly_brace() {
             assert_eq!(DateFormat::parse("{"), Err(FormatError::OpenCurlyBrace(0)))
         }
+
+        #[test]
+        fn mystery_close_brace() {
+            assert_eq!(DateFormat::parse("}"), Err(FormatError::CloseCurlyBrace(0)))
+        }
+
+        #[test]
+        fn another_mystery_close_brace() {
+            assert_eq!(DateFormat::parse("This is a test: }"), Err(FormatError::CloseCurlyBrace(16)))
+        }
+
+
+
+//         #[test]
+//         fn escaping_open() {
+//             assert_eq!(DateFormat::parse("{{").unwrap(), DateFormat { fields: vec![ Literal("{") ] })
+//         }
+//
+//         #[test]
+//         fn escaping_close() {
+//             assert_eq!(DateFormat::parse("}}").unwrap(), DateFormat { fields: vec![ Literal("}") ] })
+//         }
     }
 }
