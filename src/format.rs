@@ -1,4 +1,6 @@
-use std::io;
+use std::io::IoResult;
+use std::str::CharIndices;
+
 use local;
 use local::{LocalDate, DatePiece};
 
@@ -18,7 +20,7 @@ pub enum Field<'a> {
 impl<'a> Copy for Field<'a> { }
 
 impl<'a> Field<'a> {
-    fn format(self, when: LocalDate, w: &mut io::MemWriter) -> io::IoResult<()> {
+    fn format(self, when: LocalDate, w: &mut Vec<u8>) -> IoResult<()> {
         match self {
             Field::Literal(s)           => write!(w, "{}", s),
             Field::Year                 => write!(w, "{}", when.year()),
@@ -76,68 +78,69 @@ impl Arguments {
 
 impl<'a> DateFormat<'a> {
     pub fn format(self, when: LocalDate) -> String {
-        let mut buf = io::MemWriter::new();
+        let mut buf = Vec::<u8>::new();
+
         for bit in self.fields.into_iter() {
-            bit.format(when, &mut buf);
+            // It's safe to just ignore the error when writing to an in-memory
+            // Vec<u8> buffer. If it fails then you have bigger problems
+            match bit.format(when, &mut buf) { _ => {} }
         }
-        String::from_utf8(buf.into_inner()).unwrap()
+
+        String::from_utf8(buf).unwrap()  // Assume UTF-8
     }
 
     pub fn parse(input: &'a str) -> Result<DateFormat<'a>, FormatError> {
-        let mut parser = FormatParser {
-            iter: input.char_indices(),
-            fields: Vec::new(),
-            input: input,
-        };
-
+        let mut parser = FormatParser::new(input);
         try! { parser.parse_format_string() };
 
         Ok(DateFormat { fields: parser.fields })
     }
 }
 
-struct FormatParser<'a, I> {
-    iter: I,
+struct FormatParser<'a> {
+    iter: CharIndices<'a>,
     fields: Vec<Field<'a>>,
     input: &'a str,
+    anchor: Option<usize>,
 }
 
-impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
+impl<'a> FormatParser<'a> {
+    fn new(input: &'a str) -> FormatParser<'a> {
+        FormatParser {
+            iter: input.char_indices(),
+            fields: Vec::new(),
+            input: input,
+            anchor: None,
+        }
+    }
+
     fn next(&mut self) -> Option<(usize, char)> {
         self.iter.next()
     }
 
-    fn get_input_slice(&self, from: usize, to: Option<usize>) -> Field {
-        let slice = match to {
-            None =>    self.input.slice_from(from),
-            Some(n) => self.input.slice(from, n),
-        };
-
-        Field::Literal(slice)
+    fn collect_up_to_anchor(&mut self, position: Option<usize>) {
+        if let Some(pos) = self.anchor {
+            self.anchor = None;
+            let text = match position {
+                Some(new_pos) => self.input.slice(pos, new_pos),
+                None          => self.input.slice_from(pos),
+            };
+            self.fields.push(Field::Literal(text));
+        }
     }
 
     fn parse_format_string(&mut self) -> Result<(), FormatError> {
-        let mut anchor = None;
-
         loop {
             match self.next() {
                 Some((new_pos, '{')) => {
-                    if let Some(pos) = anchor {
-                        anchor = None;
-                        let field = Field::Literal(self.input.slice(pos, new_pos));
-                        self.fields.push(field);
-                    }
+                    self.collect_up_to_anchor(Some(new_pos)	);
 
                     let field = try! { self.parse_a_thing(new_pos) };
                     self.fields.push(field);
                 },
                 Some((new_pos, '}')) => {
                     if let Some((_, '}')) = self.next() {
-                        if let Some(pos) = anchor {
-                            anchor = None;
-                            let field = Field::Literal(self.input.slice(pos, new_pos));
-                            self.fields.push(field);
-                        }
+                        self.collect_up_to_anchor(Some(new_pos));
 
                         let field = Field::Literal(self.input.slice(new_pos, new_pos + 1));
                         self.fields.push(field);
@@ -146,20 +149,18 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
                         return Err(FormatError::CloseCurlyBrace { close_pos: new_pos });
                     }
                 },
-                Some((pos, c)) => {
-                    if anchor.is_none() {
-                        anchor = Some(pos);
+                Some((pos, _)) => {
+                    if self.anchor.is_none() {
+                        self.anchor = Some(pos);
                     }
                 }
                 None => break,
             }
         }
 
-        if let Some(pos) = anchor {
-            let field = Field::Literal(self.input.slice_from(pos));
-            self.fields.push(field);
-        }
-
+        // Finally, collect any literal characters after the last date field
+        // that haven't been turned into a Literal field yet.
+        self.collect_up_to_anchor(None);
         Ok(())
     }
 
@@ -183,7 +184,7 @@ impl<'a, I: Iterator<Item=(usize, char)>> FormatParser<'a, I> {
         loop {
             match self.next() {
                 Some((pos, '{')) if first => return Ok(Field::Literal(self.input.slice(pos, pos + 1))),
-                Some((pos, ':')) => {
+                Some((_, ':')) => {
                     let bitlet = match self.next() {
                         Some((_, 'Y')) => Field::Year,
                         Some((_, 'y')) => Field::YearOfCentury,
