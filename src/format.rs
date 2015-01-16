@@ -266,86 +266,33 @@ mod test {
     mod parse {
         use super::*;
 
-        #[test]
-        fn empty_string() {
-            assert_eq!(DateFormat::parse("").unwrap(), DateFormat { fields: vec![] })
+        macro_rules! test {
+            ($name: ident: $input: expr => $result: expr) => {
+                #[test]
+                fn $name() {
+                    assert_eq!(DateFormat::parse($input), $result)
+                }
+            };
         }
 
-        #[test]
-        fn entirely_literal() {
-            assert_eq!(DateFormat::parse("Date!").unwrap(), DateFormat { fields: vec![ Literal("Date!") ] })
-        }
+        test!(empty_string: ""                      => Ok(DateFormat { fields: vec![] }));
+        test!(entirely_literal: "Date!"             => Ok(DateFormat { fields: vec![ Literal("Date!") ] }));
+        test!(single_element: "{:Y}"                => Ok(DateFormat { fields: vec![ Year ] }));
+        test!(two_long_years: "{:Y}{:Y}"            => Ok(DateFormat { fields: vec![ Year, Year ] }));
+        test!(surrounded: "({:D})"                  => Ok(DateFormat { fields: vec![ Literal("("), Day, Literal(")") ] }));
+        test!(a_bunch_of_elements: "{:Y}-{:M}-{:D}" => Ok(DateFormat { fields: vec![ Year, Literal("-"), MonthName(true), Literal("-"), Day ] }));
 
-        #[test]
-        fn single_element() {
-            assert_eq!(DateFormat::parse("{:Y}").unwrap(), DateFormat { fields: vec![ Year ] })
-        }
+        test!(missing_field: "{}"                              => Err(FormatError::MissingField { open_pos: 0, close_pos: 1 }));
+        test!(invalid_char: "{7}"                              => Err(FormatError::InvalidChar { c: '7', colon: false, pos: 1 }));
+        test!(invalid_char_after_colon: "{:7}"                 => Err(FormatError::InvalidChar { c: '7', colon: true, pos: 2 }));
+        test!(open_curly_brace: "{"                            => Err(FormatError::OpenCurlyBrace { open_pos: 0 }));
+        test!(mystery_close_brace: "}"                         => Err(FormatError::CloseCurlyBrace { close_pos: 0 }));
+        test!(another_mystery_close_brace: "This is a test: }" => Err(FormatError::CloseCurlyBrace { close_pos: 16 }));
 
-        #[test]
-        fn two_long_years() {
-            assert_eq!(DateFormat::parse("{:Y}{:Y}").unwrap(), DateFormat { fields: vec![ Year, Year ] })
-        }
+        test!(escaping_open: "{{"  => Ok(DateFormat { fields: vec![ Literal("{") ] }));
+        test!(escaping_close: "}}" => Ok(DateFormat { fields: vec![ Literal("}") ] }));
 
-        #[test]
-        fn surrounded() {
-            assert_eq!(DateFormat::parse("({:D})").unwrap(), DateFormat { fields: vec![ Literal("("), Day, Literal(")") ] })
-        }
-
-        #[test]
-        fn a_bunch_of_elements() {
-            assert_eq!(DateFormat::parse("{:Y}-{:M}-{:D}").unwrap(), DateFormat { fields: vec![ Year, Literal("-"), MonthName(true), Literal("-"), Day ] })
-        }
-
-        #[test]
-        fn missing_field() {
-            assert_eq!(DateFormat::parse("{}"), Err(FormatError::MissingField { open_pos: 0, close_pos: 1 }))
-        }
-
-        #[test]
-        fn invalid_char() {
-            assert_eq!(DateFormat::parse("{7}"), Err(FormatError::InvalidChar { c: '7', colon: false, pos: 1 }))
-        }
-
-        #[test]
-        fn invalid_char_after_colon() {
-            assert_eq!(DateFormat::parse("{:7}"), Err(FormatError::InvalidChar { c: '7', colon: true, pos: 2 }))
-        }
-
-        #[test]
-        fn open_curly_brace() {
-            assert_eq!(DateFormat::parse("{"), Err(FormatError::OpenCurlyBrace { open_pos: 0 }))
-        }
-
-        #[test]
-        fn mystery_close_brace() {
-            assert_eq!(DateFormat::parse("}"), Err(FormatError::CloseCurlyBrace { close_pos: 0 }))
-        }
-
-        #[test]
-        fn another_mystery_close_brace() {
-            assert_eq!(DateFormat::parse("This is a test: }"), Err(FormatError::CloseCurlyBrace { close_pos: 16 }))
-        }
-
-        #[test]
-        fn escaping_open() {
-            assert_eq!(DateFormat::parse("{{").unwrap(), DateFormat { fields: vec![ Literal("{") ] })
-        }
-
-        #[test]
-        fn escaping_close() {
-            assert_eq!(DateFormat::parse("}}").unwrap(), DateFormat { fields: vec![ Literal("}") ] })
-        }
-
-        #[test]
-        fn escaping_middle() {
-            assert_eq!(DateFormat::parse("The character {{ is my favourite!").unwrap(),
-                DateFormat { fields: vec![ Literal("The character "), Literal("{"), Literal(" is my favourite!") ] })
-        }
-
-        #[test]
-        fn escaping_middle_2() {
-            assert_eq!(DateFormat::parse("It's way better than }}.").unwrap(),
-                DateFormat { fields: vec![ Literal("It's way better than "), Literal("}"), Literal(".") ] })
-        }
+        test!(escaping_middle: "The character {{ is my favourite!" => Ok(DateFormat { fields: vec![ Literal("The character "), Literal("{"), Literal(" is my favourite!") ] }));
+        test!(escaping_middle_2: "It's way better than }}."        => Ok(DateFormat { fields: vec![ Literal("It's way better than "), Literal("}"), Literal(".") ] }));
     }
 }
