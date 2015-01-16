@@ -20,39 +20,39 @@ pub struct Instant {
 impl Copy for Instant { }
 
 impl Instant {
-	/// Creates a new Instant set to the number of seconds since the Unix
-	/// epoch, and zero milliseconds.
-	pub fn at(seconds: i64) -> Instant {
-		Instant::at_ms(seconds, 0)
-	}
+    /// Creates a new Instant set to the number of seconds since the Unix
+    /// epoch, and zero milliseconds.
+    pub fn at(seconds: i64) -> Instant {
+        Instant::at_ms(seconds, 0)
+    }
 
-	/// Creates a new Instant set to the number of seconds since the
-	/// Unix epoch, along with the number of milliseconds so far this
-	/// second.
-	pub fn at_ms(seconds: i64, milliseconds: i16) -> Instant {
-		Instant { seconds: seconds, milliseconds: milliseconds }
-	}
+    /// Creates a new Instant set to the number of seconds since the
+    /// Unix epoch, along with the number of milliseconds so far this
+    /// second.
+    pub fn at_ms(seconds: i64, milliseconds: i16) -> Instant {
+        Instant { seconds: seconds, milliseconds: milliseconds }
+    }
 
     /// Creates a new Instant set to the computer's current time.
-	pub fn now() -> Instant {
+    pub fn now() -> Instant {
         let (s, ms) = unsafe { now::now() };
         Instant { seconds: s, milliseconds: ms }
-	}
+    }
 
-	/// Creates a new Instant set to the Unix epoch.
-	pub fn at_epoch() -> Instant {
-		Instant::at(0)
-	}
+    /// Creates a new Instant set to the Unix epoch.
+    pub fn at_epoch() -> Instant {
+        Instant::at(0)
+    }
 
     /// Returns the number of seconds at this instant
-	pub fn seconds(&self) -> i64 {
-	    self.seconds
-	}
+    pub fn seconds(&self) -> i64 {
+        self.seconds
+    }
 
     /// Returns the number of milliseconds at this instant
-	pub fn milliseconds(&self) -> i16 {
-	    self.milliseconds
-	}
+    pub fn milliseconds(&self) -> i16 {
+        self.milliseconds
+    }
 }
 
 impl fmt::Show for Instant {
@@ -62,8 +62,8 @@ impl fmt::Show for Instant {
 }
 
 impl Add<Duration> for Instant {
-	type Output = Instant;
-	
+    type Output = Instant;
+
     fn add(self, duration: Duration) -> Instant {
         let (seconds, milliseconds) = duration.lengths();
         Instant {
@@ -74,8 +74,8 @@ impl Add<Duration> for Instant {
 }
 
 impl Sub<Duration> for Instant {
-	type Output = Instant;
-	
+    type Output = Instant;
+
     fn sub(self, duration: Duration) -> Instant {
         let (seconds, milliseconds) = duration.lengths();
         Instant {
@@ -87,43 +87,43 @@ impl Sub<Duration> for Instant {
 
 #[cfg(test)]
 mod test {
-	pub use super::Instant;
+    pub use super::Instant;
 
-	#[test]
-	fn seconds() {
-		assert_eq!(Instant::at(3), Instant::at_ms(3, 0))
-	}
+    #[test]
+    fn seconds() {
+        assert_eq!(Instant::at(3), Instant::at_ms(3, 0))
+    }
 
-	#[test]
-	fn milliseconds() {
-	    assert_eq!(Instant::at_ms(3, 333).milliseconds(), 333)
-	}
+    #[test]
+    fn milliseconds() {
+        assert_eq!(Instant::at_ms(3, 333).milliseconds(), 333)
+    }
 
     #[test]
     fn epoch() {
         assert_eq!(Instant::at_epoch().seconds(), 0)
     }
 
-	#[test]
-	fn sanity() {
-	    // Test that the system call has worked at all.
-	    // If this fails then you have gone back in time, or something?
-	    assert!(Instant::now().seconds() != 0)
-	}
+    #[test]
+    fn sanity() {
+        // Test that the system call has worked at all.
+        // If this fails then you have gone back in time, or something?
+        assert!(Instant::now().seconds() != 0)
+    }
 
-	mod duration_arithmetic {
-	    use super::*;
+    mod duration_arithmetic {
+        use super::*;
         use duration::Duration;
 
-	    #[test]
-	    fn addition() {
-	        assert_eq!(Instant::at(10), Instant::at(3) + Duration::of(7))
-	    }
+        #[test]
+        fn addition() {
+            assert_eq!(Instant::at(10), Instant::at(3) + Duration::of(7))
+        }
 
         #[test]
         fn subtraction() {
             assert_eq!(Instant::at(20), Instant::at(50) - Duration::of(30))
         }
 
-	}
+    }
 }

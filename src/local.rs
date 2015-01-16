@@ -620,15 +620,15 @@ impl PartialEq for LocalDate {
 }
 
 impl Add<Duration> for LocalDateTime {
-	type Output = LocalDateTime;
-	
+    type Output = LocalDateTime;
+
     fn add(self, duration: Duration) -> LocalDateTime {
         LocalDateTime::from_instant(self.to_instant() + duration)
     }
 }
 
 impl Sub<Duration> for LocalDateTime {
-	type Output = LocalDateTime;
+    type Output = LocalDateTime;
 
     fn sub(self, duration: Duration) -> LocalDateTime {
         LocalDateTime::from_instant(self.to_instant() - duration)

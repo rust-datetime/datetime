@@ -30,7 +30,7 @@ mod test {
 }
 
 // 2014-12-25
-// Combined date and time in UTC:	2014-12-25T02:56:40+00:00, 2014-12-25T02:56:40Z
-// Week:	2014-W52
-// Date with week number:	2014-W52-4
-// Ordinal date:	2014-359
+// Combined date and time in UTC:   2014-12-25T02:56:40+00:00, 2014-12-25T02:56:40Z
+// Week:    2014-W52
+// Date with week number:   2014-W52-4
+// Ordinal date:    2014-359

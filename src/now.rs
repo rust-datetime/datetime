@@ -6,7 +6,7 @@ use std::ptr::null_mut;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 extern {
-	fn gettimeofday(tp: *mut timeval, tzp: *mut timezone) -> c_int;
+    fn gettimeofday(tp: *mut timeval, tzp: *mut timezone) -> c_int;
 }
 
 /// Return the current time, as a number of seconds and milliseconds.
