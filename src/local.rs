@@ -26,8 +26,7 @@ const DAYS_IN_400Y: i64 = 365 * 400 + 97;
 /// are simply ignored.
 const SECONDS_IN_DAY: i64 = 86400;
 
-/// Number of seconds between **midnight, 1st March, 2000**, and
-/// **midnight, 1st January, 1970**.
+/// Number of days between **1st March, 2000**, and **1st January, 1970**.
 ///
 /// This might seem like an odd number to calculate, instead of using the
 /// 1st of January as a reference point, but it turs out that by having the
@@ -52,9 +51,9 @@ const SECONDS_IN_DAY: i64 = 86400;
 ///
 /// [^win32]: http://blogs.msdn.com/b/oldnewthing/archive/2009/03/06/9461176.aspx
 ///
-const EPOCH: i64 = SECONDS_IN_DAY * (30 * 365      // 30 years between 2000 and 1970...
-                                     + 7           // plus seven days for leap years...
-                                     + 31 + 29);   // plus all the days in January and February in 2000.
+const EPOCH_DIFFERENCE: i64 = (30 * 365      // 30 years between 2000 and 1970...
+                               + 7           // plus seven days for leap years...
+                               + 31 + 29);   // plus all the days in January and February in 2000.
 
 /// This rather strange triangle is an array of the number of days elapsed
 /// at the end of each month, starting at the beginning of March (the first
@@ -359,7 +358,7 @@ impl LocalDate {
     pub fn ymd(year: i64, month: Month, day: i8) -> Option<LocalDate> {
         YMD { year: year, month: month, day: day }
             .to_days_since_epoch()
-            .map(|days| LocalDate::from_days_since_epoch(days))
+            .map(|days| LocalDate::from_days_since_epoch(days - EPOCH_DIFFERENCE))
     }
 
     /// Parse an input string matching the ISO-8601 format, returning
@@ -458,7 +457,7 @@ impl LocalDateTime {
     /// Computes a complete date-time based on the number of seconds that
     /// have elapsed since **midnight, 1st January, 1970**,
     pub fn at_ms(seconds_since_1970_epoch: i64, millisecond_of_second: i16) -> LocalDateTime {
-        let seconds = seconds_since_1970_epoch - EPOCH;
+        let seconds = seconds_since_1970_epoch - EPOCH_DIFFERENCE * SECONDS_IN_DAY;
 
         // Just split the input value into days and seconds, and let
         // LocalDate and LocalTime do all the hard work.
@@ -640,7 +639,7 @@ impl Sub<Duration> for LocalDateTime {
 
 #[cfg(test)]
 mod test {
-    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, YMD};
+    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, YMD, DatePiece};
 
     mod seconds_to_datetimes {
         pub use super::*;
@@ -752,6 +751,35 @@ mod test {
 
             assert_eq!(date, res)
         }
+    }
+
+    mod ymd_to_datetimes {
+        use super::*;
+
+        #[test]
+        fn the_distant_past() {
+            let date = LocalDate::ymd(7, Month::April, 1).unwrap();
+            assert_eq!(7, date.year());
+            assert_eq!(Month::April, date.month());
+            assert_eq!(1, date.day());
+        }
+
+        #[test]
+        fn the_distant_present() {
+            let date = LocalDate::ymd(2015, Month::January, 16).unwrap();
+            assert_eq!(2015, date.year());
+            assert_eq!(Month::January, date.month());
+            assert_eq!(16, date.day());
+        }
+
+        #[test]
+        fn the_distant_future() {
+            let date = LocalDate::ymd(1048576, Month::October, 13).unwrap();
+            assert_eq!(1048576, date.year());
+            assert_eq!(Month::October, date.month());
+            assert_eq!(13, date.day());
+        }
+
     }
 
     #[test]
