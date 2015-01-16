@@ -369,6 +369,28 @@ impl LocalDate {
             LocalDate::ymd(y, month, d)
         }).unwrap()
     }
+
+    /// Creates a new datestamp instance with the given year, month, day,
+    /// weekday, and yearday fields.
+    ///
+    /// This function is unsafe because **the values are not checked for
+    /// validity!** It's possible to pass the wrong values in, such as having
+    /// a wrong day value for a month, or having the yearday value out of
+    /// step. Before using it, check that the values are all correct - or just
+    /// use the `date!()` macro, which does this for you at compile-time.
+    ///
+    /// For this reason, the function is marked as `unsafe`, even though it
+    /// (technically) uses unsafe components.
+    pub unsafe fn _new_with_prefilled_values(year: i64, month: Month, day: i8, weekday: Weekday, yearday: i16) -> LocalDate {
+        LocalDate {
+            ymd: YMD { year: year, month: month, day: day },
+            weekday: weekday,
+            yearday: yearday,
+        }
+    }
+
+    // I'm not 100% convinced on using `unsafe` for something that doesn't
+    // technically *need* to be unsafe, but I'll stick with it for now.
 }
 
 impl LocalTime {
