@@ -55,7 +55,7 @@ impl Instant {
     }
 }
 
-impl fmt::Show for Instant {
+impl fmt::Debug for Instant {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Instant({}s/{}ms)", self.seconds, self.milliseconds)
     }

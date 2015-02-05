@@ -1,7 +1,6 @@
 #![crate_name = "datetime"]
 #![crate_type = "dylib"]
-#![feature(plugin)]
-#![allow(unstable)]
+#![feature(collections, core, io, libc, plugin)]
 
 extern crate regex;
 

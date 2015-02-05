@@ -1,10 +1,10 @@
-use std::io::IoResult;
+use std::old_io::IoResult;
 use std::str::CharIndices;
 
 use local;
 use local::{LocalDate, DatePiece};
 
-#[derive(PartialEq, Eq, Clone, Show)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Field<'a> {
     Literal(&'a str),
 
@@ -34,12 +34,12 @@ impl<'a> Field<'a> {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Show)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct DateFormat<'a> {
     pub fields: Vec<Field<'a>>,
 }
 
-#[derive(PartialEq, Eq, Clone, Show)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum FormatError {
     InvalidChar { c: char, colon: bool, pos: usize },
     OpenCurlyBrace { open_pos: usize },
@@ -49,7 +49,7 @@ pub enum FormatError {
 
 impl Copy for FormatError { }
 
-#[derive(PartialEq, Eq, Clone, Show)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 enum Alignment {
     Left,
     Centre,
