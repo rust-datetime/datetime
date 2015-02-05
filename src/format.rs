@@ -122,8 +122,8 @@ impl<'a> FormatParser<'a> {
         if let Some(pos) = self.anchor {
             self.anchor = None;
             let text = match position {
-                Some(new_pos) => self.input.slice(pos, new_pos),
-                None          => self.input.slice_from(pos),
+                Some(new_pos) => &self.input[pos..new_pos],
+                None          => &self.input[pos..],
             };
             self.fields.push(Field::Literal(text));
         }
@@ -183,7 +183,7 @@ impl<'a> FormatParser<'a> {
 
         loop {
             match self.next() {
-                Some((pos, '{')) if first => return Ok(Field::Literal(self.input.slice(pos, pos + 1))),
+                Some((pos, '{')) if first => return Ok(Field::Literal(&self.input[pos .. pos + 1])),
                 Some((_, ':')) => {
                     let bitlet = match self.next() {
                         Some((_, 'Y')) => Field::Year,
