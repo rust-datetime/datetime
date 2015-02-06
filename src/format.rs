@@ -53,9 +53,9 @@ impl Copy for FormatError { }
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct Arguments {
-    alignment: Option<Alignment>,
-    width:     Option<usize>,
-    pad_char:  Option<char>,
+    pub alignment: Option<Alignment>,
+    pub width:     Option<usize>,
+    pub pad_char:  Option<char>,
 }
 
 impl Arguments {
@@ -82,7 +82,7 @@ impl Arguments {
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub struct TextArguments { args: Arguments }
+pub struct TextArguments { pub args: Arguments }
 
 impl TextArguments {
     fn format(self, w: &mut Vec<u8>, string: &str) -> IoResult<()> {
@@ -91,7 +91,7 @@ impl TextArguments {
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub struct NumArguments { args: Arguments }
+pub struct NumArguments { pub args: Arguments }
 
 impl NumArguments {
     fn format<N: Int + Display>(self, w: &mut Vec<u8>, number: N) -> IoResult<()> {

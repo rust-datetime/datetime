@@ -1,0 +1,12 @@
+[package]
+name = "datetime_macros"
+version = "0.1.0"
+authors = ["Ben S <ogham@bsago.me>"]
+
+[lib]
+name = "datetime_macros"
+crate_type = [ "dylib" ]
+
+[dependencies.datetime]
+path = ".."
+version = "0.1.0"
