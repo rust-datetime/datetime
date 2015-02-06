@@ -1,7 +1,8 @@
 #![crate_name = "datetime"]
 #![crate_type = "dylib"]
-#![feature(collections, core, io, libc, plugin)]
+#![feature(core, io, libc, plugin)]
 
+extern crate pad;
 extern crate regex;
 
 mod now;

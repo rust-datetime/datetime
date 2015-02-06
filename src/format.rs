@@ -1,35 +1,37 @@
+use std::fmt::Display;
+use std::num::Int;
 use std::old_io::IoResult;
 use std::str::CharIndices;
 
 use local;
 use local::{LocalDate, DatePiece};
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+use pad::{PadStr, Alignment};
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Field<'a> {
     Literal(&'a str),
 
-    Year,
-    YearOfCentury,
+    Year(NumArguments),
+    YearOfCentury(NumArguments),
 
-    MonthName(bool),
+    MonthName(bool, TextArguments),
 
-    Day,
-    WeekdayName(bool),
+    Day(NumArguments),
+    WeekdayName(bool, TextArguments),
 }
-
-impl<'a> Copy for Field<'a> { }
 
 impl<'a> Field<'a> {
     fn format(self, when: LocalDate, w: &mut Vec<u8>) -> IoResult<()> {
         match self {
-            Field::Literal(s)           => write!(w, "{}", s),
-            Field::Year                 => write!(w, "{}", when.year()),
-            Field::YearOfCentury        => write!(w, "{}", when.year_of_century()),
-            Field::MonthName(true)      => write!(w, "{}", long_month_name(when.month())),
-            Field::MonthName(false)     => write!(w, "{}", short_month_name(when.month())),
-            Field::Day                  => write!(w, "{}", when.day()),
-            Field::WeekdayName(true)    => write!(w, "{}", long_day_name(when.weekday())),
-            Field::WeekdayName(false)   => write!(w, "{}", short_day_name(when.weekday())),
+            Field::Literal(s)             => w.write_str(s),
+            Field::Year(a)                => a.format(w, when.year()),
+            Field::YearOfCentury(a)       => a.format(w, when.year_of_century()),
+            Field::MonthName(true, a)     => a.format(w, long_month_name(when.month())),
+            Field::MonthName(false, a)    => a.format(w, short_month_name(when.month())),
+            Field::Day(a)                 => a.format(w, when.day()),
+            Field::WeekdayName(true, a)   => a.format(w, long_day_name(when.weekday())),
+            Field::WeekdayName(false, a)  => a.format(w, short_day_name(when.weekday())),
         }
     }
 }
@@ -49,14 +51,8 @@ pub enum FormatError {
 
 impl Copy for FormatError { }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
-enum Alignment {
-    Left,
-    Centre,
-    Right,
-}
-
-struct Arguments {
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub struct Arguments {
     alignment: Option<Alignment>,
     width:     Option<usize>,
     pad_char:  Option<char>,
@@ -71,8 +67,35 @@ impl Arguments {
         }
     }
 
+    fn format(self, w: &mut Vec<u8>, string: &str) -> IoResult<()> {
+        let width     = self.width.unwrap_or(0);
+        let pad_char  = self.pad_char.unwrap_or(' ');
+        let alignment = self.alignment.unwrap_or(Alignment::Left);
+        let s         = string.pad(width, pad_char, alignment, false);
+
+        w.write_str(&s)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.alignment.is_none() && self.width.is_none() && self.pad_char.is_none()
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub struct TextArguments { args: Arguments }
+
+impl TextArguments {
+    fn format(self, w: &mut Vec<u8>, string: &str) -> IoResult<()> {
+        self.args.format(w, string)
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub struct NumArguments { args: Arguments }
+
+impl NumArguments {
+    fn format<N: Int + Display>(self, w: &mut Vec<u8>, number: N) -> IoResult<()> {
+        self.args.format(w, &number.to_string())
     }
 }
 
@@ -98,18 +121,18 @@ impl<'a> DateFormat<'a> {
 }
 
 struct FormatParser<'a> {
-    iter: CharIndices<'a>,
+    iter:   CharIndices<'a>,
     fields: Vec<Field<'a>>,
-    input: &'a str,
+    input:  &'a str,
     anchor: Option<usize>,
 }
 
 impl<'a> FormatParser<'a> {
     fn new(input: &'a str) -> FormatParser<'a> {
         FormatParser {
-            iter: input.char_indices(),
+            iter:   input.char_indices(),
             fields: Vec::new(),
-            input: input,
+            input:  input,
             anchor: None,
         }
     }
@@ -142,7 +165,7 @@ impl<'a> FormatParser<'a> {
                     if let Some((_, '}')) = self.next() {
                         self.collect_up_to_anchor(Some(new_pos));
 
-                        let field = Field::Literal(self.input.slice(new_pos, new_pos + 1));
+                        let field = Field::Literal(&self.input[new_pos .. new_pos + 1]);
                         self.fields.push(field);
                     }
                     else {
@@ -176,7 +199,7 @@ impl<'a> FormatParser<'a> {
     // still use slices.
 
     fn parse_a_thing(&mut self, open_pos: usize) -> Result<Field<'a>, FormatError> {
-        let mut args = Arguments::empty();
+        let args = Arguments::empty();
         let mut bit = None;
         let mut close_pos;
         let mut first = true;
@@ -186,11 +209,11 @@ impl<'a> FormatParser<'a> {
                 Some((pos, '{')) if first => return Ok(Field::Literal(&self.input[pos .. pos + 1])),
                 Some((_, ':')) => {
                     let bitlet = match self.next() {
-                        Some((_, 'Y')) => Field::Year,
-                        Some((_, 'y')) => Field::YearOfCentury,
-                        Some((_, 'M')) => Field::MonthName(true),
-                        Some((_, 'D')) => Field::Day,
-                        Some((_, 'E')) => Field::WeekdayName(true),
+                        Some((_, 'Y')) => Field::Year(NumArguments { args: args }),
+                        Some((_, 'y')) => Field::YearOfCentury(NumArguments { args: args }),
+                        Some((_, 'M')) => Field::MonthName(true, TextArguments { args: args }),
+                        Some((_, 'D')) => Field::Day(NumArguments { args: args }),
+                        Some((_, 'E')) => Field::WeekdayName(true, TextArguments { args: args }),
                         Some((pos, c)) => return Err(FormatError::InvalidChar { c: c, colon: true, pos: pos }),
                         None => return Err(FormatError::OpenCurlyBrace { open_pos: open_pos }),
                     };

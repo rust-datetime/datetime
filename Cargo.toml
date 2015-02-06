@@ -13,5 +13,6 @@ version = "0.1.0"
 name = "datetime"
 
 [dependencies]
+pad = "0.1.1"
 regex = "0.1.8"
 regex_macros = "0.1.2"
