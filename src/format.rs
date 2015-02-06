@@ -283,9 +283,8 @@ fn short_day_name(day: local::Weekday) -> &'static str {
 
 #[cfg(test)]
 mod test {
-    pub use super::DateFormat;
+    pub use super::{DateFormat, FormatError, Field, Arguments, NumArguments, TextArguments};
     pub use super::Field::*;
-    pub use super::FormatError;
 
     mod parse {
         use super::*;
@@ -299,12 +298,24 @@ mod test {
             };
         }
 
+        fn year<'a>() -> Field<'a> {
+            Year(NumArguments { args: Arguments::empty() })
+        }
+
+        fn day<'a>() -> Field<'a> {
+            Day(NumArguments { args: Arguments::empty() })
+        }
+
+        fn month<'a>(thing: bool) -> Field<'a> {
+            MonthName(thing, TextArguments { args: Arguments::empty() })
+        }
+
         test!(empty_string: ""                      => Ok(DateFormat { fields: vec![] }));
         test!(entirely_literal: "Date!"             => Ok(DateFormat { fields: vec![ Literal("Date!") ] }));
-        test!(single_element: "{:Y}"                => Ok(DateFormat { fields: vec![ Year ] }));
-        test!(two_long_years: "{:Y}{:Y}"            => Ok(DateFormat { fields: vec![ Year, Year ] }));
-        test!(surrounded: "({:D})"                  => Ok(DateFormat { fields: vec![ Literal("("), Day, Literal(")") ] }));
-        test!(a_bunch_of_elements: "{:Y}-{:M}-{:D}" => Ok(DateFormat { fields: vec![ Year, Literal("-"), MonthName(true), Literal("-"), Day ] }));
+        test!(single_element: "{:Y}"                => Ok(DateFormat { fields: vec![ year() ] }));
+        test!(two_long_years: "{:Y}{:Y}"            => Ok(DateFormat { fields: vec![ year(), year() ] }));
+        test!(surrounded: "({:D})"                  => Ok(DateFormat { fields: vec![ Literal("("), day(), Literal(")") ] }));
+        test!(a_bunch_of_elements: "{:Y}-{:M}-{:D}" => Ok(DateFormat { fields: vec![ year(), Literal("-"), month(true), Literal("-"), day() ] }));
 
         test!(missing_field: "{}"                              => Err(FormatError::MissingField { open_pos: 0, close_pos: 1 }));
         test!(invalid_char: "{7}"                              => Err(FormatError::InvalidChar { c: '7', colon: false, pos: 1 }));
