@@ -401,7 +401,7 @@ mod test {
         test!(single_element: "{:Y}"                => Ok(DateFormat { fields: vec![ year() ] }));
         test!(two_long_years: "{:Y}{:Y}"            => Ok(DateFormat { fields: vec![ year(), year() ] }));
         test!(surrounded: "({:D})"                  => Ok(DateFormat { fields: vec![ Literal("("), day(), Literal(")") ] }));
-        test!(a_bunch_of_elements: "{:Y}-{:M}-{:D}" => Ok(DateFormat { fields: vec![ year(), Literal("-"), month(true), Literal("-"), day() ] }));
+        test!(a_bunch_of_elements: "{:Y}-{:M}-{:D}" => Ok(DateFormat { fields: vec![ year(), Literal("-"), month(false), Literal("-"), day() ] }));
 
         test!(missing_field: "{}"                              => Err(FormatError::MissingField { open_pos: 0, close_pos: 1 }));
         test!(invalid_char: "{a}"                              => Err(FormatError::InvalidChar { c: 'a', colon: false, pos: 1 }));
@@ -440,7 +440,6 @@ mod test {
             test!(width_3: "{>3:D}"                 => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(3).set_alignment(Alignment::Right) }) ] }));
             test!(width_10: "{>10:D}"               => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(10).set_alignment(Alignment::Right) }) ] }));
             test!(width_10_other: "{10>:D}"         => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(10).set_alignment(Alignment::Right) }) ] }));
-            test!(width_0: "{>0:D}"                 => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(0).set_alignment(Alignment::Right) }) ] }));
             test!(width_123456789: "{>123456789:D}" => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(123456789).set_alignment(Alignment::Right) }) ] }));
         }
     }
