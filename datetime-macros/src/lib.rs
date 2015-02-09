@@ -154,10 +154,11 @@ fn date_to_code(cx: &mut ExtCtxt, date: LocalDate) -> Box<MacResult + 'static> {
 
 fn numargs_to_code(cx: &mut ExtCtxt, args: NumArguments) -> P<ast::Expr> {
     let w = args.args.width;
-    quote_expr!(cx, datetime::format::NumArguments { args: datetime::format::Arguments { width: $w } })
+    println!("{:?}", w);
+    quote_expr!(cx, datetime::format::NumArguments { args: datetime::format::Arguments { width: None, alignment: None, pad_char: None, } })
 }
 
 fn textargs_to_code(cx: &mut ExtCtxt, args: TextArguments) -> P<ast::Expr> {
     let w = args.args.width;
-    quote_expr!(cx, datetime::format::TextArguments { args: datetime::format::Arguments { width: $w } })
+    quote_expr!(cx, datetime::format::TextArguments { args: datetime::format::Arguments { width: None, alignment: None, pad_char: None, } })
 }
