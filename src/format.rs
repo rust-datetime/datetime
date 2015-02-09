@@ -41,13 +41,16 @@ pub struct DateFormat<'a> {
     pub fields: Vec<Field<'a>>,
 }
 
+// todo: make Width its own type
+
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum FormatError {
     InvalidChar { c: char, colon: bool, pos: usize },
     OpenCurlyBrace { open_pos: usize },
     CloseCurlyBrace { close_pos: usize },
     MissingField { open_pos: usize, close_pos: usize },
-    DoubleAlignment { open_pos: usize, current_alignment: Alignment }
+    DoubleAlignment { open_pos: usize, current_alignment: Alignment },
+    DoubleWidth { open_pos: usize, current_width: usize },
 }
 
 impl Copy for FormatError { }
@@ -68,9 +71,21 @@ impl Arguments {
         }
     }
 
+    pub fn set_width(&mut self, width: usize) -> Arguments {
+        self.width = Some(width);
+        *self
+    }
+
     pub fn set_alignment(&mut self, alignment: Alignment) -> Arguments {
         self.alignment = Some(alignment);
         *self
+    }
+
+    pub fn update_width(&mut self, width: usize, open_pos: usize) -> Result<(), FormatError> {
+        match self.width {
+            None => Ok({ self.width = Some(width); }),
+            Some(existing) => Err(FormatError::DoubleWidth { open_pos: open_pos, current_width: existing }),
+        }
     }
 
     pub fn update_alignment(&mut self, alignment: Alignment, open_pos: usize) -> Result<(), FormatError> {
@@ -138,6 +153,7 @@ struct FormatParser<'a> {
     fields: Vec<Field<'a>>,
     input:  &'a str,
     anchor: Option<usize>,
+    peekee: Option<Option<(usize, char)>>,
 }
 
 impl<'a> FormatParser<'a> {
@@ -147,11 +163,28 @@ impl<'a> FormatParser<'a> {
             fields: Vec::new(),
             input:  input,
             anchor: None,
+            peekee: None,
         }
     }
 
     fn next(&mut self) -> Option<(usize, char)> {
-        self.iter.next()
+        match self.peekee {
+            Some(p) => {
+                self.peekee = None;
+                p
+            },
+            None => { self.iter.next() },
+        }
+    }
+    
+    fn peek(&mut self) -> Option<(usize, char)> {
+        match self.peekee {
+            Some(thing) => thing,
+            None => {
+                self.peekee = Some(self.iter.next());
+                self.peek()
+            }
+        }
     }
 
     fn collect_up_to_anchor(&mut self, position: Option<usize>) {
@@ -211,6 +244,27 @@ impl<'a> FormatParser<'a> {
     // one that's the *first character* of the "{{" part. This means it can
     // still use slices.
 
+    fn parse_number(&mut self, just_parsed_character: char) -> usize {
+        let mut buf = just_parsed_character.to_string();
+
+        loop {
+            if let Some((_, n)) = self.peek() {
+                if n.is_digit(10) {
+                    buf.push(n);
+                    self.next();  // ignore result - it's going to be the same!
+                }
+                else {
+                    break;
+                }
+            }
+            else {
+                break;
+            }
+        }
+
+        buf.parse().unwrap()
+    }
+
     fn parse_a_thing(&mut self, open_pos: usize) -> Result<Field<'a>, FormatError> {
         let mut args = Arguments::empty();
         let mut bit = None;
@@ -223,6 +277,7 @@ impl<'a> FormatParser<'a> {
                 Some((_, '<')) => { try! { args.update_alignment(Alignment::Left, open_pos) }; continue },
                 Some((_, '^')) => { try! { args.update_alignment(Alignment::Middle, open_pos) }; continue },
                 Some((_, '>')) => { try! { args.update_alignment(Alignment::Right, open_pos) }; continue },
+                Some((_, n)) if n.is_digit(10) => { try! { args.update_width(self.parse_number(n), open_pos) }; continue },
                 Some((_, ':')) => {
                     let bitlet = match self.next() {
                         Some((_, 'Y')) => Field::Year(NumArguments { args: args }),
@@ -305,7 +360,7 @@ mod test {
     pub use pad::Alignment;
 
     mod parse {
-        use super::*;
+        pub use super::*;
 
         macro_rules! test {
             ($name: ident: $input: expr => $result: expr) => {
@@ -316,15 +371,15 @@ mod test {
             };
         }
 
-        fn year<'a>() -> Field<'a> {
+        pub fn year<'a>() -> Field<'a> {
             Year(NumArguments { args: Arguments::empty() })
         }
 
-        fn day<'a>() -> Field<'a> {
+        pub fn day<'a>() -> Field<'a> {
             Day(NumArguments { args: Arguments::empty() })
         }
 
-        fn month<'a>(thing: bool) -> Field<'a> {
+        pub fn month<'a>(thing: bool) -> Field<'a> {
             MonthName(thing, TextArguments { args: Arguments::empty() })
         }
 
@@ -336,7 +391,7 @@ mod test {
         test!(a_bunch_of_elements: "{:Y}-{:M}-{:D}" => Ok(DateFormat { fields: vec![ year(), Literal("-"), month(true), Literal("-"), day() ] }));
 
         test!(missing_field: "{}"                              => Err(FormatError::MissingField { open_pos: 0, close_pos: 1 }));
-        test!(invalid_char: "{7}"                              => Err(FormatError::InvalidChar { c: '7', colon: false, pos: 1 }));
+        test!(invalid_char: "{a}"                              => Err(FormatError::InvalidChar { c: 'a', colon: false, pos: 1 }));
         test!(invalid_char_after_colon: "{:7}"                 => Err(FormatError::InvalidChar { c: '7', colon: true, pos: 2 }));
         test!(open_curly_brace: "{"                            => Err(FormatError::OpenCurlyBrace { open_pos: 0 }));
         test!(mystery_close_brace: "}"                         => Err(FormatError::CloseCurlyBrace { close_pos: 0 }));
@@ -348,18 +403,32 @@ mod test {
         test!(escaping_middle: "The character {{ is my favourite!" => Ok(DateFormat { fields: vec![ Literal("The character "), Literal("{"), Literal(" is my favourite!") ] }));
         test!(escaping_middle_2: "It's way better than }}."        => Ok(DateFormat { fields: vec![ Literal("It's way better than "), Literal("}"), Literal(".") ] }));
 
-        // ---- new tests ----
+        mod alignment {
+            use super::*;
 
-        test!(left:   "{<:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Left) }) ]}));
-        test!(right:  "{>:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Right) }) ]}));
-        test!(middle: "{^:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Middle) }) ]}));
+            test!(left:   "{<:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Left) }) ]}));
+            test!(right:  "{>:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Right) }) ]}));
+            test!(middle: "{^:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Middle) }) ]}));
+        }
 
-        // ---- error tests ----
-        
-        test!(double_left:  "{<<:Y}" => Err(FormatError::DoubleAlignment { open_pos: 0, current_alignment: Alignment::Left }));
-        test!(double_right: "{>>:Y}" => Err(FormatError::DoubleAlignment { open_pos: 0, current_alignment: Alignment::Right }));
+        mod alignment_fails {
+            use super::*;
 
-        test!(left_right: "{<>:Y}" => Err(FormatError::DoubleAlignment { open_pos: 0, current_alignment: Alignment::Left }));
-        test!(right_middle: "{>^:Y}" => Err(FormatError::DoubleAlignment { open_pos: 0, current_alignment: Alignment::Right }));
+            test!(double_left:  "{<<:Y}" => Err(FormatError::DoubleAlignment { open_pos: 0, current_alignment: Alignment::Left }));
+            test!(double_right: "{>>:Y}" => Err(FormatError::DoubleAlignment { open_pos: 0, current_alignment: Alignment::Right }));
+            test!(left_right: "{<>:Y}"   => Err(FormatError::DoubleAlignment { open_pos: 0, current_alignment: Alignment::Left }));
+            test!(right_middle: "{>^:Y}" => Err(FormatError::DoubleAlignment { open_pos: 0, current_alignment: Alignment::Right }));
+        }
+
+        mod width {
+            use super::*;
+
+            test!(width_2: "{>2:D}"                 => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(2).set_alignment(Alignment::Right) }) ] }));
+            test!(width_3: "{>3:D}"                 => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(3).set_alignment(Alignment::Right) }) ] }));
+            test!(width_10: "{>10:D}"               => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(10).set_alignment(Alignment::Right) }) ] }));
+            test!(width_10_other: "{10>:D}"         => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(10).set_alignment(Alignment::Right) }) ] }));
+            test!(width_0: "{>0:D}"                 => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(0).set_alignment(Alignment::Right) }) ] }));
+            test!(width_123456789: "{>123456789:D}" => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(123456789).set_alignment(Alignment::Right) }) ] }));
+        }
     }
 }
