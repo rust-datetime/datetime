@@ -3,6 +3,11 @@ name = "datetime_macros"
 version = "0.1.1"
 authors = ["Ben S <ogham@bsago.me>"]
 
+description = "Statically-compiled dates and formatting strings."
+documentation = "http://bsago.me/doc/datetime/"
+homepage = "https://github.com/ogham/rust-datetime"
+license = "MIT"
+
 [lib]
 name = "datetime_macros"
 crate_type = [ "dylib" ]
@@ -12,4 +17,4 @@ pad = "0.1.1"
 
 [dependencies.datetime]
 path = ".."
-version = "0.1.1"
+version = "0.1.0"
