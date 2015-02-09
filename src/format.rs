@@ -270,6 +270,7 @@ impl<'a> FormatParser<'a> {
         let mut bit = None;
         let mut close_pos;
         let mut first = true;
+        let mut long = false;
 
         loop {
             match self.next() {
@@ -278,13 +279,14 @@ impl<'a> FormatParser<'a> {
                 Some((_, '^')) => { try! { args.update_alignment(Alignment::Middle, open_pos) }; continue },
                 Some((_, '>')) => { try! { args.update_alignment(Alignment::Right, open_pos) }; continue },
                 Some((_, n)) if n.is_digit(10) => { try! { args.update_width(self.parse_number(n), open_pos) }; continue },
+                Some((_, '_')) => { long = true; },
                 Some((_, ':')) => {
                     let bitlet = match self.next() {
                         Some((_, 'Y')) => Field::Year(NumArguments { args: args }),
                         Some((_, 'y')) => Field::YearOfCentury(NumArguments { args: args }),
-                        Some((_, 'M')) => Field::MonthName(true, TextArguments { args: args }),
+                        Some((_, 'M')) => Field::MonthName(long, TextArguments { args: args }),
                         Some((_, 'D')) => Field::Day(NumArguments { args: args }),
-                        Some((_, 'E')) => Field::WeekdayName(true, TextArguments { args: args }),
+                        Some((_, 'E')) => Field::WeekdayName(long, TextArguments { args: args }),
                         Some((pos, c)) => return Err(FormatError::InvalidChar { c: c, colon: true, pos: pos }),
                         None => return Err(FormatError::OpenCurlyBrace { open_pos: open_pos }),
                     };
