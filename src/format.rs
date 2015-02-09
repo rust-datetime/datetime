@@ -67,6 +67,11 @@ impl Arguments {
         }
     }
 
+    pub fn set_alignment(&mut self, alignment: Alignment) -> Arguments {
+        self.alignment = Some(alignment);
+        *self
+    }
+
     fn format(self, w: &mut Vec<u8>, string: &str) -> IoResult<()> {
         let width     = self.width.unwrap_or(0);
         let pad_char  = self.pad_char.unwrap_or(' ');
@@ -199,7 +204,7 @@ impl<'a> FormatParser<'a> {
     // still use slices.
 
     fn parse_a_thing(&mut self, open_pos: usize) -> Result<Field<'a>, FormatError> {
-        let args = Arguments::empty();
+        let mut args = Arguments::empty();
         let mut bit = None;
         let mut close_pos;
         let mut first = true;
@@ -207,6 +212,9 @@ impl<'a> FormatParser<'a> {
         loop {
             match self.next() {
                 Some((pos, '{')) if first => return Ok(Field::Literal(&self.input[pos .. pos + 1])),
+                Some((_, '<')) => { args.alignment = Some(Alignment::Left); continue },
+                Some((_, '^')) => { args.alignment = Some(Alignment::Middle); continue },
+                Some((_, '>')) => { args.alignment = Some(Alignment::Right); continue },
                 Some((_, ':')) => {
                     let bitlet = match self.next() {
                         Some((_, 'Y')) => Field::Year(NumArguments { args: args }),
@@ -286,6 +294,8 @@ mod test {
     pub use super::{DateFormat, FormatError, Field, Arguments, NumArguments, TextArguments};
     pub use super::Field::*;
 
+    pub use pad::Alignment;
+
     mod parse {
         use super::*;
 
@@ -329,5 +339,11 @@ mod test {
 
         test!(escaping_middle: "The character {{ is my favourite!" => Ok(DateFormat { fields: vec![ Literal("The character "), Literal("{"), Literal(" is my favourite!") ] }));
         test!(escaping_middle_2: "It's way better than }}."        => Ok(DateFormat { fields: vec![ Literal("It's way better than "), Literal("}"), Literal(".") ] }));
+
+        // ---- new tests ----
+
+        test!(left:   "{<:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Left) }) ]}));
+        test!(right:  "{>:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Right) }) ]}));
+        test!(middle: "{^:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Middle) }) ]}));
     }
 }

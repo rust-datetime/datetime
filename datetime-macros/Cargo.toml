@@ -7,6 +7,9 @@ authors = ["Ben S <ogham@bsago.me>"]
 name = "datetime_macros"
 crate_type = [ "dylib" ]
 
+[dependencies]
+pad = "0.1.1"
+
 [dependencies.datetime]
 path = ".."
 version = "0.1.0"

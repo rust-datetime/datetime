@@ -7,6 +7,7 @@
 extern crate syntax;
 extern crate rustc;
 extern crate datetime;
+extern crate pad;
 
 use syntax::ptr::P;
 use syntax::ast;
@@ -21,6 +22,8 @@ use rustc::plugin::Registry;
 
 use datetime::local::{LocalDate, DatePiece, Month, Weekday};
 use datetime::format::{DateFormat, Field, NumArguments, TextArguments};
+
+use pad::Alignment;
 
 /// The plugin registrar.
 ///
@@ -153,12 +156,32 @@ fn date_to_code(cx: &mut ExtCtxt, date: LocalDate) -> Box<MacResult + 'static> {
 }
 
 fn numargs_to_code(cx: &mut ExtCtxt, args: NumArguments) -> P<ast::Expr> {
-    let w = args.args.width;
-    println!("{:?}", w);
-    quote_expr!(cx, datetime::format::NumArguments { args: datetime::format::Arguments { width: None, alignment: None, pad_char: None, } })
+    let w = option_to_code(cx, args.args.width);
+    let a = alignment_to_code(cx, args.args.alignment);
+    let p = option_to_code(cx, args.args.pad_char);
+    quote_expr!(cx, datetime::format::NumArguments { args: datetime::format::Arguments { width: $w, alignment: $a, pad_char: $p, } })
 }
 
 fn textargs_to_code(cx: &mut ExtCtxt, args: TextArguments) -> P<ast::Expr> {
-    let w = args.args.width;
-    quote_expr!(cx, datetime::format::TextArguments { args: datetime::format::Arguments { width: None, alignment: None, pad_char: None, } })
+    let w = option_to_code(cx, args.args.width);
+    let a = alignment_to_code(cx, args.args.alignment);
+    let p = option_to_code(cx, args.args.pad_char);
+    quote_expr!(cx, datetime::format::TextArguments { args: datetime::format::Arguments { width: $w, alignment: $a, pad_char: $p, } })
+}
+
+fn option_to_code<T: ToTokens>(cx: &mut ExtCtxt, option: Option<T>) -> P<ast::Expr> {
+    match option {
+        Some(value) => quote_expr!(cx, Some($value)),
+        None        => quote_expr!(cx, None),
+    }
+}
+
+fn alignment_to_code(cx: &mut ExtCtxt, alignment: Option<Alignment>) -> P<ast::Expr> {
+    match alignment {
+        Some(Alignment::Left)        => quote_expr!(cx, Some(Alignment::Left)),
+        Some(Alignment::Right)       => quote_expr!(cx, Some(Alignment::Right)),
+        Some(Alignment::Middle)      => quote_expr!(cx, Some(Alignment::Middle)),
+        Some(Alignment::MiddleRight) => quote_expr!(cx, Some(Alignment::MiddleRight)),
+        None                         => quote_expr!(cx, None),
+    }
 }
