@@ -7,7 +7,7 @@ documentation = "http://bsago.me/doc/datetime/"
 homepage = "https://github.com/ogham/rust-datetime"
 license = "MIT"
 readme = "README.md"
-version = "0.1.0"
+version = "0.1.1"
 
 [lib]
 name = "datetime"
@@ -19,4 +19,4 @@ regex_macros = "0.1.2"
 
 [dev-dependencies.datetime_macros]
 path = "datetime-macros"
-version = "0.1.0"
+version = "0.1.1"
