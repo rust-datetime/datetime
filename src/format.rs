@@ -4,7 +4,7 @@ use std::old_io::IoResult;
 use std::str::CharIndices;
 
 use local;
-use local::{LocalDate, DatePiece};
+use local::{LocalDateTime, DatePiece, TimePiece};
 
 use pad::{PadStr, Alignment};
 
@@ -19,10 +19,14 @@ pub enum Field<'a> {
 
     Day(NumArguments),
     WeekdayName(bool, TextArguments),
+
+    Hour(NumArguments),
+    Minute(NumArguments),
+    Second(NumArguments),
 }
 
 impl<'a> Field<'a> {
-    fn format(self, when: LocalDate, w: &mut Vec<u8>) -> IoResult<()> {
+    fn format(self, when: LocalDateTime, w: &mut Vec<u8>) -> IoResult<()> {
         match self {
             Field::Literal(s)             => w.write_str(s),
             Field::Year(a)                => a.format(w, when.year()),
@@ -32,6 +36,9 @@ impl<'a> Field<'a> {
             Field::Day(a)                 => a.format(w, when.day()),
             Field::WeekdayName(true, a)   => a.format(w, long_day_name(when.weekday())),
             Field::WeekdayName(false, a)  => a.format(w, short_day_name(when.weekday())),
+            Field::Hour(a)                => a.format(w, when.hour()),
+            Field::Minute(a)              => a.format(w, when.minute()),
+            Field::Second(a)              => a.format(w, when.second()),
         }
     }
 }
@@ -128,7 +135,7 @@ impl NumArguments {
 }
 
 impl<'a> DateFormat<'a> {
-    pub fn format(self, when: LocalDate) -> String {
+    pub fn format(self, when: LocalDateTime) -> String {
         let mut buf = Vec::<u8>::new();
 
         for bit in self.fields.into_iter() {
@@ -278,6 +285,7 @@ impl<'a> FormatParser<'a> {
                 Some((_, '<')) => { try! { args.update_alignment(Alignment::Left, open_pos) }; continue },
                 Some((_, '^')) => { try! { args.update_alignment(Alignment::Middle, open_pos) }; continue },
                 Some((_, '>')) => { try! { args.update_alignment(Alignment::Right, open_pos) }; continue },
+                Some((_, '0')) => { args.pad_char = Some('0'); continue },
                 Some((_, n)) if n.is_digit(10) => { try! { args.update_width(self.parse_number(n), open_pos) }; continue },
                 Some((_, '_')) => { long = true; },
                 Some((_, ':')) => {
@@ -287,6 +295,9 @@ impl<'a> FormatParser<'a> {
                         Some((_, 'M')) => Field::MonthName(long, TextArguments { args: args }),
                         Some((_, 'D')) => Field::Day(NumArguments { args: args }),
                         Some((_, 'E')) => Field::WeekdayName(long, TextArguments { args: args }),
+                        Some((_, 'h')) => Field::Hour(NumArguments { args: args }),
+                        Some((_, 'm')) => Field::Minute(NumArguments { args: args }),
+                        Some((_, 's')) => Field::Second(NumArguments { args: args }),
                         Some((pos, c)) => return Err(FormatError::InvalidChar { c: c, colon: true, pos: pos }),
                         None => return Err(FormatError::OpenCurlyBrace { open_pos: open_pos }),
                     };

@@ -142,6 +142,9 @@ fn field_to_code(cx: &mut ExtCtxt, field: Field) -> P<ast::Expr> {
     	Field::Day(a)            => { let a = numargs_to_code(cx, a);  quote_expr!(cx, datetime::format::Field::Day($a)) },
     	Field::YearOfCentury(a)  => { let a = numargs_to_code(cx, a);  quote_expr!(cx, datetime::format::Field::YearOfCentury($a)) },
     	Field::WeekdayName(s, a) => { let a = textargs_to_code(cx, a); quote_expr!(cx, datetime::format::Field::WeekdayName($s, $a)) },
+    	Field::Hour(a)           => { let a = numargs_to_code(cx, a);  quote_expr!(cx, datetime::format::Field::Hour($a)) },
+    	Field::Minute(a)         => { let a = numargs_to_code(cx, a);  quote_expr!(cx, datetime::format::Field::Minute($a)) },
+    	Field::Second(a)         => { let a = numargs_to_code(cx, a);  quote_expr!(cx, datetime::format::Field::Second($a)) },
     }
 }
 
