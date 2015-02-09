@@ -47,6 +47,7 @@ pub enum FormatError {
     OpenCurlyBrace { open_pos: usize },
     CloseCurlyBrace { close_pos: usize },
     MissingField { open_pos: usize, close_pos: usize },
+    DoubleAlignment { open_pos: usize, current_alignment: Alignment }
 }
 
 impl Copy for FormatError { }
@@ -70,6 +71,13 @@ impl Arguments {
     pub fn set_alignment(&mut self, alignment: Alignment) -> Arguments {
         self.alignment = Some(alignment);
         *self
+    }
+
+    pub fn update_alignment(&mut self, alignment: Alignment, open_pos: usize) -> Result<(), FormatError> {
+        match self.alignment {
+            None => Ok({ self.alignment = Some(alignment); }),
+            Some(existing) => Err(FormatError::DoubleAlignment { open_pos: open_pos, current_alignment: existing }),
+        }
     }
 
     fn format(self, w: &mut Vec<u8>, string: &str) -> IoResult<()> {
@@ -212,9 +220,9 @@ impl<'a> FormatParser<'a> {
         loop {
             match self.next() {
                 Some((pos, '{')) if first => return Ok(Field::Literal(&self.input[pos .. pos + 1])),
-                Some((_, '<')) => { args.alignment = Some(Alignment::Left); continue },
-                Some((_, '^')) => { args.alignment = Some(Alignment::Middle); continue },
-                Some((_, '>')) => { args.alignment = Some(Alignment::Right); continue },
+                Some((_, '<')) => { try! { args.update_alignment(Alignment::Left, open_pos) }; continue },
+                Some((_, '^')) => { try! { args.update_alignment(Alignment::Middle, open_pos) }; continue },
+                Some((_, '>')) => { try! { args.update_alignment(Alignment::Right, open_pos) }; continue },
                 Some((_, ':')) => {
                     let bitlet = match self.next() {
                         Some((_, 'Y')) => Field::Year(NumArguments { args: args }),
@@ -345,5 +353,13 @@ mod test {
         test!(left:   "{<:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Left) }) ]}));
         test!(right:  "{>:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Right) }) ]}));
         test!(middle: "{^:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Middle) }) ]}));
+
+        // ---- error tests ----
+        
+        test!(double_left:  "{<<:Y}" => Err(FormatError::DoubleAlignment { open_pos: 0, current_alignment: Alignment::Left }));
+        test!(double_right: "{>>:Y}" => Err(FormatError::DoubleAlignment { open_pos: 0, current_alignment: Alignment::Right }));
+
+        test!(left_right: "{<>:Y}" => Err(FormatError::DoubleAlignment { open_pos: 0, current_alignment: Alignment::Left }));
+        test!(right_middle: "{>^:Y}" => Err(FormatError::DoubleAlignment { open_pos: 0, current_alignment: Alignment::Right }));
     }
 }
