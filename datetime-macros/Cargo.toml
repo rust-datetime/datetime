@@ -1,6 +1,6 @@
 [package]
 name = "datetime_macros"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Ben S <ogham@bsago.me>"]
 
 description = "Statically-compiled dates and formatting strings."
