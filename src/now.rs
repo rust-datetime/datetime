@@ -27,3 +27,13 @@ pub unsafe fn now() -> (i64, i16) {
     clock_gettime(libc::CLOCK_REALTIME, &mut tv);
     (tv.tv_sec as i64, (tv.tv_nsec / 1000) as i16)
 }
+
+#[cfg(test)]
+mod test {
+    use super::now;
+
+    #[test]
+    fn sanity_check() {
+        assert!((0, 0) != unsafe { now() })
+    }
+}
