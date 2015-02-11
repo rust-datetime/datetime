@@ -121,6 +121,11 @@ impl Arguments {
 pub struct TextArguments(Arguments);
 
 impl TextArguments {
+    #[cfg(test)]
+    fn empty() -> TextArguments {
+        TextArguments(Arguments::empty())
+    }
+
     fn format(self, w: &mut Vec<u8>, string: &str) -> IoResult<()> {
         self.0.format(w, string)
     }
@@ -130,6 +135,11 @@ impl TextArguments {
 pub struct NumArguments(Arguments);
 
 impl NumArguments {
+    #[cfg(test)]
+    fn empty() -> NumArguments {
+        NumArguments(Arguments::empty())
+    }
+
     fn format<N: Int + Display>(self, w: &mut Vec<u8>, number: N) -> IoResult<()> {
         self.0.format(w, &number.to_string())
     }
@@ -339,24 +349,12 @@ mod test {
             };
         }
 
-        pub fn year<'a>() -> Field<'a> {
-            Year(NumArguments { args: Arguments::empty() })
-        }
-
-        pub fn day<'a>() -> Field<'a> {
-            Day(NumArguments { args: Arguments::empty() })
-        }
-
-        pub fn month<'a>(thing: bool) -> Field<'a> {
-            MonthName(thing, TextArguments { args: Arguments::empty() })
-        }
-
         test!(empty_string: ""                      => Ok(DateFormat { fields: vec![] }));
         test!(entirely_literal: "Date!"             => Ok(DateFormat { fields: vec![ Literal("Date!") ] }));
-        test!(single_element: "{:Y}"                => Ok(DateFormat { fields: vec![ year() ] }));
-        test!(two_long_years: "{:Y}{:Y}"            => Ok(DateFormat { fields: vec![ year(), year() ] }));
-        test!(surrounded: "({:D})"                  => Ok(DateFormat { fields: vec![ Literal("("), day(), Literal(")") ] }));
-        test!(a_bunch_of_elements: "{:Y}-{:M}-{:D}" => Ok(DateFormat { fields: vec![ year(), Literal("-"), month(false), Literal("-"), day() ] }));
+        test!(single_element: "{:Y}"                => Ok(DateFormat { fields: vec![ Year(NumArguments::empty()) ] }));
+        test!(two_long_years: "{:Y}{:Y}"            => Ok(DateFormat { fields: vec![ Year(NumArguments::empty()), Year(NumArguments::empty()) ] }));
+        test!(surrounded: "({:D})"                  => Ok(DateFormat { fields: vec![ Literal("("), Day(NumArguments::empty()), Literal(")") ] }));
+        test!(a_bunch_of_elements: "{:Y}-{:M}-{:D}" => Ok(DateFormat { fields: vec![ Year(NumArguments::empty()), Literal("-"), MonthName(false, TextArguments::empty()), Literal("-"), Day(NumArguments::empty()) ] }));
 
         test!(missing_field: "{}"                              => Err(FormatError::MissingField { open_pos: 0, close_pos: 1 }));
         test!(invalid_char: "{a}"                              => Err(FormatError::InvalidChar { c: 'a', colon: false, pos: 1 }));
@@ -374,9 +372,9 @@ mod test {
         mod alignment {
             use super::*;
 
-            test!(left:   "{<:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Left) }) ]}));
-            test!(right:  "{>:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Right) }) ]}));
-            test!(middle: "{^:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments { args: Arguments::empty().set_alignment(Alignment::Middle) }) ]}));
+            test!(left:   "{<:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments(Arguments::empty().set_alignment(Alignment::Left))) ]}));
+            test!(right:  "{>:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments(Arguments::empty().set_alignment(Alignment::Right))) ]}));
+            test!(middle: "{^:Y}" => Ok(DateFormat { fields: vec![ Year(NumArguments(Arguments::empty().set_alignment(Alignment::Middle))) ]}));
         }
 
         mod alignment_fails {
@@ -391,11 +389,11 @@ mod test {
         mod width {
             use super::*;
 
-            test!(width_2: "{>2:D}"                 => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(2).set_alignment(Alignment::Right) }) ] }));
-            test!(width_3: "{>3:D}"                 => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(3).set_alignment(Alignment::Right) }) ] }));
-            test!(width_10: "{>10:D}"               => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(10).set_alignment(Alignment::Right) }) ] }));
-            test!(width_10_other: "{10>:D}"         => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(10).set_alignment(Alignment::Right) }) ] }));
-            test!(width_123456789: "{>123456789:D}" => Ok(DateFormat { fields: vec![ Day(NumArguments { args: Arguments::empty().set_width(123456789).set_alignment(Alignment::Right) }) ] }));
+            test!(width_2: "{>2:D}"                 => Ok(DateFormat { fields: vec![ Day(NumArguments(Arguments::empty().set_width(2).set_alignment(Alignment::Right))) ] }));
+            test!(width_3: "{>3:D}"                 => Ok(DateFormat { fields: vec![ Day(NumArguments(Arguments::empty().set_width(3).set_alignment(Alignment::Right))) ] }));
+            test!(width_10: "{>10:D}"               => Ok(DateFormat { fields: vec![ Day(NumArguments(Arguments::empty().set_width(10).set_alignment(Alignment::Right))) ] }));
+            test!(width_10_other: "{10>:D}"         => Ok(DateFormat { fields: vec![ Day(NumArguments(Arguments::empty().set_width(10).set_alignment(Alignment::Right))) ] }));
+            test!(width_123456789: "{>123456789:D}" => Ok(DateFormat { fields: vec![ Day(NumArguments(Arguments::empty().set_width(123456789).set_alignment(Alignment::Right))) ] }));
         }
     }
 }
