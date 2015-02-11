@@ -3,9 +3,9 @@ use std::num::Int;
 use std::old_io::IoResult;
 use std::str::CharIndices;
 
-use local;
 use local::{LocalDateTime, DatePiece, TimePiece};
 
+use locale;
 use pad::{PadStr, Alignment};
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
@@ -26,16 +26,16 @@ pub enum Field<'a> {
 }
 
 impl<'a> Field<'a> {
-    fn format(self, when: LocalDateTime, w: &mut Vec<u8>) -> IoResult<()> {
+    fn format(self, when: LocalDateTime, w: &mut Vec<u8>, locale: &locale::Time) -> IoResult<()> {
         match self {
             Field::Literal(s)             => w.write_str(s),
             Field::Year(a)                => a.format(w, when.year()),
             Field::YearOfCentury(a)       => a.format(w, when.year_of_century()),
-            Field::MonthName(true, a)     => a.format(w, long_month_name(when.month())),
-            Field::MonthName(false, a)    => a.format(w, short_month_name(when.month())),
+            Field::MonthName(true, a)     => a.format(w, locale.long_month_name(when.month().months_from_january()).as_slice()),
+            Field::MonthName(false, a)    => a.format(w, locale.short_month_name(when.month().months_from_january()).as_slice()),
             Field::Day(a)                 => a.format(w, when.day()),
-            Field::WeekdayName(true, a)   => a.format(w, long_day_name(when.weekday())),
-            Field::WeekdayName(false, a)  => a.format(w, short_day_name(when.weekday())),
+            Field::WeekdayName(true, a)   => a.format(w, locale.long_day_name(when.weekday().days_from_sunday()).as_slice()),
+            Field::WeekdayName(false, a)  => a.format(w, locale.short_day_name(when.weekday().days_from_sunday()).as_slice()),
             Field::Hour(a)                => a.format(w, when.hour()),
             Field::Minute(a)              => a.format(w, when.minute()),
             Field::Second(a)              => a.format(w, when.second()),
@@ -135,13 +135,13 @@ impl NumArguments {
 }
 
 impl<'a> DateFormat<'a> {
-    pub fn format(self, when: LocalDateTime) -> String {
+    pub fn format(self, when: LocalDateTime, locale: &locale::Time) -> String {
         let mut buf = Vec::<u8>::new();
 
-        for bit in self.fields.into_iter() {
+        for field in self.fields.into_iter() {
             // It's safe to just ignore the error when writing to an in-memory
             // Vec<u8> buffer. If it fails then you have bigger problems
-            match bit.format(when, &mut buf) { _ => {} }
+            match field.format(when, &mut buf, locale) { _ => {} }
         }
 
         String::from_utf8(buf).unwrap()  // Assume UTF-8
@@ -316,52 +316,6 @@ impl<'a> FormatParser<'a> {
             Some(b) => Ok(b),
             None    => Err(FormatError::MissingField { open_pos: open_pos, close_pos: close_pos }),
         }
-    }
-}
-
-fn long_month_name(month: local::Month) -> &'static str {
-    use local::Month::*;
-    match month {
-        January   => "January",    February  => "February",
-        March     => "March",      April     => "April",
-        May       => "May",        June      => "June",
-        July      => "July",       August    => "August",
-        September => "September",  October   => "October",
-        November  => "November",   December  => "December",
-    }
-}
-
-fn short_month_name(month: local::Month) -> &'static str {
-    use local::Month::*;
-    match month {
-        January   => "Jan",  February  => "Feb",
-        March     => "Mar",  April     => "Apr",
-        May       => "May",  June      => "Jun",
-        July      => "Jul",  August    => "Aug",
-        September => "Sep",  October   => "Oct",
-        November  => "Nov",  December  => "Dec",
-    }
-}
-
-fn long_day_name(day: local::Weekday) -> &'static str {
-    use local::Weekday::*;
-    match day {
-        Monday    => "Monday",     Tuesday   => "Tuesday",
-        Wednesday => "Wednesday",  Thursday  => "Thursday",
-        Friday    => "Friday",     Saturday  => "Saturday",
-        Sunday    => "Sunday",
-
-    }
-}
-
-fn short_day_name(day: local::Weekday) -> &'static str {
-    use local::Weekday::*;
-    match day {
-        Monday    => "Mon",  Tuesday   => "Tue",
-        Wednesday => "Wed",  Thursday  => "Thu",
-        Friday    => "Fri",  Saturday  => "Sat",
-        Sunday    => "Sun",
-
     }
 }
 
