@@ -1,6 +1,3 @@
-#[plugin] #[no_link]
-extern crate regex_macros;
-
 pub fn parse_iso_ymd(input: &str) -> Option<(i64, i8, i8)> {
     match regex!(r"^(\d{4})-(\d{2})-(\d{2})$").captures(input) {
         None => None,

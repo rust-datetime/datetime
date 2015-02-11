@@ -1,6 +1,3 @@
-#[plugin]
-extern crate regex_macros;
-
 use std::ops::{Add, Sub};
 use std::num::FromPrimitive;
 
