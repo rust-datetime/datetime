@@ -118,20 +118,20 @@ impl Arguments {
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub struct TextArguments { pub args: Arguments }
+pub struct TextArguments(Arguments);
 
 impl TextArguments {
     fn format(self, w: &mut Vec<u8>, string: &str) -> IoResult<()> {
-        self.args.format(w, string)
+        self.0.format(w, string)
     }
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub struct NumArguments { pub args: Arguments }
+pub struct NumArguments(Arguments);
 
 impl NumArguments {
     fn format<N: Int + Display>(self, w: &mut Vec<u8>, number: N) -> IoResult<()> {
-        self.args.format(w, &number.to_string())
+        self.0.format(w, &number.to_string())
     }
 }
 
@@ -291,14 +291,14 @@ impl<'a> FormatParser<'a> {
                 Some((_, '_')) => { long = true; },
                 Some((_, ':')) => {
                     let bitlet = match self.next() {
-                        Some((_, 'Y')) => Field::Year(NumArguments { args: args }),
-                        Some((_, 'y')) => Field::YearOfCentury(NumArguments { args: args }),
-                        Some((_, 'M')) => Field::MonthName(long, TextArguments { args: args }),
-                        Some((_, 'D')) => Field::Day(NumArguments { args: args }),
-                        Some((_, 'E')) => Field::WeekdayName(long, TextArguments { args: args }),
-                        Some((_, 'h')) => Field::Hour(NumArguments { args: args }),
-                        Some((_, 'm')) => Field::Minute(NumArguments { args: args }),
-                        Some((_, 's')) => Field::Second(NumArguments { args: args }),
+                        Some((_, 'Y')) => Field::Year(NumArguments(args)),
+                        Some((_, 'y')) => Field::YearOfCentury(NumArguments(args)),
+                        Some((_, 'M')) => Field::MonthName(long, TextArguments(args)),
+                        Some((_, 'D')) => Field::Day(NumArguments(args)),
+                        Some((_, 'E')) => Field::WeekdayName(long, TextArguments(args)),
+                        Some((_, 'h')) => Field::Hour(NumArguments(args)),
+                        Some((_, 'm')) => Field::Minute(NumArguments(args)),
+                        Some((_, 's')) => Field::Second(NumArguments(args)),
                         Some((pos, c)) => return Err(FormatError::InvalidChar { c: c, colon: true, pos: pos }),
                         None => return Err(FormatError::OpenCurlyBrace { open_pos: open_pos }),
                     };
