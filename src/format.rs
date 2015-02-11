@@ -48,24 +48,25 @@ pub struct DateFormat<'a> {
     pub fields: Vec<Field<'a>>,
 }
 
-// todo: make Width its own type
-
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum FormatError {
-    InvalidChar { c: char, colon: bool, pos: usize },
-    OpenCurlyBrace { open_pos: usize },
-    CloseCurlyBrace { close_pos: usize },
-    MissingField { open_pos: usize, close_pos: usize },
-    DoubleAlignment { open_pos: usize, current_alignment: Alignment },
-    DoubleWidth { open_pos: usize, current_width: usize },
+    InvalidChar { c: char, colon: bool, pos: Pos },
+    OpenCurlyBrace { open_pos: Pos },
+    CloseCurlyBrace { close_pos: Pos },
+    MissingField { open_pos: Pos, close_pos: Pos },
+    DoubleAlignment { open_pos: Pos, current_alignment: Alignment },
+    DoubleWidth { open_pos: Pos, current_width: Width },
 }
 
 impl Copy for FormatError { }
 
+pub type Width = usize;
+pub type Pos = usize;
+
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct Arguments {
     pub alignment: Option<Alignment>,
-    pub width:     Option<usize>,
+    pub width:     Option<Width>,
     pub pad_char:  Option<char>,
 }
 
@@ -78,7 +79,7 @@ impl Arguments {
         }
     }
 
-    pub fn set_width(&mut self, width: usize) -> Arguments {
+    pub fn set_width(&mut self, width: Width) -> Arguments {
         self.width = Some(width);
         *self
     }
@@ -88,14 +89,14 @@ impl Arguments {
         *self
     }
 
-    pub fn update_width(&mut self, width: usize, open_pos: usize) -> Result<(), FormatError> {
+    pub fn update_width(&mut self, width: Width, open_pos: Pos) -> Result<(), FormatError> {
         match self.width {
             None => Ok({ self.width = Some(width); }),
             Some(existing) => Err(FormatError::DoubleWidth { open_pos: open_pos, current_width: existing }),
         }
     }
 
-    pub fn update_alignment(&mut self, alignment: Alignment, open_pos: usize) -> Result<(), FormatError> {
+    pub fn update_alignment(&mut self, alignment: Alignment, open_pos: Pos) -> Result<(), FormatError> {
         match self.alignment {
             None => Ok({ self.alignment = Some(alignment); }),
             Some(existing) => Err(FormatError::DoubleAlignment { open_pos: open_pos, current_alignment: existing }),
@@ -159,8 +160,8 @@ struct FormatParser<'a> {
     iter:   CharIndices<'a>,
     fields: Vec<Field<'a>>,
     input:  &'a str,
-    anchor: Option<usize>,
-    peekee: Option<Option<(usize, char)>>,
+    anchor: Option<Pos>,
+    peekee: Option<Option<(Pos, char)>>,
 }
 
 impl<'a> FormatParser<'a> {
@@ -174,7 +175,7 @@ impl<'a> FormatParser<'a> {
         }
     }
 
-    fn next(&mut self) -> Option<(usize, char)> {
+    fn next(&mut self) -> Option<(Pos, char)> {
         match self.peekee {
             Some(p) => {
                 self.peekee = None;
@@ -183,8 +184,8 @@ impl<'a> FormatParser<'a> {
             None => { self.iter.next() },
         }
     }
-    
-    fn peek(&mut self) -> Option<(usize, char)> {
+
+    fn peek(&mut self) -> Option<(Pos, char)> {
         match self.peekee {
             Some(thing) => thing,
             None => {
@@ -194,7 +195,7 @@ impl<'a> FormatParser<'a> {
         }
     }
 
-    fn collect_up_to_anchor(&mut self, position: Option<usize>) {
+    fn collect_up_to_anchor(&mut self, position: Option<Pos>) {
         if let Some(pos) = self.anchor {
             self.anchor = None;
             let text = match position {
@@ -272,7 +273,7 @@ impl<'a> FormatParser<'a> {
         buf.parse().unwrap()
     }
 
-    fn parse_a_thing(&mut self, open_pos: usize) -> Result<Field<'a>, FormatError> {
+    fn parse_a_thing(&mut self, open_pos: Pos) -> Result<Field<'a>, FormatError> {
         let mut args = Arguments::empty();
         let mut bit = None;
         let mut close_pos;
