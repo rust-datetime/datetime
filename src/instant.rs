@@ -11,13 +11,11 @@ use duration::Duration;
 /// 16-bit integer of milliseconds. This means that it will overflow (and thus
 /// be unsuitable for) instants past GMT 15:30:08, Sunday 4th December,
 /// 292,277,026,596 (yes, that's a year)
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Instant {
     seconds: i64,
     milliseconds: i16,
 }
-
-impl Copy for Instant { }
 
 impl Instant {
     /// Creates a new Instant set to the number of seconds since the Unix

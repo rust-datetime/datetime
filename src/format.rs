@@ -48,7 +48,7 @@ pub struct DateFormat<'a> {
     pub fields: Vec<Field<'a>>,
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Copy)]
 pub enum FormatError {
     InvalidChar { c: char, colon: bool, pos: Pos },
     OpenCurlyBrace { open_pos: Pos },
@@ -57,8 +57,6 @@ pub enum FormatError {
     DoubleAlignment { open_pos: Pos, current_alignment: Alignment },
     DoubleWidth { open_pos: Pos, current_width: Width },
 }
-
-impl Copy for FormatError { }
 
 pub type Width = usize;
 pub type Pos = usize;

@@ -2,13 +2,11 @@ use std::ops::{Add, Sub, Mul};
 
 /// A **Duration** is a length of time on the timeline, irrespective of
 /// time zone or calendar format, with millisecond precision,
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Copy)]
 pub struct Duration {
     seconds: i64,
     milliseconds: i16,
 }
-
-impl Copy for Duration { }
 
 impl Duration {
     /// Create a new zero-length duration.
