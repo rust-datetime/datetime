@@ -73,13 +73,11 @@ const TIME_TRIANGLE: &'static [i64; 11] =
 ///
 /// This is stored as an enum instead of just a number to prevent
 /// off-by-one errors: is month 2 February (1-indexed) or March (0-indexed)?
-#[derive(FromPrimitive, PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
+#[derive(FromPrimitive, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub enum Month {
     January, February, March, April, May, June, July,
     August, September, October, November, December,
 }
-
-impl Copy for Month { }
 
 /// A named day of the week, starting with Sunday, and ending with Saturday.
 ///
@@ -87,7 +85,7 @@ impl Copy for Month { }
 /// much an arbitrary choice, and if you don't use the FromPrimitive trait,
 /// it won't affect you at all. If you want to change it, the only thing
 /// that should be affected is LocalDate::days_to_weekday.
-#[derive(FromPrimitive, PartialEq, Eq, Debug, Clone)]
+#[derive(FromPrimitive, PartialEq, Eq, Debug, Clone, Copy)]
 pub enum Weekday {
     Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday,
 }
@@ -108,40 +106,32 @@ impl Weekday {
 // other way around. Luckily, they don't need one, as the field is
 // ignored when comparing LocalDates.
 
-impl Copy for Weekday { }
-
 /// A **local date-time** is an exact instant on the timeline, *without a
 /// time zone*.
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub struct LocalDateTime {
     date: LocalDate,
     time: LocalTime,
 }
 
-impl Copy for LocalDateTime { }
-
 /// A **local date** is a day-long span on the timeline, *without a time
 /// zone*.
-#[derive(Eq, Debug, Clone)]
+#[derive(Eq, Debug, Clone, Copy)]
 pub struct LocalDate {
     ymd:     YMD,
     yearday: i16,
     weekday: Weekday,
 }
 
-impl Copy for LocalDate { }
-
 /// A **local time** is a time on the timeline that recurs once a day,
 /// *without a time zone*.
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub struct LocalTime {
     hour:   i8,
     minute: i8,
     second: i8,
     millisecond: i16,
 }
-
-impl Copy for LocalTime { }
 
 // ---- implementations ----
 
@@ -154,14 +144,12 @@ impl Copy for LocalTime { }
 /// create an instance of the 74th of March, for example, but you're
 /// free to create such an instance of YMD. For this reason, it is not
 /// exposed to implementors of this library.
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Copy)]
 struct YMD {
     year:    i64,
     month:   Month,
     day:     i8,
 }
-
-impl Copy for YMD { }
 
 impl YMD {
     /// Calculates the number of days that have elapsed since the 1st
