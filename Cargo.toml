@@ -15,9 +15,9 @@ doctest = false
 
 [dependencies]
 pad = "0.1.1"
-locale = "0.1.2"
-regex = "0.1.8"
-regex_macros = "0.1.2"
+locale = "0.1.4"
+regex = "0.1.16"
+regex_macros = "0.1.10"
 
 #[dev-dependencies.datetime_macros]
 #path = "datetime-macros"

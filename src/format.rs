@@ -43,7 +43,7 @@
 //!
 //! If you're in a hurry and just want to format a date *right now* then the simplest way to get
 //! around this is to just use the English locale:
-//! 
+//!
 //! ```rust
 //! use locale;
 //! let my_locale = locale::Time::english();

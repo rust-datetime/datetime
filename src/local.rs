@@ -341,7 +341,7 @@ impl LocalDate {
             weekday: days_to_weekday(days),
             ymd: YMD {
                 year:  years + 2000,
-                month: FromPrimitive::from_uint(month).unwrap(),
+                month: FromPrimitive::from_usize(month).unwrap(),
                 day:   (month_days + 1) as i8,
             },
         }
