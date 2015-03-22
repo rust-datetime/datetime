@@ -667,10 +667,12 @@ impl Sub<Duration> for LocalDateTime {
 
 #[cfg(test)]
 mod test {
-    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, YMD, DatePiece};
+    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, DatePiece};
+    use super::YMD;
 
     mod seconds_to_datetimes {
         pub use super::*;
+        use super::super::YMD;
 
         #[test]
         fn before_time() {

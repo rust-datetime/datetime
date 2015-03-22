@@ -53,7 +53,8 @@
 
 use std::fmt::Display;
 use std::num::Int;
-use std::old_io::IoResult;
+use std::io;
+use std::io::Write;
 use std::str::CharIndices;
 
 use local::{LocalDateTime, DatePiece, TimePiece};
@@ -79,9 +80,9 @@ pub enum Field<'a> {
 }
 
 impl<'a> Field<'a> {
-    fn format(self, when: LocalDateTime, w: &mut Vec<u8>, locale: &locale::Time) -> IoResult<()> {
+    fn format(self, when: LocalDateTime, w: &mut Vec<u8>, locale: &locale::Time) -> io::Result<()> {
         match self {
-            Field::Literal(s)             => w.write_str(s),
+            Field::Literal(s)             => w.write_all(s.as_bytes()),
             Field::Year(a)                => a.format(w, when.year()),
             Field::YearOfCentury(a)       => a.format(w, when.year_of_century()),
             Field::MonthName(true, a)     => a.format(w, locale.long_month_name(when.month().months_from_january()).as_slice()),
@@ -154,13 +155,13 @@ impl Arguments {
         }
     }
 
-    fn format(self, w: &mut Vec<u8>, string: &str) -> IoResult<()> {
+    fn format(self, w: &mut Vec<u8>, string: &str) -> io::Result<()> {
         let width     = self.width.unwrap_or(0);
         let pad_char  = self.pad_char.unwrap_or(' ');
         let alignment = self.alignment.unwrap_or(Alignment::Left);
         let s         = string.pad(width, pad_char, alignment, false);
 
-        w.write_str(&s)
+        w.write_all(s.as_bytes())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -177,7 +178,7 @@ impl TextArguments {
         TextArguments(Arguments::empty())
     }
 
-    fn format(self, w: &mut Vec<u8>, string: &str) -> IoResult<()> {
+    fn format(self, w: &mut Vec<u8>, string: &str) -> io::Result<()> {
         self.0.format(w, string)
     }
 }
@@ -191,7 +192,7 @@ impl NumArguments {
         NumArguments(Arguments::empty())
     }
 
-    fn format<N: Int + Display>(self, w: &mut Vec<u8>, number: N) -> IoResult<()> {
+    fn format<N: Int + Display>(self, w: &mut Vec<u8>, number: N) -> io::Result<()> {
         self.0.format(w, &number.to_string())
     }
 }

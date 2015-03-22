@@ -7,14 +7,14 @@ documentation = "http://bsago.me/doc/datetime/"
 homepage = "https://github.com/ogham/rust-datetime"
 license = "MIT"
 readme = "README.md"
-version = "0.1.4"
+version = "0.1.5"
 
 [lib]
 name = "datetime"
 doctest = false
 
 [dependencies]
-pad = "0.1.1"
+pad = "0.1.3"
 locale = "0.1.4"
 regex = "0.1.16"
 regex_macros = "0.1.10"
