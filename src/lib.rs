@@ -4,6 +4,7 @@
 #![plugin(regex_macros)]
 
 extern crate locale;
+extern crate num;
 extern crate pad;
 extern crate regex;
 

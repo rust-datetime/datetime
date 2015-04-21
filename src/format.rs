@@ -51,8 +51,9 @@
 //!
 //! ## Actually Formatting a Date
 
+use num::Integer;
+
 use std::fmt::Display;
-use std::num::Int;
 use std::io;
 use std::io::Write;
 use std::str::CharIndices;
@@ -192,7 +193,7 @@ impl NumArguments {
         NumArguments(Arguments::empty())
     }
 
-    fn format<N: Int + Display>(self, w: &mut Vec<u8>, number: N) -> io::Result<()> {
+    fn format<N: Integer + Display>(self, w: &mut Vec<u8>, number: N) -> io::Result<()> {
         self.0.format(w, &number.to_string())
     }
 }
