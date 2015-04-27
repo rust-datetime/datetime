@@ -1,5 +1,4 @@
 use std::ops::{Add, Sub};
-use std::num::FromPrimitive;
 
 use now;
 use parse;
@@ -73,7 +72,7 @@ const TIME_TRIANGLE: &'static [i64; 11] =
 ///
 /// This is stored as an enum instead of just a number to prevent
 /// off-by-one errors: is month 2 February (1-indexed) or March (0-indexed)?
-#[derive(FromPrimitive, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub enum Month {
     January, February, March, April, May, June, July,
     August, September, October, November, December,
@@ -82,10 +81,10 @@ pub enum Month {
 /// A named day of the week, starting with Sunday, and ending with Saturday.
 ///
 /// Sunday is day 0. This seems to be a North American thing? It's pretty
-/// much an arbitrary choice, and if you don't use the FromPrimitive trait,
+/// much an arbitrary choice, and as you can't use the from_zero method,
 /// it won't affect you at all. If you want to change it, the only thing
 /// that should be affected is LocalDate::days_to_weekday.
-#[derive(FromPrimitive, PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum Weekday {
     Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday,
 }
@@ -97,6 +96,14 @@ impl Weekday {
             Tuesday => 2,  Wednesday => 3,
             Thursday => 4, Friday => 5,
             Saturday => 6,
+        }
+    }
+
+    fn from_zero(weekday: i8) -> Weekday {
+        match weekday {
+            0 => Sunday,     1 => Monday,    2 => Tuesday,
+            3 => Wednesday,  4 => Thursday,  5 => Friday,
+            6 => Saturday,   _ => unreachable!()
         }
     }
 }
@@ -235,7 +242,7 @@ impl YMD {
 fn days_to_weekday(days: i64) -> Weekday {
     // March 1st, 2000 was a Wednesday, so add 3 to the number of days.
     let weekday = (days + 3) % 7;
-    FromPrimitive::from_i64(if weekday < 0 { weekday + 7 } else { weekday }).unwrap()
+    Weekday::from_zero(if weekday < 0 { weekday + 7 } else { weekday } as i8)
 }
 
 /// Split a number of years into a number of year-cycles, and the number
@@ -341,7 +348,7 @@ impl LocalDate {
             weekday: days_to_weekday(days),
             ymd: YMD {
                 year:  years + 2000,
-                month: FromPrimitive::from_usize(month).unwrap(),
+                month: Month::from_zero(month as i8),
                 day:   (month_days + 1) as i8,
             },
         }
@@ -362,7 +369,7 @@ impl LocalDate {
     /// the constructed date if successful, and None if unsuccessful.
     pub fn parse(input: &str) -> Option<LocalDate> {
         parse::parse_iso_ymd(input).map(|(y, m, d)| {
-            let month = FromPrimitive::from_i8(m).unwrap();
+            let month = Month::from_zero(m);
             LocalDate::ymd(y, month, d)
         }).unwrap()
     }
@@ -546,6 +553,16 @@ impl Month {
             April   =>   3, May      =>   4, June      =>  5,
             July    =>   6, August   =>   7, September =>  8,
             October =>   9, November =>  10, December  => 11,
+        }
+    }
+
+    fn from_zero(month: i8) -> Month {
+        match month {
+            0 => January,   1 => February,   2 => March,
+            3 => April,     4 => May,        5 => June,
+            6 => July,      7 => August,     8 => September,
+            9 => October,  10 => November,  11 => December,
+            _ => unreachable!(),
         }
     }
 }

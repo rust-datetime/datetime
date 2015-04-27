@@ -1,6 +1,6 @@
 #![crate_name = "datetime"]
 #![crate_type = "dylib"]
-#![feature(core, libc, plugin)]
+#![feature(libc, plugin)]
 #![plugin(regex_macros)]
 
 extern crate locale;
