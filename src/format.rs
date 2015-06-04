@@ -58,7 +58,7 @@ use std::io;
 use std::io::Write;
 use std::str::CharIndices;
 
-use local::{LocalDateTime, DatePiece, TimePiece};
+use local::{DatePiece, TimePiece};
 
 use locale;
 use pad::{PadStr, Alignment};
@@ -81,8 +81,8 @@ pub enum Field<'a> {
 }
 
 impl<'a> Field<'a> {
-    fn format(self, when: LocalDateTime, w: &mut Vec<u8>, locale: &locale::Time) -> io::Result<()> {
-        match self {
+    fn format<T>(&self, when: &T, w: &mut Vec<u8>, locale: &locale::Time) -> io::Result<()> where T: DatePiece+TimePiece {
+        match *self {
             Field::Literal(s)             => w.write_all(s.as_bytes()),
             Field::Year(a)                => a.format(w, when.year()),
             Field::YearOfCentury(a)       => a.format(w, when.year_of_century()),
@@ -199,10 +199,10 @@ impl NumArguments {
 }
 
 impl<'a> DateFormat<'a> {
-    pub fn format(self, when: LocalDateTime, locale: &locale::Time) -> String {
+    pub fn format<T>(&self, when: &T, locale: &locale::Time) -> String where T: DatePiece+TimePiece{
         let mut buf = Vec::<u8>::new();
 
-        for field in self.fields.into_iter() {
+        for field in self.fields.iter() {
             // It's safe to just ignore the error when writing to an in-memory
             // Vec<u8> buffer. If it fails then you have bigger problems
             match field.format(when, &mut buf, locale) { _ => {} }
