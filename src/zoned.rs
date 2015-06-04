@@ -12,7 +12,7 @@ use tz::{Transition, parse};
 pub trait TimeZone: Sized {
     fn adjust(&self, local: LocalDateTime) -> LocalDateTime;
 
-    fn at(self, local: LocalDateTime) -> ZonedDateTime<Self> {
+    fn at(&self, local: LocalDateTime) -> ZonedDateTime<Self> {
         ZonedDateTime {
             local: local,
             time_zone: self
@@ -20,12 +20,13 @@ pub trait TimeZone: Sized {
     }
 }
 
-pub struct ZonedDateTime<TZ> {
+#[derive(Debug, Clone)]
+pub struct ZonedDateTime<'tz, TZ: 'tz> {
     local: LocalDateTime,
-    time_zone: TZ,
+    time_zone: &'tz TZ,
 }
 
-impl<TZ> DatePiece for ZonedDateTime<TZ> where TZ: TimeZone {
+impl<'tz, TZ> DatePiece for ZonedDateTime<'tz, TZ> where TZ: TimeZone+'tz {
     fn year(&self) -> i64 {
         self.time_zone.adjust(self.local).year()
     }
@@ -47,7 +48,7 @@ impl<TZ> DatePiece for ZonedDateTime<TZ> where TZ: TimeZone {
     }
 }
 
-impl<TZ> TimePiece for ZonedDateTime<TZ> where TZ: TimeZone {
+impl<'tz, TZ> TimePiece for ZonedDateTime<'tz, TZ> where TZ: TimeZone {
     fn hour(&self) -> i8 {
         self.time_zone.adjust(self.local).hour()
     }
@@ -65,6 +66,7 @@ impl<TZ> TimePiece for ZonedDateTime<TZ> where TZ: TimeZone {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct FixedOffset {
     offset: i32,
 }
@@ -86,6 +88,7 @@ impl TimeZone for FixedOffset {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct VariableOffset {
     transitions: Vec<Transition>,
 }

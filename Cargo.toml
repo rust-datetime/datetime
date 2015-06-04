@@ -7,7 +7,7 @@ documentation = "http://bsago.me/doc/datetime/"
 homepage = "https://github.com/ogham/rust-datetime"
 license = "MIT"
 readme = "README.md"
-version = "0.2.0"
+version = "0.2.1"
 
 [lib]
 name = "datetime"
