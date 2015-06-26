@@ -1,5 +1,6 @@
+use regex::Regex;
 pub fn parse_iso_ymd(input: &str) -> Option<(i64, i8, i8)> {
-    match regex!(r"^(\d{4})-(\d{2})-(\d{2})$").captures(input) {
+    match Regex::new(r"^(\d{4})-(\d{2})-(\d{2})$").unwrap().captures(input) {
         None => None,
         Some(caps) => {
             Some((caps.at(1).unwrap().parse().unwrap(),
