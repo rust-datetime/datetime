@@ -369,7 +369,7 @@ impl LocalDate {
     /// the constructed date if successful, and None if unsuccessful.
     pub fn parse(input: &str) -> Option<LocalDate> {
         parse::parse_iso_ymd(input).map(|(y, m, d)| {
-            let month = Month::from_zero(m);
+            let month = Month::from_one(m);
             LocalDate::ymd(y, month, d)
         }).unwrap()
     }
@@ -553,6 +553,16 @@ impl Month {
             April   =>   3, May      =>   4, June      =>  5,
             July    =>   6, August   =>   7, September =>  8,
             October =>   9, November =>  10, December  => 11,
+        }
+    }
+
+    fn from_one(month: i8) -> Month {
+        match month {
+            1 => January,   2 => February,   3 => March,
+            4 => April,     5 => May,        6 => June,
+            7 => July,      8 => August,     9 => September,
+            10 => October,  11 => November,  12 => December,
+            _ => unreachable!(),
         }
     }
 
@@ -839,6 +849,23 @@ mod test {
     fn leap_year_1900() {
         let date = YMD { year: 1900, month: Month::January, day: 1 };
         assert!(date.leap_year_calculations().1 == false)
+    }
+
+    #[test]
+    fn parse_iso_ymd()
+    {
+        let date_option= LocalDate::parse("2015-06-26");
+        assert!(date_option.is_some());
+        let date = date_option.unwrap();
+        assert!(date.year() == 2015);
+        assert!(date.month() == Month::June);
+        assert!(date.day() == 26);
+    }
+
+    #[test]
+    fn parse_month()
+    {
+        assert_eq!( LocalDate::parse("2015-01-26").unwrap().month(), Month::January)
     }
 
     #[test]
