@@ -72,10 +72,14 @@ const TIME_TRIANGLE: &'static [i64; 11] =
 ///
 /// This is stored as an enum instead of just a number to prevent
 /// off-by-one errors: is month 2 February (1-indexed) or March (0-indexed)?
+/// In this case, it's 1-indexed, to have January become 1 when you use
+/// `as i32` in code.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub enum Month {
-    January, February, March, April, May, June, July,
-    August, September, October, November, December,
+    January =  1, February =  2, March     =  3,
+    April   =  4, May      =  5, June      =  6,
+    July    =  7, August   =  8, September =  9,
+    October = 10, November = 11, December  = 12,
 }
 
 /// A named day of the week, starting with Sunday, and ending with Saturday.
