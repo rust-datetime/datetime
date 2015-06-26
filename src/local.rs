@@ -156,7 +156,7 @@ pub struct LocalTime {
 /// free to create such an instance of YMD. For this reason, it is not
 /// exposed to implementors of this library.
 #[derive(PartialEq, Eq, Clone, Debug, Copy)]
-struct YMD {
+pub struct YMD {
     year:    i64,
     month:   Month,
     day:     i8,
@@ -503,6 +503,12 @@ impl LocalDateTime {
     /// *and milliseconds* that have elapsed since **midnight, 1st
     /// January, 1970**.
 
+    pub fn from_date_time(date:LocalDate, time:LocalTime) -> LocalDateTime{
+        LocalDateTime{
+            date : date,
+            time : time
+        }
+    }
 
     /// The date portion of this date-time stamp.
     pub fn date(&self) -> LocalDate {
@@ -560,7 +566,7 @@ impl Month {
         }
     }
 
-    fn from_one(month: i8) -> Month {
+    pub fn from_one(month: i8) -> Month {
         match month {
             1 => January,   2 => February,   3 => March,
             4 => April,     5 => May,        6 => June,
@@ -570,7 +576,7 @@ impl Month {
         }
     }
 
-    fn from_zero(month: i8) -> Month {
+    pub fn from_zero(month: i8) -> Month {
         match month {
             0 => January,   1 => February,   2 => March,
             3 => April,     4 => May,        5 => June,
