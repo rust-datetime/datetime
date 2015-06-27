@@ -170,7 +170,7 @@ impl YMD {
     /// This method returns an Option instead of exposing is_valid to
     /// the user, because the leap year calculations are used in both
     /// functions, so it makes more sense to only do them once.
-    fn to_days_since_epoch(&self) -> Option<i64> {
+    pub fn to_days_since_epoch(&self) -> Option<i64> {
         let years = self.year - 2000;
         let (leap_days_elapsed, is_leap_year) = self.leap_year_calculations();
 
@@ -270,6 +270,20 @@ fn split_cycles(number_of_periods: i64, cycle_length: i64) -> (i64, i64) {
 }
 
 impl LocalDate {
+
+    /// Manually create a new `LocalDate`.
+    ///
+    /// Takes integer values for `year:i64`, `month:i8`, `day:i8` .
+    pub fn new(year:i64, month:i8, day:i8) -> LocalDate {
+        LocalDate::ymd(year,Month::from_one(month),day).unwrap()
+    }
+
+    /// Creates `LocalDate` from year, week number and day in week.
+    pub fn from_yearday(year:i64, yearday:i64) -> LocalDate {
+        let jan1 = LocalDate::new(year, 1, 1);
+        let days = jan1.ymd.to_days_since_epoch().unwrap();
+        LocalDate::from_days_since_epoch(yearday - days - EPOCH_DIFFERENCE -1)
+    }
 
     /// Computes a LocalDate - year, month, day, weekday, and yearday -
     /// given the number of days that have passed since the EPOCH.
