@@ -274,13 +274,16 @@ impl LocalDate {
     /// Manually create a new `LocalDate`.
     ///
     /// Takes integer values for `year:i64`, `month:i8`, `day:i8` .
-    pub fn new(year:i64, month:i8, day:i8) -> LocalDate {
-        LocalDate::ymd(year,Month::from_one(month),day).unwrap()
+    pub fn new(year:i64, month:i8, day:i8) -> Option<LocalDate> {
+        match (year, month, day) {
+             (_, 1...12, _) => LocalDate::ymd(year,Month::from_one(month),day),
+             _ => None
+        }
     }
 
     /// Creates `LocalDate` from year, week number and day in week.
     pub fn from_yearday(year:i64, yearday:i64) -> LocalDate {
-        let jan1 = LocalDate::new(year, 1, 1);
+        let jan1 = LocalDate::new(year, 1, 1).unwrap();
         let days = jan1.ymd.to_days_since_epoch().unwrap();
         LocalDate::from_days_since_epoch(yearday - days - EPOCH_DIFFERENCE -1)
     }
@@ -896,6 +899,20 @@ mod test {
         assert!(date.year() == 2015);
         assert!(date.month() == Month::June);
         assert!(date.day() == 26);
+    }
+
+    #[test]
+    fn new() {
+        for year in 1..2058
+        {
+            assert!(LocalDate::new(year, 2, 30).is_none()); assert!(LocalDate::new(year, 0, 30).is_none());
+            assert!(LocalDate::new(year, -1, 30).is_none()); assert!(LocalDate::new(year, 13, 30).is_none());
+
+            assert!(LocalDate::new(year, 1, 32).is_none()); assert!(LocalDate::new(year, 2, 30).is_none()); assert!(LocalDate::new(year, 3, 32).is_none());
+            assert!(LocalDate::new(year, 4, 31).is_none()); assert!(LocalDate::new(year, 5, 32).is_none()); assert!(LocalDate::new(year, 6, 31).is_none());
+            assert!(LocalDate::new(year, 7, 32).is_none()); assert!(LocalDate::new(year, 8, 32).is_none()); assert!(LocalDate::new(year, 9, 31).is_none());
+            assert!(LocalDate::new(year, 10, 32).is_none()); assert!(LocalDate::new(year, 11, 31).is_none()); assert!(LocalDate::new(year, 12, 32).is_none());
+        }
     }
 
     #[test]
