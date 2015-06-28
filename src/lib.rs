@@ -9,7 +9,7 @@ extern crate regex;
 extern crate tz;
 
 mod now;
-mod parse;
+pub mod parse;
 pub mod zoned;
 pub mod local;
 pub mod instant;
