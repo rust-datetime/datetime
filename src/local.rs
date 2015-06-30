@@ -531,7 +531,7 @@ impl Month {
     /// leap year or not.
     fn days_in_month(&self, leap_year: bool) -> i8 {
         match *self {
-            January   => 31, February  => if leap_year { 28 } else { 29 },
+            January   => 31, February  => if leap_year { 29 } else { 28 },
             March     => 31, April     => 30,
             May       => 31, June      => 30,
             July      => 31, August    => 31,
@@ -854,6 +854,18 @@ mod test {
         let date = YMD { year: 1900, month: Month::January, day: 1 };
         assert!(date.leap_year_calculations().1 == false)
     }
+
+    #[test]
+    fn some_leap_years() {
+        for year in [2004,2008,2012,2016].iter(){
+            assert!(LocalDate::ymd(*year,Month::February,29).is_some());
+            assert!(LocalDate::ymd(*year+1,Month::February,29).is_none());
+        }
+        assert!(LocalDate::ymd(1600,Month::February,29).is_some());
+        assert!(LocalDate::ymd(1601,Month::February,29).is_none());
+        assert!(LocalDate::ymd(1602,Month::February,29).is_none());
+    }
+
 
     #[test]
     fn parse_iso_ymd()
