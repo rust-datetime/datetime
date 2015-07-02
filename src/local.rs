@@ -283,7 +283,6 @@ impl LocalDate {
 
     /// Creates `LocalDate` from year, week number and day in week.
     pub fn from_yearday(year:i64, yearday:i64) -> Option<LocalDate> {
-        //TODO: check for leap year
         match yearday {
             0...366 => {
                 let jan1 = LocalDate::new(year, 1, 1).unwrap();
@@ -431,10 +430,7 @@ impl LocalDate {
     /// Parse an input string matching the ISO-8601 format, returning
     /// the constructed date if successful, and None if unsuccessful.
     pub fn parse(input: &str) -> Option<LocalDate> {
-        parse::parse_iso_ymd(input).map(|(y, m, d)| {
-            let month = Month::from_one(m);
-            LocalDate::ymd(y, month, d)
-        }).unwrap()
+        parse::parse_iso_8601_date(input)
     }
 
     /// Creates a new datestamp instance with the given year, month, day,
@@ -525,10 +521,22 @@ impl LocalTime {
         self.hour as i64 * 3600
             + self.minute as i64 * 60
             + self.second as i64
+
+    }
+    /// Parse an input string matching the ISO-8601 format, returning
+    /// the constructed date if successful, and None if unsuccessful.
+    pub fn parse(input: &str) -> Option<LocalTime> {
+        parse::parse_iso_8601_time(input)
     }
 }
 
 impl LocalDateTime {
+
+    /// Parse an input string matching the ISO-8601 format, returning
+    /// the constructed date if successful, and None if unsuccessful.
+    pub fn parse(input: &str) -> Option<LocalDateTime> {
+        parse::parse_iso_8601(input)
+    }
 
     /// Computes a complete date-time based on the values in the given
     /// Instant parameter.

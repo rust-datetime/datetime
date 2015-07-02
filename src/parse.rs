@@ -1,5 +1,4 @@
-#![allow(dead_code)] //TODO remove all the allows
-use local::{LocalDate, LocalTime, LocalDateTime, Month};
+use local::{LocalDate, LocalTime, LocalDateTime};
 
 use regex::Regex;
 pub fn parse_iso_ymd(input: &str) -> Option<(i64, i8, i8)> {
@@ -24,8 +23,8 @@ pub fn parse_iso_8601(string:&str) -> Option<LocalDateTime>
 
 pub fn parse_iso_8601_date(string:&str) -> Option<LocalDate>
 {
-    let ymd = Regex::new(r"^(\d{4})-?(\d{2})-?(\d{2})$").unwrap();
     let week = Regex::new(r"^(\d{4})-W(\d{2})-(\d{1})$").unwrap();
+    let ymd = Regex::new(r"^(\d{4})-?(\d{2})-?(\d{2})$").unwrap();
 
     if ymd.is_match(&string) {
         return ymd.captures(string).map(|caps|
@@ -91,17 +90,23 @@ pub fn parse_iso_8601_time(string:&str) -> Option<LocalTime>
 #[cfg(test)]
 mod test {
     pub use super::parse_iso_ymd;
+    pub use super::parse_iso_8601_date;
+    pub use local::LocalDate;
 
     #[test]
     fn date() {
         let date = parse_iso_ymd("1985-04-12");
         assert_eq!(date, Some((1985, 4, 12)));
+        let date = parse_iso_8601_date("1985-04-12");
+        assert_eq!(date, LocalDate::new(1985, 4, 12));
     }
 
     #[test]
     fn fail() {
         let date = parse_iso_ymd("");
-        assert_eq!(date, None)
+        assert_eq!(date, None);
+        let date = parse_iso_8601_date("");
+        assert_eq!(date, None);
     }
 }
 
