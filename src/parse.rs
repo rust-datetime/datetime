@@ -12,6 +12,23 @@ pub fn parse_iso_ymd(input: &str) -> Option<(i64, i8, i8)> {
     }
 }
 
+
+/// Splits DateString, TimeString
+///
+/// for further parsing by `parse_iso_8601_date` and `parse_iso_8601_time`.
+pub fn split_iso_8601(string:&str) -> Option<(String, String)>
+{
+    let split = Regex::new(r"^([^T]*)T?(.*)$").unwrap();
+    if split.is_match(&string) {
+        let caps = split.captures(&string).unwrap();
+        if caps.len() > 1 {
+            return Some( (caps.at(1).unwrap().into(), caps.at(2).unwrap().into()) );
+        }
+    }
+    None
+}
+
+/// Parses a ISO 8601 strin into LocalDateTime Object.
 pub fn parse_iso_8601(string:&str) -> Option<LocalDateTime>
 {
     let (date_string, time_string) = split_iso_8601(string).unwrap();
@@ -21,10 +38,12 @@ pub fn parse_iso_8601(string:&str) -> Option<LocalDateTime>
     }
 }
 
+
+/// Parses ISO 8601 Date strings into LocalDate Object.
 pub fn parse_iso_8601_date(string:&str) -> Option<LocalDate>
 {
     let week = Regex::new(r"^(\d{4})-W(\d{2})-(\d{1})$").unwrap();
-    let ymd = Regex::new(r"^(\d{4})-?(\d{2})-?(\d{2})$").unwrap();
+    let ymd  = Regex::new(r"^(\d{4})-?(\d{2})-?(\d{2})$").unwrap();
 
     if ymd.is_match(&string) {
         return ymd.captures(string).map(|caps|
@@ -46,21 +65,7 @@ pub fn parse_iso_8601_date(string:&str) -> Option<LocalDate>
     None
 }
 
-/// Returns (DateString, TimeString)
-///
-/// Need to be parsed further.
-fn split_iso_8601(string:&str) -> Option<(String, String)>
-{
-    let split = Regex::new(r"^([^T]*)T?(.*)$").unwrap();
-    if split.is_match(&string) {
-        let caps = split.captures(&string).unwrap();
-        if caps.len() > 1 {
-            return Some( (caps.at(1).unwrap().into(), caps.at(2).unwrap().into()) );
-        }
-    }
-    None
-}
-
+/// Parses ISO 8601 Date strings into LocalTime Object.
 pub fn parse_iso_8601_time(string:&str) -> Option<LocalTime>
 {
     let exp = Regex::new(r"^(\d{2}):?(\d{2})?:?(?:(\d{2})\.?((?:\d{1,9}))?)?(?:([+-]\d\d)?:?(\d\d)?|(Z))?$").unwrap();
