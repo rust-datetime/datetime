@@ -9,24 +9,24 @@ use duration::Duration;
 use tz::{Transition, parse};
 
 
-pub trait TimeZone: Sized {
+pub trait TimeZone: Clone {
     fn adjust(&self, local: LocalDateTime) -> LocalDateTime;
 
     fn at(&self, local: LocalDateTime) -> ZonedDateTime<Self> {
         ZonedDateTime {
             local: local,
-            time_zone: self
+            time_zone: self.clone()
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct ZonedDateTime<'tz, TZ: 'tz> {
+pub struct ZonedDateTime<TZ> {
     local: LocalDateTime,
-    time_zone: &'tz TZ,
+    time_zone: TZ,
 }
 
-impl<'tz, TZ> DatePiece for ZonedDateTime<'tz, TZ> where TZ: TimeZone+'tz {
+impl<TZ> DatePiece for ZonedDateTime<TZ> where TZ: TimeZone {
     fn year(&self) -> i64 {
         self.time_zone.adjust(self.local).year()
     }
@@ -48,7 +48,7 @@ impl<'tz, TZ> DatePiece for ZonedDateTime<'tz, TZ> where TZ: TimeZone+'tz {
     }
 }
 
-impl<'tz, TZ> TimePiece for ZonedDateTime<'tz, TZ> where TZ: TimeZone {
+impl<TZ> TimePiece for ZonedDateTime<TZ> where TZ: TimeZone {
     fn hour(&self) -> i8 {
         self.time_zone.adjust(self.local).hour()
     }
