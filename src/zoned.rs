@@ -1,3 +1,5 @@
+//! Dates and times paired with a time zone, and time zone definitions.
+
 use local::{LocalDateTime, DatePiece, TimePiece, Month, Weekday};
 
 use std::path::Path;
@@ -9,9 +11,17 @@ use duration::Duration;
 use tz::{Transition, parse};
 
 
+/// A **time zone** is used to calculate how much to adjust a UTC-based time
+/// based on its geographical location.
 pub trait TimeZone: Clone {
+
+    /// Adjust this local time by a number of seconds.
+    ///
+    /// Although the return value is a `LocalDateTime`, this actual type is
+    /// never exposed.
     fn adjust(&self, local: LocalDateTime) -> LocalDateTime;
 
+    /// Create a `ZonedDateTime` instance using a clone of this time zone.
     fn at(&self, local: LocalDateTime) -> ZonedDateTime<Self> {
         ZonedDateTime {
             local: local,
@@ -20,6 +30,8 @@ pub trait TimeZone: Clone {
     }
 }
 
+
+/// A time paired with a time zone.
 #[derive(Debug, Clone)]
 pub struct ZonedDateTime<TZ> {
     local: LocalDateTime,
@@ -138,21 +150,37 @@ impl TimeZone for FixedOffset {
 }
 
 
+/// A time zone with a **variable offset** differs from UTC by a variable
+/// amount that depends on the date, such as for political reasons when a
+/// country decides to change. By encoding all the transitions, it's possible
+/// to adjust times *after* the transition time while leaving the dates
+/// *before* it unaffected.
 #[derive(Debug, Clone)]
 pub struct VariableOffset {
     transitions: Vec<Transition>,
 }
 
 impl VariableOffset {
+
+    /// Read time zone information in from the user's local time zone.
     pub fn localtime() -> Result<VariableOffset, Box<Error>> {
+        // TODO: replace this with some kind of factory.
+        // this won't be appropriate for all systems
         VariableOffset::zoneinfo(&Path::new("/etc/localtime"))
     }
 
+    /// Read time zone information in from the file at the given path,
+    /// returning a variable offset containing time transitions if successful,
+    /// or an error if not.
     pub fn zoneinfo(path: &Path) -> Result<VariableOffset, Box<Error>> {
         let mut contents = Vec::new();
         try!(File::open(path).unwrap().read_to_end(&mut contents));
         let mut tz = try!(parse(contents));
+
+        // Sort the transitions *backwards* to make it easier to get the first
+        // one *after* a specified time.
         tz.transitions.sort_by(|b, a| a.timestamp.cmp(&b.timestamp));
+
         Ok(VariableOffset { transitions: tz.transitions })
     }
 }
@@ -161,6 +189,7 @@ impl TimeZone for VariableOffset {
     fn adjust(&self, local: LocalDateTime) -> LocalDateTime {
         let unix_timestamp = local.to_instant().seconds() as i32;
 
+        // TODO: Replace this with a binary search
         match self.transitions.iter().find(|t| t.timestamp < unix_timestamp) {
             None     => local,
             Some(t)  => local + Duration::of(t.local_time_type.offset as i64),
