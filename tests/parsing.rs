@@ -17,9 +17,7 @@ fn iso_formats(){
     assert_eq!( parse_iso_8601( "20010203T040506+0700").unwrap(), parse_iso_8601( "2001-W05-6T04:05:06+07:00").unwrap());
 }
 
-#[test]
-fn fwd_new_parse_equivalent(){
-    let mut count = 0;
+fn open_test_file() -> String{
 
     let path = Path::new("./tests/examples.json");
     let display = path.display();
@@ -35,12 +33,18 @@ fn fwd_new_parse_equivalent(){
         Err(why) => panic!("couldn't read {}: {}", display, Error::description(&why)),
         Ok(_) => s
     };
+    file_content
+}
 
+#[test]
+/// comprehensive test that compares
+fn date_fromweekday_vs_new_vs_parse(){
 
-    if let Json::Array(examples) = Json::from_str(&file_content).unwrap(){
-        let len = examples.len();
+    if let Json::Array(examples) = Json::from_str(&open_test_file()).unwrap(){
         for example in examples{
             if let Json::Array(ref example) = example{
+
+                // reading fields from examples.json
                 let ex0 = example[0].as_string().unwrap();
                 let ex1 = example[1].as_array().unwrap();
                 let ex2 = example[0].as_string().unwrap();
@@ -48,25 +52,27 @@ fn fwd_new_parse_equivalent(){
                 let (wyear, week, wday) = ( ex1[0].as_i64().unwrap(), ex1[1].as_i64().unwrap(), ex1[2].as_i64().unwrap());
                 let (year, month, day) = ( ex3[0].as_i64().unwrap(), ex3[1].as_i64().unwrap(), ex3[2].as_i64().unwrap());
 
+
+                // instantiating 4 equivalent date in 5 different ways
                 let date_fwd_s = parse_iso_8601_date(&ex0);
                 let date_fwd_t = LocalDate::from_weekday(wyear, week, wday);
                 let date_new_s = parse_iso_8601_date(&ex2);
                 let date_new_t = LocalDate::new(year, month as i8, day as i8);
-
                 let date_parse = LocalDate::parse(&ex0);
 
+                // 5 way comparison
                 assert_eq!( date_fwd_t, date_new_t );
+                assert_eq!( date_new_t, date_fwd_s );
                 assert_eq!( date_fwd_s, date_new_s );
                 assert_eq!( date_fwd_s, date_parse );
 
             }
         }
-        println!("{}% ok", (count as f64)/(len as f64)* 100f64);
     }
 }
 
 #[test]
-fn time_after_split(){
+fn time_parse_vs_new(){
     let strings = [
         // {{{
         ("2001-02-03T04:05:06+07:00",    Some((2001,02,03, 04,05,06,00, 07,00))),

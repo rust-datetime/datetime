@@ -156,7 +156,7 @@ pub struct LocalTime {
 /// free to create such an instance of YMD. For this reason, it is not
 /// exposed to implementors of this library.
 #[derive(PartialEq, Eq, Clone, Debug, Copy)]
-pub struct YMD {
+struct YMD {
     year:    i64,
     month:   Month,
     day:     i8,
@@ -294,7 +294,7 @@ impl LocalDate {
         }
     }
 
-    // /// Creates `LocalDate` from year, week number and day in week.
+    /// Creates `LocalDate` from year, week number and day in week.
     pub fn from_weekday(year:i64, week:i64, day:i64) -> Option<LocalDate>
     {
         match day

@@ -68,7 +68,7 @@ pub fn parse_iso_8601_date(string:&str) -> Option<LocalDate>
 /// Parses ISO 8601 Date strings into LocalTime Object.
 pub fn parse_iso_8601_time(string:&str) -> Option<LocalTime>
 {
-    let exp = Regex::new(r"^(\d{2}):?(\d{2})?:?(?:(\d{2})\.?((?:\d{1,9}))?)?(?:([+-]\d\d)?:?(\d\d)?|(Z))?$").unwrap();
+    let exp = Regex::new(r"^\s*(\d{2}):?(\d{2})?:?(?:(\d{2})\.?((?:\d{1,9}))?)?(?:([+-]\d\d)?:?(\d\d)?|(Z))?$").unwrap();
     if exp.is_match(&string) {
         let tup = exp.captures(string).map(|caps| (
                 caps.at(1).unwrap_or("00").parse::<i8>().unwrap(), // HH
