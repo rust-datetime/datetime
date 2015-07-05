@@ -66,6 +66,17 @@ impl<'tz, TZ> TimePiece for ZonedDateTime<'tz, TZ> where TZ: TimeZone {
     }
 }
 
+
+#[derive(Debug, Clone)]
+pub struct UTC;
+
+impl TimeZone for UTC {
+    fn adjust(&self, local: LocalDateTime) -> LocalDateTime {
+        local
+    }
+}
+
+
 #[derive(Debug, Clone)]
 pub struct FixedOffset {
     offset: i32,
@@ -87,6 +98,7 @@ impl TimeZone for FixedOffset {
         local + Duration::of(self.offset as i64)
     }
 }
+
 
 #[derive(Debug, Clone)]
 pub struct VariableOffset {
