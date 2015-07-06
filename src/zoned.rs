@@ -198,6 +198,28 @@ impl TimeZone for VariableOffset {
 }
 
 
+/// An enum of anything that could be a time zone, for cases when you don't
+/// know in advance which type of time zone you'll need.
+#[derive(Debug, Clone)]
+pub enum AnyTimeZone {
+    UTC(UTC),
+    Fixed(FixedOffset),
+    Variable(VariableOffset),
+}
+
+impl TimeZone for AnyTimeZone {
+    fn adjust(&self, local: LocalDateTime) -> LocalDateTime {
+        use self::AnyTimeZone::*;
+
+        match self {
+            &UTC(ref utc)     => utc.adjust(local),
+            &Fixed(ref f)     => f.adjust(local),
+            &Variable(ref v)  => v.adjust(local),
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod test {
     use super::FixedOffset;
