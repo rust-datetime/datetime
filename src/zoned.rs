@@ -1,6 +1,7 @@
 //! Dates and times paired with a time zone, and time zone definitions.
 
-use local::{LocalDateTime, DatePiece, TimePiece, Month, Weekday};
+use local::{LocalDate, LocalTime, LocalDateTime, DatePiece, TimePiece, Month, Weekday};
+use parse;
 
 use std::path::Path;
 use std::fs::File;
@@ -34,8 +35,34 @@ pub trait TimeZone: Clone {
 /// A time paired with a time zone.
 #[derive(Debug, Clone)]
 pub struct ZonedDateTime<TZ> {
-    local: LocalDateTime,
-    time_zone: TZ,
+    pub local: LocalDateTime,
+    pub time_zone: TZ,
+}
+
+impl<TZ> ZonedDateTime<TZ> where TZ: TimeZone {
+    // TODO add date() to DatePiece and make it private again
+    // TODO add time() to TimePiece
+
+
+    /// Parses a ZonedDateTime from ISO 8601, similar to `local::LocalDateTime::parse()`
+    ///
+    /// #Example
+    /// ```
+    /// let zoned_datetime = ZonedDateTime::<AnyTimeZone>::parse("2015-06-26T22:57:09Z");
+    /// ```
+    pub fn parse(input: &str) -> Option<ZonedDateTime<AnyTimeZone>> {
+        parse::parse_iso_8601_zoned(input)
+    }
+
+    /// Returns the LocalDate.
+    pub fn date(&self) -> LocalDate {
+        self.time_zone.adjust(self.local).date
+    }
+
+    /// Returns the LocalTime.
+    pub fn time(&self) -> LocalTime {
+        self.time_zone.adjust(self.local).time
+    }
 }
 
 impl<TZ> DatePiece for ZonedDateTime<TZ> where TZ: TimeZone {
@@ -126,7 +153,8 @@ impl FixedOffset {
     /// sign (such as a positive number of hours with a negative number of
     /// minutes).
     pub fn of_hours_and_minutes(hours: i8, minutes: i8) -> FixedOffset {
-        if hours.signum() != minutes.signum() {
+        if (hours.is_positive() && minutes.is_negative())
+        || (hours.is_negative() && minutes.is_positive()) {
             panic!("Hour and minute values differ in sign ({} and {}", hours, minutes);
         }
         else if hours <= -24 || hours >= 24 {
@@ -224,33 +252,85 @@ impl TimeZone for AnyTimeZone {
 mod test {
     use super::FixedOffset;
 
-	#[test]
-	fn fixed_seconds() {
-		FixedOffset::of_seconds(1234);
-	}
+    #[test]
+    fn fixed_seconds() {
+        FixedOffset::of_seconds(1234);
+    }
 
-	#[test] #[should_panic]
-	fn fixed_seconds_panic() {
-	    FixedOffset::of_seconds(100_000);
-	}
+    #[test] #[should_panic]
+    fn fixed_seconds_panic() {
+        FixedOffset::of_seconds(100_000);
+    }
 
-	#[test]
-	fn fixed_hm() {
-	    FixedOffset::of_hours_and_minutes(5, 30);
-	}
+    #[test]
+    fn fixed_hm() {
+        FixedOffset::of_hours_and_minutes(5, 30);
+    }
 
-	#[test]
-	fn fixed_hm_negative() {
-	    FixedOffset::of_hours_and_minutes(-3, -45);
-	}
+    #[test]
+    fn fixed_hm_negative() {
+        FixedOffset::of_hours_and_minutes(-3, -45);
+    }
 
-	#[test] #[should_panic]
-	fn fixed_hm_panic() {
-	    FixedOffset::of_hours_and_minutes(8, 60);
-	}
+    #[test] #[should_panic]
+    fn fixed_hm_panic() {
+        FixedOffset::of_hours_and_minutes(8, 60);
+    }
 
-	#[test] #[should_panic]
-	fn fixed_hm_signs() {
-	    FixedOffset::of_hours_and_minutes(-4, 30);
-	}
+    #[test] #[should_panic]
+    fn fixed_hm_signs() {
+        FixedOffset::of_hours_and_minutes(-4, 30);
+    }
+
+    #[test]
+    fn fixed_hm_signs_zero() {
+        FixedOffset::of_hours_and_minutes(4, 0);
+    }
+
+    use super::{ZonedDateTime, AnyTimeZone};
+    use local::{DatePiece,TimePiece};
+    #[test]
+    fn parse_zoned()
+    {
+        let foo = ZonedDateTime::<AnyTimeZone>::parse("2001-W05-6T04:05:06.123");
+        assert_eq!(foo.map(|zdt|(
+                           zdt.year(),
+                           zdt.month() as i8,
+                           zdt.day(),
+                           zdt.hour(),
+                           zdt.minute(),
+                           zdt.second(),
+                           zdt.millisecond())
+        ),Some((2001,02,03, 04,05,06,123)));
+
+        // TODO is this expected behaviour?
+        // match
+        // (ZonedDateTime::<AnyTimeZone>::parse("2001-W05-6T04:05:06.123+00:00"),
+        //  ZonedDateTime::<AnyTimeZone>::parse("2001-W05-6T03:05:06.123+01:00"))
+        // {
+        //     (Some(UTC0),Some(UTC1)) => assert_eq!(UTC0.hour(),UTC1.hour()),
+        //     _ => panic!("parsing error")
+        // }
+
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2001-w05-6t04:05:06.123z").is_none());
+        //assert!(ZonedDateTime::<AnyTimeZone>::parse("2015-06-26T22:57:09Z00:00").is_none());
+        //assert!(ZonedDateTime::<AnyTimeZone>::parse("2015-06-26T22:57:09Z+00:00").is_none());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2001-W05-6T04:05:06.123455Z").is_none());
+
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2001-02-03T04:05:06+07:00").is_some());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("20010203T040506+0700").is_some());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2001-W05-6T04:05").is_some());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2001-W05-6T04:05:06").is_some());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2001-W05-6T04:05:06.123").is_some());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2001-W05-6T04:05:06.123Z").is_some());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2001-W05-6T04:05:06+07").is_some());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2001-W05-6T04:05:06+07:00").is_some());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2001-W05-6T04:05:06-07:00").is_some());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2015-06-26TZ").is_some());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2015-06-26").is_some());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2015-06-26T22:57:09+00:00").is_some());
+        assert!(ZonedDateTime::<AnyTimeZone>::parse("2015-06-26T22:57:09Z").is_some());
+
+    }
 }
+

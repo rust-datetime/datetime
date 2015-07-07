@@ -1,6 +1,9 @@
 use local::{LocalDate, LocalTime, LocalDateTime};
+use zoned::*;
 
 use regex::Regex;
+
+// Deprecated
 pub fn parse_iso_ymd(input: &str) -> Option<(i64, i8, i8)> {
     match Regex::new(r"^(\d{4})-(\d{2})-(\d{2})$").unwrap().captures(input) {
         None => None,
@@ -42,58 +45,120 @@ pub fn parse_iso_8601(string:&str) -> Option<LocalDateTime>
 /// Parses ISO 8601 Date strings into LocalDate Object.
 pub fn parse_iso_8601_date(string:&str) -> Option<LocalDate>
 {
-    let week = Regex::new(r"^(\d{4})-W(\d{2})-(\d{1})$").unwrap();
-    let ymd  = Regex::new(r"^(\d{4})-?(\d{2})-?(\d{2})$").unwrap();
+    let week = Regex::new(r##"(?x)^
+        (\d{4})   # year
+        -W(\d{2}) # number of week
+        -(\d{1})  # day in week (1..7)
+        $"##).unwrap();
+    let ymd  = Regex::new(r##"(?x)^
+        (\d{4})   # year
+        -?(\d{2}) # month
+        -?(\d{2}) # day
+        $"##).unwrap();
 
     if ymd.is_match(&string) {
-        return ymd.captures(string).map(|caps|
+        ymd.captures(string).map(|caps|
         LocalDate::new(
             caps.at(1).unwrap().parse().unwrap(), // year
             caps.at(2).unwrap().parse().unwrap(), // month
             caps.at(3).unwrap().parse().unwrap(), // day
-            ).unwrap());
+            ).unwrap())
     }
-
-    if week.is_match(&string) {
-        return week.captures(string).map(|caps|
+    else if week.is_match(&string) {
+        week.captures(string).map(|caps|
         LocalDate::from_weekday(
-            caps.at(1).unwrap().parse::<i64>().unwrap(),  // year
-            caps.at(2).unwrap().parse::<i64>().unwrap(),  // week
-            caps.at(3).unwrap().parse::<i64>().unwrap()   // weekday
-            ).unwrap());
+            caps.at(1).unwrap().parse().unwrap(), // year
+            caps.at(2).unwrap().parse().unwrap(), // week
+            caps.at(3).unwrap().parse().unwrap()  // weekday
+            ).unwrap())
     }
-    None
+    else { None }
+}
+
+/// Parses a ISO 8601 strin into LocalDateTime Object.
+pub fn parse_iso_8601_zoned(string:&str) -> Option<ZonedDateTime<AnyTimeZone>>
+{
+    let (date_string, time_string) = split_iso_8601(string).unwrap();
+    match (parse_iso_8601_date(&date_string),parse_iso_8601_tuple(&time_string)){
+        (Some(date), Some((hour, minute, second, millisecond, _zh, _zm, _z)) ) => {
+            if let Some(time) = LocalTime::hms_ms(hour, minute, second, millisecond as i16){
+                let time_zone = if _z == "Z" {
+                    AnyTimeZone::UTC(UTC)
+                } else {
+                    AnyTimeZone::Fixed(FixedOffset::of_hours_and_minutes(_zh,_zm))
+                };
+
+                Some(ZonedDateTime::<AnyTimeZone>{
+                    local: LocalDateTime::from_date_time(date,time),
+                    time_zone: time_zone})
+            } else {None}
+        },
+        (Some(date), None) => {
+            if let Some(time) = LocalTime::hms(0,0,0){
+                Some(ZonedDateTime::<AnyTimeZone>{
+                    local: LocalDateTime::from_date_time(date,time),
+                    time_zone: AnyTimeZone::UTC(UTC)})
+            } else {None}
+        }
+        _ => None
+    }
 }
 
 /// Parses ISO 8601 Date strings into LocalTime Object.
 pub fn parse_iso_8601_time(string:&str) -> Option<LocalTime>
 {
-    let exp = Regex::new(r"^\s*(\d{2}):?(\d{2})?:?(?:(\d{2})\.?((?:\d{1,9}))?)?(?:([+-]\d\d)?:?(\d\d)?|(Z))?$").unwrap();
-    if exp.is_match(&string) {
-        let tup = exp.captures(string).map(|caps| (
-                caps.at(1).unwrap_or("00").parse::<i8>().unwrap(), // HH
-                caps.at(2).unwrap_or("00").parse::<i8>().unwrap(), // MM
-                caps.at(3).unwrap_or("00").parse::<i8>().unwrap(), // SS
-                caps.at(4).unwrap_or("00").parse::<i32>().unwrap(), // MS
-                caps.at(5).unwrap_or("+00").trim_matches('+').parse::<i32>().unwrap(), // ZH
-                caps.at(6).unwrap_or("00").parse::<i32>().unwrap(), // ZM
-                caps.at(7).unwrap_or("_"), // "Z"
-                caps.at(0).unwrap(), // All
-                caps.at(4).unwrap_or("").len(),
-                )).unwrap();
-
-        if tup.8%3 != 0 {return None}
-
-        return LocalTime::hms_ms(tup.0,tup.1,tup.2,tup.3 as i16);
-    }
     if string.len() == 0 {
         return Some(LocalTime::hms(0,0,0).unwrap());
+    }
+    if let Some((hour, minute, second, millisecond, _zh, _zm, _z)) = parse_iso_8601_tuple(string){
+        return LocalTime::hms_ms(hour, minute, second, millisecond as i16);
     }
     None
 }
 
+fn parse_iso_8601_tuple(string:&str) -> Option<(i8,i8,i8,i32,i8,i8,&str)>
+{
+    let exp = Regex::new(r##"(?x) ^
+        (\d{2}) :?     # hour
+        (\d{2})? :?    # minute
+
+        (?:
+            (\d{2})         # second
+            \.?
+            ((?:\d{1,9}))?  # millisecond
+        )?
+
+        (?:                 # time zone offset:
+            (Z) |           # or just Z for UTC
+            ([+-]\d\d)? :?  # hour and
+            (\d\d)?         # minute,
+        )?
+    $"##).ok().expect("Regex Broken");
+
+    if exp.is_match(&string) {
+        let tup = exp.captures(string).map(|caps|
+               (
+                caps.at(1).unwrap_or("00").parse::<i8>().unwrap(), // HH
+                caps.at(2).unwrap_or("00").parse::<i8>().unwrap(), // MM
+                caps.at(3).unwrap_or("00").parse::<i8>().unwrap(), // SS
+                caps.at(4).unwrap_or("000").parse::<i32>().unwrap(), // MS
+                caps.at(6).unwrap_or("+00").trim_matches('+').parse::<i8>().unwrap(), // ZH
+                caps.at(7).unwrap_or("00").parse::<i8>().unwrap(), // ZM
+                caps.at(5).unwrap_or("_"), // "Z"
+                )).unwrap();
+
+        if tup.3 > 0 && &format!("{}", tup.3).len() %3 != 0{
+            println!("{}", tup.3); return None}
+        return Some(tup);
+
+    }
+    None
+}
+
+
 #[cfg(test)]
-mod test {
+mod test
+{
     pub use super::parse_iso_ymd;
     pub use super::parse_iso_8601_date;
     pub use local::LocalDate;

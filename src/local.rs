@@ -121,8 +121,8 @@ impl Weekday {
 /// time zone*.
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct LocalDateTime {
-    date: LocalDate,
-    time: LocalTime,
+    pub date: LocalDate,
+    pub time: LocalTime,
 }
 
 /// A **local date** is a day-long span on the timeline, *without a time
@@ -569,7 +569,6 @@ impl LocalDateTime {
     /// Computes a complete date-time based on the number of seconds
     /// *and milliseconds* that have elapsed since **midnight, 1st
     /// January, 1970**.
-
     pub fn from_date_time(date:LocalDate, time:LocalTime) -> LocalDateTime{
         LocalDateTime{
             date : date,

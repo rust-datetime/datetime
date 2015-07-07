@@ -88,6 +88,7 @@ fn time_parse_vs_new(){
         ("2001-W05-6T04:05:06.1234",     None),
         ("2001-W05-6T04:05:06.12345",    None),
         ("2001-W05-6T04:05:06.12345Z",   None),
+        ("2001-w05-6t04:05:06.123z",     None),
         ("2001-W05-6T04:05:06.123Z",     Some((2001,02,03, 04,05,06,123,07,00))),
         ("2001-W05-6T04:05:06+07",       Some((2001,02,03, 04,05,06,00, 07,00))),
         ("2001-W05-6T04:05:06+07:00",    Some((2001,02,03, 04,05,06,00, 07,00))),
@@ -116,6 +117,7 @@ fn time_parse_vs_new(){
         let parsed0 = parse_iso_8601(&string).map(|d| (
                 d.year(), d.month() as i32, d.day(),
                 d.hour(), d.minute(), d.second(), d.millisecond()));
+        println!("{:?} {:?}", parsed0, known );
         assert_eq!(parsed0,known);
 
         let parsed1 = LocalDateTime::parse(&string).map(|d| (
