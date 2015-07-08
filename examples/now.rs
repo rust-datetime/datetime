@@ -2,7 +2,7 @@ extern crate datetime;
 extern crate locale;
 use datetime::format::DateFormat;
 use datetime::local::LocalDateTime;
-use datetime::zoned::{VariableOffset, TimeZone};
+use datetime::zoned::TimeZone;
 
 use std::path::Path;
 use std::env;
@@ -12,7 +12,7 @@ fn main() {
     let now = LocalDateTime::now();
     println!("It is {} in UTC", format.format(&now, &locale::Time::english()));
 
-    let localtime = match VariableOffset::localtime() {
+    let localtime = match TimeZone::localtime() {
         Ok(t) => t,
         Err(e) => { println!("Error: {}", e); return },
     };
@@ -22,7 +22,7 @@ fn main() {
 
     for arg in env::args().skip(1) {
         let path = Path::new(&arg);
-        let localtime = match VariableOffset::zoneinfo(&path) {
+        let localtime = match TimeZone::zoneinfo(&path) {
             Ok(t) => t,
             Err(e) => { println!("Error: {}", e); continue },
         };

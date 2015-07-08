@@ -76,28 +76,28 @@ pub fn parse_iso_8601_date(string:&str) -> Option<LocalDate>
 }
 
 /// Parses a ISO 8601 strin into LocalDateTime Object.
-pub fn parse_iso_8601_zoned(string:&str) -> Option<ZonedDateTime<AnyTimeZone>>
+pub fn parse_iso_8601_zoned(string:&str) -> Option<ZonedDateTime>
 {
     let (date_string, time_string) = split_iso_8601(string).unwrap();
     match (parse_iso_8601_date(&date_string),parse_iso_8601_tuple(&time_string)){
         (Some(date), Some((hour, minute, second, millisecond, _zh, _zm, _z)) ) => {
             if let Some(time) = LocalTime::hms_ms(hour, minute, second, millisecond as i16){
                 let time_zone = if _z == "Z" {
-                    AnyTimeZone::UTC(UTC)
+                    TimeZone::UTC
                 } else {
-                    AnyTimeZone::Fixed(FixedOffset::of_hours_and_minutes(_zh,_zm))
+                    TimeZone::of_hours_and_minutes(_zh,_zm)
                 };
 
-                Some(ZonedDateTime::<AnyTimeZone>{
+                Some(ZonedDateTime{
                     local: LocalDateTime::from_date_time(date,time),
                     time_zone: time_zone})
             } else {None}
         },
         (Some(date), None) => {
             if let Some(time) = LocalTime::hms(0,0,0){
-                Some(ZonedDateTime::<AnyTimeZone>{
+                Some(ZonedDateTime{
                     local: LocalDateTime::from_date_time(date,time),
-                    time_zone: AnyTimeZone::UTC(UTC)})
+                    time_zone: TimeZone::UTC})
             } else {None}
         }
         _ => None
