@@ -3,24 +3,10 @@ use zoned::*;
 
 use regex::Regex;
 
-// Deprecated
-pub fn parse_iso_ymd(input: &str) -> Option<(i64, i8, i8)> {
-    match Regex::new(r"^(\d{4})-(\d{2})-(\d{2})$").unwrap().captures(input) {
-        None => None,
-        Some(caps) => {
-            Some((caps.at(1).unwrap().parse().unwrap(),
-                  caps.at(2).unwrap().parse().unwrap(),
-                  caps.at(3).unwrap().parse().unwrap()))
-        },
-    }
-}
-
-
-/// Splits DateString, TimeString
+/// Splits Date String, Time String
 ///
 /// for further parsing by `parse_iso_8601_date` and `parse_iso_8601_time`.
-pub fn split_iso_8601(string:&str) -> Option<(String, String)>
-{
+pub fn split_iso_8601(string:&str) -> Option<(String, String)> {
     let split = Regex::new(r"^([^T]*)T?(.*)$").unwrap();
     if split.is_match(&string) {
         let caps = split.captures(&string).unwrap();
@@ -31,9 +17,8 @@ pub fn split_iso_8601(string:&str) -> Option<(String, String)>
     None
 }
 
-/// Parses a ISO 8601 strin into LocalDateTime Object.
-pub fn parse_iso_8601(string:&str) -> Option<LocalDateTime>
-{
+/// Parses a ISO 8601 a string into LocalDateTime Object.
+pub fn parse_iso_8601(string:&str) -> Option<LocalDateTime> {
     let (date_string, time_string) = split_iso_8601(string).unwrap();
     match (parse_iso_8601_date(&date_string), parse_iso_8601_time(&time_string)) {
         (Some(date),Some(time)) => return Some(LocalDateTime::from_date_time(date,time)),
@@ -42,13 +27,14 @@ pub fn parse_iso_8601(string:&str) -> Option<LocalDateTime>
 }
 
 
-/// Parses ISO 8601 Date strings into LocalDate Object.
-pub fn parse_iso_8601_date(string:&str) -> Option<LocalDate>
-{
+/// Parses ISO 8601 Date a string into a LocalDate Object.
+///
+/// Used by `LocalDate::parse()`
+pub fn parse_iso_8601_date(string:&str) -> Option<LocalDate> {
     let week = Regex::new(r##"(?x)^
         (\d{4})   # year
         -W(\d{2}) # number of week
-        -(\d{1})  # day in week (1..7)
+        -(\d{1})  # day in week (1..7)//}
         $"##).unwrap();
     let ymd  = Regex::new(r##"(?x)^
         (\d{4})   # year
@@ -75,9 +61,10 @@ pub fn parse_iso_8601_date(string:&str) -> Option<LocalDate>
     else { None }
 }
 
-/// Parses a ISO 8601 strin into LocalDateTime Object.
-pub fn parse_iso_8601_zoned(string:&str) -> Option<ZonedDateTime>
-{
+/// Parses ISO 8601 a string into a ZonedDateTime Object.
+///
+/// Used by `ZonedDateTime::parse()`
+pub fn parse_iso_8601_zoned(string:&str) -> Option<ZonedDateTime> {
     let (date_string, time_string) = split_iso_8601(string).unwrap();
     match (parse_iso_8601_date(&date_string),parse_iso_8601_tuple(&time_string)){
         (Some(date), Some((hour, minute, second, millisecond, _zh, _zm, _z)) ) => {
@@ -104,9 +91,10 @@ pub fn parse_iso_8601_zoned(string:&str) -> Option<ZonedDateTime>
     }
 }
 
-/// Parses ISO 8601 Date strings into LocalTime Object.
-pub fn parse_iso_8601_time(string:&str) -> Option<LocalTime>
-{
+/// Parses ISO 8601 a string into a LocalTime Object.
+///
+/// Used by `LocalTime::parse()`
+pub fn parse_iso_8601_time(string:&str) -> Option<LocalTime> {
     if string.len() == 0 {
         return Some(LocalTime::hms(0,0,0).unwrap());
     }
@@ -116,8 +104,8 @@ pub fn parse_iso_8601_time(string:&str) -> Option<LocalTime>
     None
 }
 
-fn parse_iso_8601_tuple(string:&str) -> Option<(i8,i8,i8,i32,i8,i8,&str)>
-{
+// implementation detail
+fn parse_iso_8601_tuple(string:&str) -> Option<(i8,i8,i8,i32,i8,i8,&str)> {
     let exp = Regex::new(r##"(?x) ^
         (\d{2}) :?     # hour
         (\d{2})? :?    # minute
@@ -157,24 +145,18 @@ fn parse_iso_8601_tuple(string:&str) -> Option<(i8,i8,i8,i32,i8,i8,&str)>
 
 
 #[cfg(test)]
-mod test
-{
-    pub use super::parse_iso_ymd;
+mod test {
     pub use super::parse_iso_8601_date;
     pub use local::LocalDate;
 
     #[test]
     fn date() {
-        let date = parse_iso_ymd("1985-04-12");
-        assert_eq!(date, Some((1985, 4, 12)));
         let date = parse_iso_8601_date("1985-04-12");
         assert_eq!(date, LocalDate::new(1985, 4, 12));
     }
 
     #[test]
     fn fail() {
-        let date = parse_iso_ymd("");
-        assert_eq!(date, None);
         let date = parse_iso_8601_date("");
         assert_eq!(date, None);
     }

@@ -14,8 +14,7 @@ use tz::{Transition, parse};
 /// A **time zone** is used to calculate how much to adjust a UTC-based time
 /// based on its geographical location.
 #[derive(Clone,Debug)]
-pub enum TimeZone
-{
+pub enum TimeZone {
     UTC,
     FixedOffset{offset: i32},
     VariableOffset{ transitions: Vec<Transition>}
@@ -23,8 +22,7 @@ pub enum TimeZone
 
 /// A **time zone** is used to calculate how much to adjust a UTC-based time
 /// based on its geographical location.
-impl TimeZone
-{
+impl TimeZone {
     fn adjust(&self, local: LocalDateTime) -> LocalDateTime
     {
         match self{
@@ -131,20 +129,18 @@ impl TimeZone
 
 /// A time paired with a time zone.
 #[derive(Debug, Clone)]
-pub struct ZonedDateTime
-{
+pub struct ZonedDateTime {
     pub local: LocalDateTime,
     pub time_zone: TimeZone,
 }
 
-impl ZonedDateTime
-{
+impl ZonedDateTime {
+    /// Instantiates a ZonedDateTime from ISO (RFC3339)
     pub fn parse(input: &str) -> Option<ZonedDateTime> {
         parse::parse_iso_8601_zoned(input)
     }
 }
-impl DatePiece for ZonedDateTime
-{
+impl DatePiece for ZonedDateTime {
     fn year(&self) -> i64 {
         self.time_zone.adjust(self.local).year()
     }
@@ -166,8 +162,7 @@ impl DatePiece for ZonedDateTime
     }
 }
 
-impl TimePiece for ZonedDateTime
-{
+impl TimePiece for ZonedDateTime {
     fn hour(&self) -> i8 {
         self.time_zone.adjust(self.local).hour()
     }

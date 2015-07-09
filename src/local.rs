@@ -170,7 +170,7 @@ impl YMD {
     /// This method returns an Option instead of exposing is_valid to
     /// the user, because the leap year calculations are used in both
     /// functions, so it makes more sense to only do them once.
-    pub fn to_days_since_epoch(&self) -> Option<i64> {
+    fn to_days_since_epoch(&self) -> Option<i64> {
         let years = self.year - 2000;
         let (leap_days_elapsed, is_leap_year) = self.leap_year_calculations();
 
@@ -427,7 +427,7 @@ impl LocalDate {
             .map(|days| LocalDate::from_days_since_epoch(days - EPOCH_DIFFERENCE))
     }
 
-    /// Parse an input string matching the ISO-8601 format, returning
+    /// Parse an input string matching the ISO-8601 format (RFC 3339), returning
     /// the constructed date if successful, and None if unsuccessful.
     pub fn parse(input: &str) -> Option<LocalDate> {
         parse::parse_iso_8601_date(input)
