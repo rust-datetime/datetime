@@ -283,15 +283,13 @@ impl LocalDate {
 
     /// Creates `LocalDate` from year, week number and day in week.
     pub fn from_yearday(year:i64, yearday:i64) -> Option<LocalDate> {
-        match yearday {
-            0...366 => {
-                let jan1 = LocalDate::new(year, 1, 1).unwrap();
-                let days = jan1.ymd.to_days_since_epoch().unwrap();
-                Some(LocalDate::from_days_since_epoch(
+        if let 0...366 = yearday {
+            let jan1 = LocalDate::new(year, 1, 1).unwrap();
+            let days = jan1.ymd.to_days_since_epoch().unwrap();
+            Some(LocalDate::from_days_since_epoch(
                     days + yearday -1 - EPOCH_DIFFERENCE ))
-            },
-            _ => None
         }
+        else {None}
     }
 
     /// Creates `LocalDate` from year, week number and day in week.
@@ -566,9 +564,7 @@ impl LocalDateTime {
         }
     }
 
-    /// Computes a complete date-time based on the number of seconds
-    /// *and milliseconds* that have elapsed since **midnight, 1st
-    /// January, 1970**.
+    /// Computes a LocalDateTime from two separate LocalDate and LocalTime instances.
     pub fn from_date_time(date:LocalDate, time:LocalTime) -> LocalDateTime{
         LocalDateTime{
             date : date,
@@ -952,7 +948,7 @@ mod test {
 
     #[test]
     fn new() {
-        for year in 1..2058
+        for year in 1..3000
         {
             assert!(LocalDate::new(year, 2, 30).is_none()); assert!(LocalDate::new(year, 0, 30).is_none());
             assert!(LocalDate::new(year, -1, 30).is_none()); assert!(LocalDate::new(year, 13, 30).is_none());

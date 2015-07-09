@@ -6,7 +6,7 @@ use regex::Regex;
 /// Splits Date String, Time String
 ///
 /// for further parsing by `parse_iso_8601_date` and `parse_iso_8601_time`.
-pub fn split_iso_8601(string:&str) -> Option<(String, String)> {
+pub fn split_iso_8601(string:&str) -> Option<(&str, &str)> {
     let split = Regex::new(r"^([^T]*)T?(.*)$").unwrap();
     if split.is_match(&string) {
         let caps = split.captures(&string).unwrap();
@@ -64,27 +64,23 @@ pub fn parse_iso_8601_date(string:&str) -> Option<LocalDate> {
 /// Parses ISO 8601 a string into a ZonedDateTime Object.
 ///
 /// Used by `ZonedDateTime::parse()`
-pub fn parse_iso_8601_zoned(string:&str) -> Option<ZonedDateTime> {
+pub fn parse_iso_8601_zoned(string:&str) -> Option<(LocalDateTime, TimeZone)> {
     let (date_string, time_string) = split_iso_8601(string).unwrap();
     match (parse_iso_8601_date(&date_string),parse_iso_8601_tuple(&time_string)){
-        (Some(date), Some((hour, minute, second, millisecond, _zh, _zm, _z)) ) => {
+        (Some(date), Some((hour, minute, second, millisecond, zh, zm, z)) ) => {
             if let Some(time) = LocalTime::hms_ms(hour, minute, second, millisecond as i16){
-                let time_zone = if _z == "Z" {
+                let time_zone = if z == "Z" {
                     TimeZone::UTC
                 } else {
-                    TimeZone::of_hours_and_minutes(_zh,_zm)
+                    TimeZone::of_hours_and_minutes(zh,zm)
                 };
 
-                Some(ZonedDateTime{
-                    local: LocalDateTime::from_date_time(date,time),
-                    time_zone: time_zone})
+                Some(( LocalDateTime::from_date_time(date,time), time_zone))
             } else {None}
         },
         (Some(date), None) => {
             if let Some(time) = LocalTime::hms(0,0,0){
-                Some(ZonedDateTime{
-                    local: LocalDateTime::from_date_time(date,time),
-                    time_zone: TimeZone::UTC})
+                Some(( LocalDateTime::from_date_time(date,time), TimeZone::UTC))
             } else {None}
         }
         _ => None
@@ -95,7 +91,7 @@ pub fn parse_iso_8601_zoned(string:&str) -> Option<ZonedDateTime> {
 ///
 /// Used by `LocalTime::parse()`
 pub fn parse_iso_8601_time(string:&str) -> Option<LocalTime> {
-    if string.len() == 0 {
+    if string.is_empty() {
         return Some(LocalTime::hms(0,0,0).unwrap());
     }
     if let Some((hour, minute, second, millisecond, _zh, _zm, _z)) = parse_iso_8601_tuple(string){
@@ -135,8 +131,8 @@ fn parse_iso_8601_tuple(string:&str) -> Option<(i8,i8,i8,i32,i8,i8,&str)> {
                 caps.at(5).unwrap_or("_"), // "Z"
                 )).unwrap();
 
-        if tup.3 > 0 && &format!("{}", tup.3).len() %3 != 0{
-            println!("{}", tup.3); return None}
+        //TODO: check this with the rfc3339 standard
+        //if tup.3 > 0 && &format!("{}", tup.3).len() %3 != 0{ return None}
         return Some(tup);
 
     }

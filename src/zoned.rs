@@ -130,14 +130,22 @@ impl TimeZone {
 /// A time paired with a time zone.
 #[derive(Debug, Clone)]
 pub struct ZonedDateTime {
-    pub local: LocalDateTime,
-    pub time_zone: TimeZone,
+    local: LocalDateTime,
+    time_zone: TimeZone,
 }
 
 impl ZonedDateTime {
     /// Instantiates a ZonedDateTime from ISO (RFC3339)
     pub fn parse(input: &str) -> Option<ZonedDateTime> {
-        parse::parse_iso_8601_zoned(input)
+        if let Some((local_date_time, time_zone)) = parse::parse_iso_8601_zoned(input){
+            Some(ZonedDateTime{
+                local: local_date_time,
+                time_zone: time_zone,
+            })
+        }
+        else{
+            None
+        }
     }
 }
 impl DatePiece for ZonedDateTime {
