@@ -1,4 +1,4 @@
-use local::{LocalDate, LocalTime, LocalDateTime};
+use local::{LocalDate, LocalTime, LocalDateTime, Month};
 use zoned::*;
 
 use regex::Regex;
@@ -46,7 +46,7 @@ pub fn parse_iso_8601_date(string:&str) -> Option<LocalDate> {
         ymd.captures(string).map(|caps|
         LocalDate::new(
             caps.at(1).unwrap().parse().unwrap(), // year
-            caps.at(2).unwrap().parse().unwrap(), // month
+            Month::from_one(caps.at(2).unwrap().parse().unwrap()), // month
             caps.at(3).unwrap().parse().unwrap(), // day
             ).unwrap())
     }
@@ -143,12 +143,12 @@ fn parse_iso_8601_tuple(string:&str) -> Option<(i8,i8,i8,i32,i8,i8,&str)> {
 #[cfg(test)]
 mod test {
     pub use super::parse_iso_8601_date;
-    pub use local::LocalDate;
+    pub use local::{LocalDate, Month};
 
     #[test]
     fn date() {
         let date = parse_iso_8601_date("1985-04-12");
-        assert_eq!(date, LocalDate::new(1985, 4, 12));
+        assert_eq!(date, LocalDate::new(1985, Month::April, 12));
     }
 
     #[test]

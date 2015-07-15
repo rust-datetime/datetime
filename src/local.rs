@@ -273,18 +273,15 @@ impl LocalDate {
 
     /// Manually create a new `LocalDate`.
     ///
-    /// Takes integer values for `year:i64`, `month:i8`, `day:i8` .
-    pub fn new(year:i64, month:i8, day:i8) -> Option<LocalDate> {
-        match (year, month, day) {
-             (_, 1...12, _) => LocalDate::ymd(year,Month::from_one(month),day),
-             _ => None
-        }
+    /// Takes integer values for `year:i64`, `month:Month`, `day:i8` .
+    pub fn new(year:i64, month:Month, day:i8) -> Option<LocalDate> {
+        LocalDate::ymd(year,month,day)
     }
 
     /// Creates `LocalDate` from year, week number and day in week.
     pub fn from_yearday(year:i64, yearday:i64) -> Option<LocalDate> {
         if let 0...366 = yearday {
-            let jan1 = LocalDate::new(year, 1, 1).unwrap();
+            let jan1 = LocalDate::new(year, Month::January, 1).unwrap();
             let days = jan1.ymd.to_days_since_epoch().unwrap();
             Some(LocalDate::from_days_since_epoch(
                     days + yearday -1 - EPOCH_DIFFERENCE ))
@@ -300,7 +297,7 @@ impl LocalDate {
             0...7 =>{
 
                 //let day = day - 1;
-                let jan1 = LocalDate::new(year, 1, 1).unwrap();
+                let jan1 = LocalDate::new(year, Month::January, 1).unwrap();
                 let yearday = match jan1.weekday().days_from_sunday() {
                     0...4 => (7i64 * week + day) - (jan1.weekday() as i64 +6),
                     _ => (7i64 * week + day) - (jan1.weekday() as i64 -1)
@@ -629,12 +626,12 @@ impl Month {
     }
 
     pub fn from_one(month: i8) -> Month {
-        match month {
+        match month{
             1 => January,   2 => February,   3 => March,
             4 => April,     5 => May,        6 => June,
             7 => July,      8 => August,     9 => September,
             10 => October,  11 => November,  12 => December,
-            _ => unreachable!(),
+            _ => unreachable!("month={} is not in range of 1..12"),
         }
     }
 
@@ -950,13 +947,10 @@ mod test {
     fn new() {
         for year in 1..3000
         {
-            assert!(LocalDate::new(year, 2, 30).is_none()); assert!(LocalDate::new(year, 0, 30).is_none());
-            assert!(LocalDate::new(year, -1, 30).is_none()); assert!(LocalDate::new(year, 13, 30).is_none());
-
-            assert!(LocalDate::new(year, 1, 32).is_none()); assert!(LocalDate::new(year, 2, 30).is_none()); assert!(LocalDate::new(year, 3, 32).is_none());
-            assert!(LocalDate::new(year, 4, 31).is_none()); assert!(LocalDate::new(year, 5, 32).is_none()); assert!(LocalDate::new(year, 6, 31).is_none());
-            assert!(LocalDate::new(year, 7, 32).is_none()); assert!(LocalDate::new(year, 8, 32).is_none()); assert!(LocalDate::new(year, 9, 31).is_none());
-            assert!(LocalDate::new(year, 10, 32).is_none()); assert!(LocalDate::new(year, 11, 31).is_none()); assert!(LocalDate::new(year, 12, 32).is_none());
+            assert!(LocalDate::new(year, Month::from_one( 1), 32).is_none()); assert!(LocalDate::new(year, Month::from_one( 2), 30).is_none()); assert!(LocalDate::new(year, Month::from_one( 3), 32).is_none());
+            assert!(LocalDate::new(year, Month::from_one( 4), 31).is_none()); assert!(LocalDate::new(year, Month::from_one( 5), 32).is_none()); assert!(LocalDate::new(year, Month::from_one( 6), 31).is_none());
+            assert!(LocalDate::new(year, Month::from_one( 7), 32).is_none()); assert!(LocalDate::new(year, Month::from_one( 8), 32).is_none()); assert!(LocalDate::new(year, Month::from_one( 9), 31).is_none());
+            assert!(LocalDate::new(year, Month::from_one(10), 32).is_none()); assert!(LocalDate::new(year, Month::from_one(11), 31).is_none()); assert!(LocalDate::new(year, Month::from_one(12), 32).is_none());
         }
     }
 
@@ -964,15 +958,15 @@ mod test {
     fn to_from_days_since_epoch() {
         let epoch_difference: i64 = 30 * 365 + 7 + 31 + 29;  // see EPOCH_DIFFERENCE
         for date in  vec![
-            LocalDate::new(1970, 01 , 01).unwrap(),
-            LocalDate::new(  01, 01 , 01).unwrap(),
-            LocalDate::new(1971, 01 , 01).unwrap(),
-            LocalDate::new(1973, 01 , 01).unwrap(),
-            LocalDate::new(1977, 01 , 01).unwrap(),
-            LocalDate::new(1989, 11 , 10).unwrap(),
-            LocalDate::new(1990,  7 ,  8).unwrap(),
-            LocalDate::new(2014,  7 , 13).unwrap(),
-            LocalDate::new(2001,  2 , 03).unwrap()
+            LocalDate::new(1970, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(  01, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1971, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1973, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1977, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1989, Month::from_one(11), 10).unwrap(),
+            LocalDate::new(1990, Month::from_one( 7),  8).unwrap(),
+            LocalDate::new(2014, Month::from_one( 7), 13).unwrap(),
+            LocalDate::new(2001, Month::from_one( 2), 03).unwrap()
         ]
         {
             assert_eq!( date,
@@ -985,13 +979,13 @@ mod test {
     fn from_yearday() {
         for date in  vec![
             //LocalDate::new(1970, 01 , 01).unwrap(),
-            LocalDate::new(1971, 01 , 01).unwrap(),
-            LocalDate::new(1973, 01 , 01).unwrap(),
-            LocalDate::new(1977, 01 , 01).unwrap(),
-            LocalDate::new(1989, 11 , 10).unwrap(),
-            LocalDate::new(1990,  7 ,  8).unwrap(),
-            LocalDate::new(2014,  7 , 13).unwrap(),
-            LocalDate::new(2001,  2 , 03).unwrap(),
+            LocalDate::new(1971, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1973, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1977, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1989, Month::from_one(11), 10).unwrap(),
+            LocalDate::new(1990, Month::from_one( 7),  8).unwrap(),
+            LocalDate::new(2014, Month::from_one( 7), 13).unwrap(),
+            LocalDate::new(2001, Month::from_one( 2), 03).unwrap(),
         ]
         {
             let new_date = LocalDate::from_yearday(date.year(), date.yearday() as i64).unwrap();
@@ -1004,18 +998,18 @@ mod test {
     fn yearday() {
         for year in 1..2058
         {
-            assert_eq!( LocalDate::new(year,01,31).unwrap().yearday() + 1,
-                        LocalDate::new(year,02,01).unwrap().yearday());
-            assert_eq!( LocalDate::new(year,03,31).unwrap().yearday() + 1,
-                        LocalDate::new(year,04,01).unwrap().yearday());
-            assert_eq!( LocalDate::new(year,04,30).unwrap().yearday() + 1,
-                        LocalDate::new(year,05,01).unwrap().yearday());
-            assert!(LocalDate::new(year,12,31).unwrap().yearday() > 0);
+            assert_eq!( LocalDate::new(year,Month::from_one(01),31).unwrap().yearday() + 1,
+                        LocalDate::new(year,Month::from_one(02),01).unwrap().yearday());
+            assert_eq!( LocalDate::new(year,Month::from_one(03),31).unwrap().yearday() + 1,
+                        LocalDate::new(year,Month::from_one(04),01).unwrap().yearday());
+            assert_eq!( LocalDate::new(year,Month::from_one(04),30).unwrap().yearday() + 1,
+                        LocalDate::new(year,Month::from_one(05),01).unwrap().yearday());
+            assert!(    LocalDate::new(year,Month::from_one(12),31).unwrap().yearday() > 0);
         }
-        assert_eq!( LocalDate::new(1600,02,29).unwrap().yearday() + 1, // leap year
-                    LocalDate::new(1600,03,01).unwrap().yearday());
-        assert_eq!( LocalDate::new(1601,02,28).unwrap().yearday() + 1, // no leap year
-                    LocalDate::new(1601,03,01).unwrap().yearday());
+        assert_eq!( LocalDate::new(1600,Month::from_one(02),29).unwrap().yearday() + 1, // leap year
+                    LocalDate::new(1600,Month::from_one(03),01).unwrap().yearday());
+        assert_eq!( LocalDate::new(1601,Month::from_one(02),28).unwrap().yearday() + 1, // no leap year
+                    LocalDate::new(1601,Month::from_one(03),01).unwrap().yearday());
 
     }
 

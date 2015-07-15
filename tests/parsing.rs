@@ -51,13 +51,14 @@ fn date_fromweekday_vs_new_vs_parse(){
                 let ex3 = example[3].as_array().unwrap();
                 let (wyear, week, wday) = ( ex1[0].as_i64().unwrap(), ex1[1].as_i64().unwrap(), ex1[2].as_i64().unwrap());
                 let (year, month, day) = ( ex3[0].as_i64().unwrap(), ex3[1].as_i64().unwrap(), ex3[2].as_i64().unwrap());
+                let month = Month::from_one(month as i8);
 
 
                 // instantiating 4 equivalent date in 5 different ways
                 let date_fwd_s = parse_iso_8601_date(&ex0);
                 let date_fwd_t = LocalDate::from_weekday(wyear, week, wday);
                 let date_new_s = parse_iso_8601_date(&ex2);
-                let date_new_t = LocalDate::new(year, month as i8, day as i8);
+                let date_new_t = LocalDate::new(year, month, day as i8);
                 let date_parse = LocalDate::parse(&ex0);
 
                 // 5 way comparison
@@ -131,8 +132,8 @@ fn time_parse_vs_new(){
             let parsed0 = parse_iso_8601_date(&dstring);
             let parsed1 = LocalDate::parse(&dstring);
             if let Some(known) = tup.1{
-                assert_eq!(parsed0,LocalDate::new(known.0, known.1 as i8, known.2));
-                assert_eq!(parsed1,LocalDate::new(known.0, known.1 as i8, known.2));
+                assert_eq!(parsed0,LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2));
+                assert_eq!(parsed1,LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2));
             }
 
             let parsed0 = parse_iso_8601_time(&tstring);
