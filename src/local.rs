@@ -121,8 +121,8 @@ impl Weekday {
 /// time zone*.
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct LocalDateTime {
-    date: LocalDate,
-    time: LocalTime,
+    pub date: LocalDate,
+    pub time: LocalTime,
 }
 
 /// A **local date** is a day-long span on the timeline, *without a time
@@ -271,6 +271,59 @@ fn split_cycles(number_of_periods: i64, cycle_length: i64) -> (i64, i64) {
 
 impl LocalDate {
 
+    /// Manually create a new `LocalDate`.
+    ///
+    /// Takes integer values for `year:i64`, `month:Month`, `day:i8` .
+    pub fn new(year:i64, month:Month, day:i8) -> Option<LocalDate> {
+        LocalDate::ymd(year,month,day)
+    }
+
+    /// Creates `LocalDate` from year, week number and day in week.
+    pub fn from_yearday(year:i64, yearday:i64) -> Option<LocalDate> {
+        if let 0...366 = yearday {
+            let jan1 = LocalDate::new(year, Month::January, 1).unwrap();
+            let days = jan1.ymd.to_days_since_epoch().unwrap();
+            Some(LocalDate::from_days_since_epoch(
+                    days + yearday -1 - EPOCH_DIFFERENCE ))
+        }
+        else {None}
+    }
+
+    /// Creates `LocalDate` from year, week number and day in week.
+    pub fn from_weekday(year:i64, week:i64, day:i64) -> Option<LocalDate>
+    {
+        match day
+        {
+            0...7 =>{
+
+                //let day = day - 1;
+                let jan1 = LocalDate::new(year, Month::January, 1).unwrap();
+                let yearday = match jan1.weekday().days_from_sunday() {
+                    0...4 => (7i64 * week + day) - (jan1.weekday() as i64 +6),
+                    _ => (7i64 * week + day) - (jan1.weekday() as i64 -1)
+                };
+
+                match LocalDate::from_yearday(year, yearday as i64){
+                    Some(date) => Some(date),
+                    None => {
+                        if yearday < 1 {
+                            let (_, is_leap_year) = YMD{year:year-1,month:Month::January,day:1}.leap_year_calculations();
+                            if is_leap_year { return LocalDate::from_yearday(year-1, 366+yearday as i64); }
+                            else            { return LocalDate::from_yearday(year-1, 365+yearday as i64); }
+                        }
+                        else if yearday > 365 {
+                            let (_, is_leap_year) = YMD{year:year,  month:Month::January,day:1}.leap_year_calculations();
+                            if is_leap_year { return LocalDate::from_yearday(year+1, yearday-366 as i64); }
+                            else            { return LocalDate::from_yearday(year+1, yearday-365 as i64); }
+                        }
+                        None
+                    }
+                }
+            },
+            _ => None
+        }
+    }
+
     /// Computes a LocalDate - year, month, day, weekday, and yearday -
     /// given the number of days that have passed since the EPOCH.
     ///
@@ -369,13 +422,10 @@ impl LocalDate {
             .map(|days| LocalDate::from_days_since_epoch(days - EPOCH_DIFFERENCE))
     }
 
-    /// Parse an input string matching the ISO-8601 format, returning
+    /// Parse an input string matching the ISO-8601 format (RFC 3339), returning
     /// the constructed date if successful, and None if unsuccessful.
     pub fn parse(input: &str) -> Option<LocalDate> {
-        parse::parse_iso_ymd(input).map(|(y, m, d)| {
-            let month = Month::from_one(m);
-            LocalDate::ymd(y, month, d)
-        }).unwrap()
+        parse::parse_iso_8601_date(input)
     }
 
     /// Creates a new datestamp instance with the given year, month, day,
@@ -466,10 +516,22 @@ impl LocalTime {
         self.hour as i64 * 3600
             + self.minute as i64 * 60
             + self.second as i64
+
+    }
+    /// Parse an input string matching the ISO-8601 format, returning
+    /// the constructed date if successful, and None if unsuccessful.
+    pub fn parse(input: &str) -> Option<LocalTime> {
+        parse::parse_iso_8601_time(input)
     }
 }
 
 impl LocalDateTime {
+
+    /// Parse an input string matching the ISO-8601 format, returning
+    /// the constructed date if successful, and None if unsuccessful.
+    pub fn parse(input: &str) -> Option<LocalDateTime> {
+        parse::parse_iso_8601(input)
+    }
 
     /// Computes a complete date-time based on the values in the given
     /// Instant parameter.
@@ -499,10 +561,13 @@ impl LocalDateTime {
         }
     }
 
-    /// Computes a complete date-time based on the number of seconds
-    /// *and milliseconds* that have elapsed since **midnight, 1st
-    /// January, 1970**.
-
+    /// Computes a LocalDateTime from two separate LocalDate and LocalTime instances.
+    pub fn from_date_time(date:LocalDate, time:LocalTime) -> LocalDateTime{
+        LocalDateTime{
+            date : date,
+            time : time
+        }
+    }
 
     /// The date portion of this date-time stamp.
     pub fn date(&self) -> LocalDate {
@@ -560,17 +625,17 @@ impl Month {
         }
     }
 
-    fn from_one(month: i8) -> Month {
-        match month {
+    pub fn from_one(month: i8) -> Month {
+        match month{
             1 => January,   2 => February,   3 => March,
             4 => April,     5 => May,        6 => June,
             7 => July,      8 => August,     9 => September,
             10 => October,  11 => November,  12 => December,
-            _ => unreachable!(),
+            _ => unreachable!("month={} is not in range of 1..12"),
         }
     }
 
-    fn from_zero(month: i8) -> Month {
+    pub fn from_zero(month: i8) -> Month {
         match month {
             0 => January,   1 => February,   2 => March,
             3 => April,     4 => May,        5 => June,
@@ -879,9 +944,81 @@ mod test {
     }
 
     #[test]
-    fn parse_month()
-    {
-        assert_eq!( LocalDate::parse("2015-01-26").unwrap().month(), Month::January)
+    fn new() {
+        for year in 1..3000
+        {
+            assert!(LocalDate::new(year, Month::from_one( 1), 32).is_none()); assert!(LocalDate::new(year, Month::from_one( 2), 30).is_none()); assert!(LocalDate::new(year, Month::from_one( 3), 32).is_none());
+            assert!(LocalDate::new(year, Month::from_one( 4), 31).is_none()); assert!(LocalDate::new(year, Month::from_one( 5), 32).is_none()); assert!(LocalDate::new(year, Month::from_one( 6), 31).is_none());
+            assert!(LocalDate::new(year, Month::from_one( 7), 32).is_none()); assert!(LocalDate::new(year, Month::from_one( 8), 32).is_none()); assert!(LocalDate::new(year, Month::from_one( 9), 31).is_none());
+            assert!(LocalDate::new(year, Month::from_one(10), 32).is_none()); assert!(LocalDate::new(year, Month::from_one(11), 31).is_none()); assert!(LocalDate::new(year, Month::from_one(12), 32).is_none());
+        }
+    }
+
+    #[test]
+    fn to_from_days_since_epoch() {
+        let epoch_difference: i64 = 30 * 365 + 7 + 31 + 29;  // see EPOCH_DIFFERENCE
+        for date in  vec![
+            LocalDate::new(1970, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(  01, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1971, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1973, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1977, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1989, Month::from_one(11), 10).unwrap(),
+            LocalDate::new(1990, Month::from_one( 7),  8).unwrap(),
+            LocalDate::new(2014, Month::from_one( 7), 13).unwrap(),
+            LocalDate::new(2001, Month::from_one( 2), 03).unwrap()
+        ]
+        {
+            assert_eq!( date,
+                LocalDate::from_days_since_epoch(
+                    date.ymd.to_days_since_epoch().unwrap() - epoch_difference));
+        }
+    }
+
+    #[test]
+    fn from_yearday() {
+        for date in  vec![
+            //LocalDate::new(1970, 01 , 01).unwrap(),
+            LocalDate::new(1971, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1973, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1977, Month::from_one(01), 01).unwrap(),
+            LocalDate::new(1989, Month::from_one(11), 10).unwrap(),
+            LocalDate::new(1990, Month::from_one( 7),  8).unwrap(),
+            LocalDate::new(2014, Month::from_one( 7), 13).unwrap(),
+            LocalDate::new(2001, Month::from_one( 2), 03).unwrap(),
+        ]
+        {
+            let new_date = LocalDate::from_yearday(date.year(), date.yearday() as i64).unwrap();
+            assert_eq!(new_date, date);
+            assert!(LocalDate::from_yearday(2002, 1).is_some());
+        }
+    }
+
+    #[test]
+    fn yearday() {
+        for year in 1..2058
+        {
+            assert_eq!( LocalDate::new(year,Month::from_one(01),31).unwrap().yearday() + 1,
+                        LocalDate::new(year,Month::from_one(02),01).unwrap().yearday());
+            assert_eq!( LocalDate::new(year,Month::from_one(03),31).unwrap().yearday() + 1,
+                        LocalDate::new(year,Month::from_one(04),01).unwrap().yearday());
+            assert_eq!( LocalDate::new(year,Month::from_one(04),30).unwrap().yearday() + 1,
+                        LocalDate::new(year,Month::from_one(05),01).unwrap().yearday());
+            assert!(    LocalDate::new(year,Month::from_one(12),31).unwrap().yearday() > 0);
+        }
+        assert_eq!( LocalDate::new(1600,Month::from_one(02),29).unwrap().yearday() + 1, // leap year
+                    LocalDate::new(1600,Month::from_one(03),01).unwrap().yearday());
+        assert_eq!( LocalDate::new(1601,Month::from_one(02),28).unwrap().yearday() + 1, // no leap year
+                    LocalDate::new(1601,Month::from_one(03),01).unwrap().yearday());
+
+    }
+
+
+    #[test]
+    fn parse_month() {
+        assert_eq!( LocalDate::parse("2015-01-26").unwrap().month(), Month::January);
+        assert_eq!( LocalDate::parse("1970-01-26").unwrap().month(), Month::January);
+        assert_eq!( LocalDate::parse("1969-01-26").unwrap().month(), Month::January);
     }
 
     #[test]
