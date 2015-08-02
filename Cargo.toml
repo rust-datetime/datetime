@@ -3,7 +3,7 @@ name = "datetime"
 description = "Library for date and time formatting and arithmetic"
 
 authors = [ "ogham@bsago.me", "Hendrik Sollich <hendrik@hoodie.de>" ]
-documentation = "http://bsago.me/doc/datetime/"
+documentation = "http://datetime.rustdocs.org/datetime/"
 homepage = "https://github.com/ogham/rust-datetime"
 license = "MIT"
 readme = "README.md"
