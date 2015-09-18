@@ -339,7 +339,7 @@ impl<'a> FormatParser<'a> {
     fn parse_a_thing(&mut self, open_pos: Pos) -> Result<Field<'a>, FormatError> {
         let mut args = Arguments::empty();
         let mut bit = None;
-        let mut close_pos;
+        let close_pos;
         let mut first = true;
         let mut long = false;
 
