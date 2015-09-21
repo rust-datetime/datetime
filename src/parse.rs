@@ -22,7 +22,7 @@ pub fn split_iso_8601(string: &str) -> Result<(&str, &str), Error> {
 
 /// Parses a ISO 8601 a string into LocalDateTime Object.
 pub fn parse_iso_8601(string: &str) -> Result<LocalDateTime, Error> {
-    let (date_string, time_string) = split_iso_8601(string).unwrap();
+    let (date_string, time_string) = try!(split_iso_8601(string));
 
     match (parse_iso_8601_date(&date_string), parse_iso_8601_time(&time_string)) {
         (Ok(date), Ok(time)) => Ok(LocalDateTime::from_date_time(date, time)),
@@ -49,10 +49,10 @@ pub fn parse_iso_8601_date(string: &str) -> Result<LocalDate, Error> {
 
     if ymd.is_match(&string) {
         if let Some(caps) = ymd.captures(string) {
-            let year = caps.at(1).unwrap().parse().unwrap();
-            let month_num = caps.at(2).unwrap().parse().unwrap();
-            let month = Month::from_one(month_num);
-            let day   = caps.at(3).unwrap().parse().unwrap();
+            let year       = caps.at(1).unwrap().parse().unwrap();
+            let month_num  = caps.at(2).unwrap().parse().unwrap();
+            let month      = Month::from_one(month_num);
+            let day        = caps.at(3).unwrap().parse().unwrap();
 
             LocalDate::ymd(year, month, day).map_err(Error::InvalidDate)
         }
@@ -62,9 +62,9 @@ pub fn parse_iso_8601_date(string: &str) -> Result<LocalDate, Error> {
     }
     else if week.is_match(&string) {
         if let Some(caps) = week.captures(string) {
-            let year  = caps.at(1).unwrap().parse().unwrap();
-            let month = caps.at(2).unwrap().parse().unwrap();
-            let day   = caps.at(3).unwrap().parse().unwrap();
+            let year   = caps.at(1).unwrap().parse().unwrap();
+            let month  = caps.at(2).unwrap().parse().unwrap();
+            let day    = caps.at(3).unwrap().parse().unwrap();
 
             LocalDate::from_weekday(year, month, day).map_err(Error::InvalidDate)
         }
@@ -81,7 +81,8 @@ pub fn parse_iso_8601_date(string: &str) -> Result<LocalDate, Error> {
 ///
 /// Used by `ZonedDateTime::parse()`
 pub fn parse_iso_8601_zoned(string: &str) -> Result<(LocalDateTime, TimeZone), Error> {
-    let (date_string, time_string) = split_iso_8601(string).unwrap();
+    let (date_string, time_string) = try!(split_iso_8601(string));
+
     match (parse_iso_8601_date(&date_string), parse_iso_8601_tuple(&time_string)) {
         (Ok(date), Ok((hour, minute, second, millisecond, zh, zm, z))) => {
             if let Ok(time) = LocalTime::hms_ms(hour, minute, second, millisecond as i16) {
