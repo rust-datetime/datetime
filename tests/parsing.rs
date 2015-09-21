@@ -1,72 +1,73 @@
 extern crate datetime;
 use datetime::local::*;
-use datetime::parse::*;
+use datetime::parse::{parse_iso_8601, parse_iso_8601_date};
+use datetime::parse::{parse_iso_8601_time, split_iso_8601};
 
 extern crate rustc_serialize;
 use rustc_serialize::json::Json;
 
-use std::error::Error;
+use std::error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-#[test]
-fn iso_formats(){
-    assert_eq!( parse_iso_8601( "2001-02-03T04:05:06+07:00").unwrap(), parse_iso_8601( "20010203T040506+0700").unwrap());
-    assert_eq!( parse_iso_8601( "2001-02-03T04:05:06+07:00").unwrap(), parse_iso_8601( "2001-W05-6T04:05:06+07:00").unwrap());
-    assert_eq!( parse_iso_8601( "20010203T040506+0700").unwrap(), parse_iso_8601( "2001-W05-6T04:05:06+07:00").unwrap());
-}
 
-fn open_test_file() -> String{
-
+fn open_test_file() -> String {
     let path = Path::new("./tests/examples.json");
     let display = path.display();
 
     // Open the path in read-only mode, returns `io::Result<File>`
     let mut file = match File::open(&path) {
-        Err(why) => panic!("couldn't open {}: {}", display, Error::description(&why)),
+        Err(why) => panic!("couldn't open {}: {}", display, error::Error::description(&why)),
         Ok(file) => file
     };
 
     let mut s = String::new();
     let file_content = match file.read_to_string(&mut s) {
-        Err(why) => panic!("couldn't read {}: {}", display, Error::description(&why)),
-        Ok(_) => s
+        Err(why) => panic!("couldn't read {}: {}", display, error::Error::description(&why)),
+        Ok(_)    => s
     };
+
     file_content
 }
 
 #[test]
-/// comprehensive test that compares
-fn date_fromweekday_vs_new_vs_parse(){
+fn iso_formats(){
+    assert_eq!(parse_iso_8601("2001-02-03T04:05:06+07:00").unwrap(), parse_iso_8601( "20010203T040506+0700").unwrap());
+    assert_eq!(parse_iso_8601("2001-02-03T04:05:06+07:00").unwrap(), parse_iso_8601( "2001-W05-6T04:05:06+07:00").unwrap());
+    assert_eq!(parse_iso_8601("20010203T040506+0700").unwrap(), parse_iso_8601( "2001-W05-6T04:05:06+07:00").unwrap());
+}
 
-    if let Json::Array(examples) = Json::from_str(&open_test_file()).unwrap(){
-        for example in examples{
-            if let Json::Array(ref example) = example{
+
+#[test]
+/// comprehensive test that compares
+fn date_fromweekday_vs_new_vs_parse() {
+    if let Json::Array(examples) = Json::from_str(&open_test_file()).unwrap() {
+        for example in examples {
+            if let Json::Array(ref example) = example {
 
                 // reading fields from examples.json
                 let ex0 = example[0].as_string().unwrap();
                 let ex1 = example[1].as_array().unwrap();
                 let ex2 = example[0].as_string().unwrap();
                 let ex3 = example[3].as_array().unwrap();
-                let (wyear, week, wday) = ( ex1[0].as_i64().unwrap(), ex1[1].as_i64().unwrap(), ex1[2].as_i64().unwrap());
-                let (year, month, day) = ( ex3[0].as_i64().unwrap(), ex3[1].as_i64().unwrap(), ex3[2].as_i64().unwrap());
+                let (wyear, week, wday) = (ex1[0].as_i64().unwrap(), ex1[1].as_i64().unwrap(), ex1[2].as_i64().unwrap());
+                let (year, month, day)  = (ex3[0].as_i64().unwrap(), ex3[1].as_i64().unwrap(), ex3[2].as_i64().unwrap());
                 let month = Month::from_one(month as i8);
 
 
                 // instantiating 4 equivalent date in 5 different ways
-                let date_fwd_s = parse_iso_8601_date(&ex0);
-                let date_fwd_t = LocalDate::from_weekday(wyear, week, wday);
-                let date_new_s = parse_iso_8601_date(&ex2);
-                let date_new_t = LocalDate::new(year, month, day as i8);
-                let date_parse = LocalDate::parse(&ex0);
+                let date_fwd_s = parse_iso_8601_date(&ex0).unwrap();
+                let date_fwd_t = LocalDate::from_weekday(wyear, week, wday).unwrap();
+                let date_new_s = parse_iso_8601_date(&ex2).unwrap();
+                let date_new_t = LocalDate::ymd(year, month, day as i8).unwrap();
+                let date_parse = LocalDate::parse(&ex0).unwrap();
 
                 // 5 way comparison
-                assert_eq!( date_fwd_t, date_new_t );
-                assert_eq!( date_new_t, date_fwd_s );
-                assert_eq!( date_fwd_s, date_new_s );
-                assert_eq!( date_fwd_s, date_parse );
-
+                assert_eq!(date_fwd_t, date_new_t);
+                assert_eq!(date_new_t, date_fwd_s);
+                assert_eq!(date_fwd_s, date_new_s);
+                assert_eq!(date_fwd_s, date_parse);
             }
         }
     }
@@ -105,48 +106,37 @@ fn time_parse_vs_new(){
         ("2015-W26-5",                   Some((2015,06,26, 00,00,00,00, 00,00))),  // Date with week number
       //("2015-177",                     Some)   // Ordinal date
         // }}}
-        ];
+    ];
 
-    for tup in strings.iter(){
+    for tup in strings.iter() {
         let string  = tup.0;
 
-        let known = match tup.1{
-            Some(known) => Some((known.0,known.1,known.2,known.3,known.4,known.5,known.6)),
-            None => None };
+        let known = match tup.1 {
+            Some(known) => Some((known.0, known.1, known.2, known.3, known.4, known.5, known.6)),
+            None        => None
+        };
 
         //datetime
         let parsed0 = parse_iso_8601(&string).map(|d| (
                 d.year(), d.month() as i32, d.day(),
                 d.hour(), d.minute(), d.second(), d.millisecond()));
-        println!("{:?} {:?}", parsed0, known );
-        assert_eq!(parsed0,known);
-
-        let parsed1 = LocalDateTime::parse(&string).map(|d| (
-                d.year(), d.month() as i32, d.day(),
-                d.hour(), d.minute(), d.second(), d.millisecond()));
-        assert_eq!(parsed1,known);
+        assert_eq!(parsed0.ok(), known);
 
         // date and time
-        if let Some((dstring,tstring)) = split_iso_8601(&string){
-
+        if let Ok((dstring, tstring)) = split_iso_8601(string) {
             let parsed0 = parse_iso_8601_date(&dstring);
             let parsed1 = LocalDate::parse(&dstring);
-            if let Some(known) = tup.1{
-                assert_eq!(parsed0,LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2));
-                assert_eq!(parsed1,LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2));
+            if let Some(known) = tup.1 {
+                assert_eq!(parsed0.ok(), LocalDate::ymd(known.0, Month::from_one(known.1 as i8), known.2).ok());
+                assert_eq!(parsed1.ok(), LocalDate::ymd(known.0, Month::from_one(known.1 as i8), known.2).ok());
             }
 
-            let parsed0 = parse_iso_8601_time(&tstring);
-            let parsed1 = LocalTime::parse(&tstring);
-            if let Some(known) = tup.1{
-                assert_eq!(parsed0,LocalTime::hms_ms(known.3, known.4, known.5, known.6 as i16));
-                assert_eq!(parsed1,LocalTime::hms_ms(known.3, known.4, known.5, known.6 as i16));
+            let parsed0 = parse_iso_8601_time(&tstring).ok();
+            let parsed1 = LocalTime::parse(&tstring).ok();
+            if let Some(known) = tup.1 {
+                assert_eq!(parsed0, LocalTime::hms_ms(known.3, known.4, known.5, known.6 as i16).ok());
+                assert_eq!(parsed1, LocalTime::hms_ms(known.3, known.4, known.5, known.6 as i16).ok());
             }
         }
     }
 }
-
-//#[test]
-//fn zoned_time(){
-//
-//}
