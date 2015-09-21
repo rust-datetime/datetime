@@ -147,8 +147,8 @@ mod test {
 
     #[test]
     fn date() {
-        let date = parse_iso_8601_date("1985-04-12");
-        assert_eq!(date, LocalDate::new(1985, Month::April, 12));
+        let date = parse_iso_8601_date("1985-04-12").unwrap();
+        assert_eq!(date, LocalDate::new(1985, Month::April, 12).unwrap());
     }
 
     #[test]

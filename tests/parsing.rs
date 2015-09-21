@@ -5,7 +5,7 @@ use datetime::parse::*;
 extern crate rustc_serialize;
 use rustc_serialize::json::Json;
 
-use std::error::Error;
+use std::error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
@@ -24,13 +24,13 @@ fn open_test_file() -> String{
 
     // Open the path in read-only mode, returns `io::Result<File>`
     let mut file = match File::open(&path) {
-        Err(why) => panic!("couldn't open {}: {}", display, Error::description(&why)),
+        Err(why) => panic!("couldn't open {}: {}", display, error::Error::description(&why)),
         Ok(file) => file
     };
 
     let mut s = String::new();
     let file_content = match file.read_to_string(&mut s) {
-        Err(why) => panic!("couldn't read {}: {}", display, Error::description(&why)),
+        Err(why) => panic!("couldn't read {}: {}", display, error::Error::description(&why)),
         Ok(_) => s
     };
     file_content
@@ -55,11 +55,11 @@ fn date_fromweekday_vs_new_vs_parse(){
 
 
                 // instantiating 4 equivalent date in 5 different ways
-                let date_fwd_s = parse_iso_8601_date(&ex0);
-                let date_fwd_t = LocalDate::from_weekday(wyear, week, wday);
-                let date_new_s = parse_iso_8601_date(&ex2);
-                let date_new_t = LocalDate::new(year, month, day as i8);
-                let date_parse = LocalDate::parse(&ex0);
+                let date_fwd_s = parse_iso_8601_date(&ex0).unwrap();
+                let date_fwd_t = LocalDate::from_weekday(wyear, week, wday).unwrap();
+                let date_new_s = parse_iso_8601_date(&ex2).unwrap();
+                let date_new_t = LocalDate::new(year, month, day as i8).unwrap();
+                let date_parse = LocalDate::parse(&ex0).unwrap();
 
                 // 5 way comparison
                 assert_eq!( date_fwd_t, date_new_t );
@@ -132,8 +132,8 @@ fn time_parse_vs_new(){
             let parsed0 = parse_iso_8601_date(&dstring);
             let parsed1 = LocalDate::parse(&dstring);
             if let Some(known) = tup.1{
-                assert_eq!(parsed0,LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2));
-                assert_eq!(parsed1,LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2));
+                assert_eq!(parsed0.unwrap(), LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2).unwrap());
+                assert_eq!(parsed1.unwrap(), LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2).unwrap());
             }
 
             let parsed0 = parse_iso_8601_time(&tstring);
