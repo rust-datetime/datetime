@@ -10,6 +10,7 @@ use std::error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+use std::str::FromStr;
 
 
 fn open_test_file() -> String {
@@ -61,7 +62,7 @@ fn date_fromweekday_vs_new_vs_parse() {
                 let date_fwd_t = LocalDate::from_weekday(wyear, week, wday).unwrap();
                 let date_new_s = parse_iso_8601_date(&ex2).unwrap();
                 let date_new_t = LocalDate::ymd(year, month, day as i8).unwrap();
-                let date_parse = LocalDate::parse(&ex0).unwrap();
+                let date_parse = LocalDate::from_str(&ex0).unwrap();
 
                 // 5 way comparison
                 assert_eq!(date_fwd_t, date_new_t);
@@ -125,14 +126,14 @@ fn time_parse_vs_new(){
         // date and time
         if let Ok((dstring, tstring)) = split_iso_8601(string) {
             let parsed0 = parse_iso_8601_date(&dstring);
-            let parsed1 = LocalDate::parse(&dstring);
+            let parsed1 = LocalDate::from_str(&dstring);
             if let Some(known) = tup.1 {
                 assert_eq!(parsed0.ok(), LocalDate::ymd(known.0, Month::from_one(known.1 as i8), known.2).ok());
                 assert_eq!(parsed1.ok(), LocalDate::ymd(known.0, Month::from_one(known.1 as i8), known.2).ok());
             }
 
             let parsed0 = parse_iso_8601_time(&tstring).ok();
-            let parsed1 = LocalTime::parse(&tstring).ok();
+            let parsed1 = LocalTime::from_str(&tstring).ok();
             if let Some(known) = tup.1 {
                 assert_eq!(parsed0, LocalTime::hms_ms(known.3, known.4, known.5, known.6 as i16).ok());
                 assert_eq!(parsed1, LocalTime::hms_ms(known.3, known.4, known.5, known.6 as i16).ok());
