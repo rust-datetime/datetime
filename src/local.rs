@@ -9,8 +9,6 @@ use self::Month::*;
 use self::Weekday::*;
 
 
-// ---- definitions ----
-
 /// Number of days guaranteed to be in four years.
 const DAYS_IN_4Y:   i64 = 365 *   4 +  1;
 
@@ -23,6 +21,7 @@ const DAYS_IN_400Y: i64 = 365 * 400 + 97;
 /// Number of seconds in a day. As everywhere in this library, leap seconds
 /// are simply ignored.
 const SECONDS_IN_DAY: i64 = 86400;
+
 
 /// Number of days between **1st March, 2000**, and **1st January, 1970**.
 ///
@@ -53,6 +52,7 @@ const EPOCH_DIFFERENCE: i64 = (30 * 365      // 30 years between 2000 and 1970..
                                + 7           // plus seven days for leap years...
                                + 31 + 29);   // plus all the days in January and February in 2000.
 
+
 /// This rather strange triangle is an array of the number of days elapsed
 /// at the end of each month, starting at the beginning of March (the first
 /// month after the EPOCH above), going backwards, ignoring February.
@@ -70,6 +70,64 @@ const TIME_TRIANGLE: &'static [i64; 11] =
       31]; // March
 
 
+/// The **date piece** trait is used for date and time values that have
+/// date components of years, months, and days.
+pub trait DatePiece {
+
+    /// The year, in absolute terms.
+    /// This is in human-readable format, so the year 2014 actually has a
+    /// year value of 2014, rather than 14 or 114 or anything like that.
+    fn year(&self) -> i64;
+
+    /// The month of the year.
+    fn month(&self) -> Month;
+
+    /// The day of the month, from 1 to 31.
+    fn day(&self) -> i8;
+
+    /// The day of the year, from 1 to 366.
+    fn yearday(&self) -> i16;
+
+    /// The day of the week.
+    fn weekday(&self) -> Weekday;
+
+    /// The number of years into the century.
+    /// This is the same as the last two digits of the year.
+    fn year_of_century(&self) -> i64 { self.year() % 100 }
+
+    /// The year number, relative to the year 2000.
+    /// Internally, many routines use years relative the year 2000,
+    /// rather than the year 0 (well, 1 BCE).
+    fn years_from_2000(&self) -> i64 { self.year() - 2000 }
+
+    // I'd ideally like to include 'century' here, but there's some
+    // discrepancy over what the result should be: the Gregorian
+    // calendar calls the span from 2000 to 2099 the '21st Century', but
+    // the ISO-8601 calendar calls it Century 20. I think the only way
+    // for people to safely know which one they're going to get is to
+    // just get the year value and do the calculation themselves, which
+    // is simple enough because it's just a division.
+}
+
+
+/// The **time piece** trait is used for date and time values that have
+/// time components of hours, minutes, and seconds.
+pub trait TimePiece {
+
+    /// The hour of the day.
+    fn hour(&self) -> i8;
+
+    /// The minute of the hour.
+    fn minute(&self) -> i8;
+
+    /// The second of the minute.
+    fn second(&self) -> i8;
+
+    /// The millisecond of the second.
+    fn millisecond(&self) -> i16;
+}
+
+
 /// A month of the year, starting with January, and ending with December.
 ///
 /// This is stored as an enum instead of just a number to prevent
@@ -84,6 +142,61 @@ pub enum Month {
     October = 10, November = 11, December  = 12,
 }
 
+impl Month {
+    /// The number of days in this month, depending on whether it's a
+    /// leap year or not.
+    fn days_in_month(&self, leap_year: bool) -> i8 {
+        match *self {
+            January   => 31, February  => if leap_year { 29 } else { 28 },
+            March     => 31, April     => 30,
+            May       => 31, June      => 30,
+            July      => 31, August    => 31,
+            September => 30, October   => 31,
+            November  => 30, December  => 31,
+        }
+    }
+
+    /// The number of days that have elapsed in a year *before* this
+    /// month begins, with no leap year check.
+    fn days_before_start(&self) -> i16 {
+        match *self {
+            January =>   0, February =>  31, March     =>  59,
+            April   =>  90, May      => 120, June      => 151,
+            July    => 181, August   => 212, September => 243,
+            October => 273, November => 304, December  => 334,
+        }
+    }
+
+    pub fn months_from_january(&self) -> usize {
+        match *self {
+            January =>   0, February =>   1, March     =>  2,
+            April   =>   3, May      =>   4, June      =>  5,
+            July    =>   6, August   =>   7, September =>  8,
+            October =>   9, November =>  10, December  => 11,
+        }
+    }
+
+    pub fn from_one(month: i8) -> Month {
+        match month {
+            1 => January,   2 => February,   3 => March,
+            4 => April,     5 => May,        6 => June,
+            7 => July,      8 => August,     9 => September,
+            10 => October,  11 => November,  12 => December,
+            _ => unreachable!("month={} is not in range of 1..12"),
+        }
+    }
+
+    pub fn from_zero(month: i8) -> Month {
+        match month {
+            0 => January,   1 => February,   2 => March,
+            3 => April,     4 => May,        5 => June,
+            6 => July,      7 => August,     8 => September,
+            9 => October,  10 => November,  11 => December,
+            _ => unreachable!(),
+        }
+    }
+}
+
 
 /// A named day of the week, starting with Sunday, and ending with Saturday.
 ///
@@ -95,6 +208,11 @@ pub enum Month {
 pub enum Weekday {
     Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday,
 }
+
+// I'm not going to give weekdays an Ord instance because there's no
+// real standard as to whether Sunday should come before Monday, or the
+// other way around. Luckily, they don't need one, as the field is
+// ignored when comparing LocalDates.
 
 impl Weekday {
     pub fn days_from_sunday(&self) -> usize {
@@ -116,19 +234,6 @@ impl Weekday {
 }
 
 
-// I'm not going to give weekdays an Ord instance because there's no
-// real standard as to whether Sunday should come before Monday, or the
-// other way around. Luckily, they don't need one, as the field is
-// ignored when comparing LocalDates.
-
-/// A **local date-time** is an exact instant on the timeline, *without a
-/// time zone*.
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub struct LocalDateTime {
-    pub date: LocalDate,
-    pub time: LocalTime,
-}
-
 /// A **local date** is a day-long span on the timeline, *without a time
 /// zone*.
 #[derive(Eq, Debug, Clone, Copy)]
@@ -148,131 +253,14 @@ pub struct LocalTime {
     millisecond: i16,
 }
 
-
-// ---- implementations ----
-
-/// A **YMD** is an implementation detail of LocalDate. It provides
-/// helper methods relating to the construction of LocalDate instances.
-///
-/// The main difference is that while all LocalDates get checked for
-/// validity before they are used, there is no such check for YMD. The
-/// interface to LocalDate ensures that it should be impossible to
-/// create an instance of the 74th of March, for example, but you're
-/// free to create such an instance of YMD. For this reason, it is not
-/// exposed to implementors of this library.
-#[derive(PartialEq, Eq, Clone, Debug, Copy)]
-struct YMD {
-    year:    i64,
-    month:   Month,
-    day:     i8,
+/// A **local date-time** is an exact instant on the timeline, *without a
+/// time zone*.
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub struct LocalDateTime {
+    pub date: LocalDate,
+    pub time: LocalTime,
 }
 
-impl YMD {
-    /// Calculates the number of days that have elapsed since the 1st
-    /// January, 1970. Returns the number of days if this datestamp is
-    /// valid; None otherwise.
-    ///
-    /// This method returns a Result instead of exposing is_valid to
-    /// the user, because the leap year calculations are used in both
-    /// functions, so it makes more sense to only do them once.
-    fn to_days_since_epoch(&self) -> Result<i64, Error> {
-        let years = self.year - 2000;
-        let (leap_days_elapsed, is_leap_year) = self.leap_year_calculations();
-
-        if !self.is_valid(is_leap_year) {
-            return Err(Error::OutOfRange);
-        }
-
-        // Work out the number of days from the start of 1970 to now,
-        // which is a multiple of the number of years...
-        let days = years * 365
-
-            // Plus the number of days between the start of 2000 and the
-            // start of 1970, to make up the difference because our
-            // dates start at 2000 and instants start at 1970...
-            + 10958
-
-            // Plus the number of leap years that have elapsed between
-            // now and the start of 2000...
-            + leap_days_elapsed
-
-            // Plus the number of days in all the months leading up to
-            // the current month...
-            + self.month.days_before_start() as i64
-
-            // Plus an extra leap day for *this* year...
-            + if is_leap_year && self.month >= March { 1 } else { 0 }
-
-            // Plus the number of days in the month so far! (Days are
-            // 1-indexed, so we make them 0-indexed here)
-            + (self.day - 1) as i64;
-
-        Ok(days)
-    }
-
-    /// Returns whether this datestamp is valid, which basically means
-    /// whether the day is in the range allowed by the month.
-    ///
-    /// Whether the current year is a leap year should already have been
-    /// calculated at this point, so the value is passed in rather than
-    /// calculating it afresh.
-    fn is_valid(&self, is_leap_year: bool) -> bool {
-        self.day >= 1 && self.day <= self.month.days_in_month(is_leap_year)
-    }
-
-    /// Performs two related calculations for leap years, returning the
-    /// results as a two-part tuple:
-    ///
-    /// 1. The number of leap years that have elapsed prior to this date;
-    /// 2. Whether the current year is a leap year or not.
-    fn leap_year_calculations(&self) -> (i64, bool) {
-        let year = self.year - 2000;
-
-        // This calculation is the reverse of LocalDate::from_days_since_epoch.
-        let (num_400y_cycles, mut remainder) = split_cycles(year, 400);
-
-        // Standard leap-year calculations, performed on the remainder
-        let currently_leap_year = remainder == 0 || (remainder % 100 != 0 && remainder % 4 == 0);
-
-        let num_100y_cycles = remainder / 100;
-        remainder -= num_100y_cycles * 100;
-
-        let leap_years_elapsed = remainder / 4
-            + 97 * num_400y_cycles  // There are 97 leap years in 400 years
-            + 24 * num_100y_cycles  // There are 24 leap years in 100 years
-            - if currently_leap_year { 1 } else { 0 };
-
-        (leap_years_elapsed, currently_leap_year)
-    }
-}
-
-/// Computes the weekday, given the number of days that have passed
-/// since the EPOCH.
-fn days_to_weekday(days: i64) -> Weekday {
-    // March 1st, 2000 was a Wednesday, so add 3 to the number of days.
-    let weekday = (days + 3) % 7;
-    Weekday::from_zero(if weekday < 0 { weekday + 7 } else { weekday } as i8)
-}
-
-/// Split a number of years into a number of year-cycles, and the number
-/// of years left over that don't fit into a cycle. This is also used
-/// for day-cycles.
-///
-/// This is essentially a division operation with the result and the
-/// remainder, with the difference that a negative value gets 'wrapped
-/// around' to be a positive value, owing to the way the modulo operator
-/// works for negative values.
-fn split_cycles(number_of_periods: i64, cycle_length: i64) -> (i64, i64) {
-    let mut cycles    = number_of_periods / cycle_length;
-    let mut remainder = number_of_periods % cycle_length;
-
-    if remainder < 0 {
-        remainder += cycle_length;
-        cycles    -= 1;
-    }
-
-    (cycles, remainder)
-}
 
 impl LocalDate {
 
@@ -459,6 +447,21 @@ impl LocalDate {
     // technically *need* to be unsafe, but I'll stick with it for now.
 }
 
+impl DatePiece for LocalDate {
+    fn year(&self) -> i64 { self.ymd.year }
+    fn month(&self) -> Month { self.ymd.month }
+    fn day(&self) -> i8 { self.ymd.day }
+    fn yearday(&self) -> i16 { self.yearday }
+    fn weekday(&self) -> Weekday { self.weekday }
+}
+
+impl PartialEq for LocalDate {
+    fn eq(&self, other: &LocalDate) -> bool {
+        self.ymd == other.ymd
+    }
+}
+
+
 impl LocalTime {
 
     /// Computes the number of hours, minutes, and seconds, based on the
@@ -533,6 +536,14 @@ impl LocalTime {
     }
 }
 
+impl TimePiece for LocalTime {
+    fn hour(&self) -> i8 { self.hour }
+    fn minute(&self) -> i8 { self.minute }
+    fn second(&self) -> i8 { self.second }
+    fn millisecond(&self) -> i16 { self.millisecond }
+}
+
+
 impl LocalDateTime {
 
     /// Parse an input string matching the ISO-8601 format, returning
@@ -599,134 +610,6 @@ impl LocalDateTime {
     }
 }
 
-impl Month {
-    /// The number of days in this month, depending on whether it's a
-    /// leap year or not.
-    fn days_in_month(&self, leap_year: bool) -> i8 {
-        match *self {
-            January   => 31, February  => if leap_year { 29 } else { 28 },
-            March     => 31, April     => 30,
-            May       => 31, June      => 30,
-            July      => 31, August    => 31,
-            September => 30, October   => 31,
-            November  => 30, December  => 31,
-        }
-    }
-
-    /// The number of days that have elapsed in a year *before* this
-    /// month begins, with no leap year check.
-    fn days_before_start(&self) -> i16 {
-        match *self {
-            January =>   0, February =>  31, March     =>  59,
-            April   =>  90, May      => 120, June      => 151,
-            July    => 181, August   => 212, September => 243,
-            October => 273, November => 304, December  => 334,
-        }
-    }
-
-    pub fn months_from_january(&self) -> usize {
-        match *self {
-            January =>   0, February =>   1, March     =>  2,
-            April   =>   3, May      =>   4, June      =>  5,
-            July    =>   6, August   =>   7, September =>  8,
-            October =>   9, November =>  10, December  => 11,
-        }
-    }
-
-    pub fn from_one(month: i8) -> Month {
-        match month {
-            1 => January,   2 => February,   3 => March,
-            4 => April,     5 => May,        6 => June,
-            7 => July,      8 => August,     9 => September,
-            10 => October,  11 => November,  12 => December,
-            _ => unreachable!("month={} is not in range of 1..12"),
-        }
-    }
-
-    pub fn from_zero(month: i8) -> Month {
-        match month {
-            0 => January,   1 => February,   2 => March,
-            3 => April,     4 => May,        5 => June,
-            6 => July,      7 => August,     8 => September,
-            9 => October,  10 => November,  11 => December,
-            _ => unreachable!(),
-        }
-    }
-}
-
-// ---- accessors ----
-
-/// The **date piece** trait is used for date and time values that have
-/// date components of years, months, and days.
-pub trait DatePiece {
-
-    /// The year, in absolute terms.
-    /// This is in human-readable format, so the year 2014 actually has a
-    /// year value of 2014, rather than 14 or 114 or anything like that.
-    fn year(&self) -> i64;
-
-    /// The month of the year.
-    fn month(&self) -> Month;
-
-    /// The day of the month, from 1 to 31.
-    fn day(&self) -> i8;
-
-    /// The day of the year, from 1 to 366.
-    fn yearday(&self) -> i16;
-
-    /// The day of the week.
-    fn weekday(&self) -> Weekday;
-
-    /// The number of years into the century.
-    /// This is the same as the last two digits of the year.
-    fn year_of_century(&self) -> i64 { self.year() % 100 }
-
-    /// The year number, relative to the year 2000.
-    /// Internally, many routines use years relative the year 2000,
-    /// rather than the year 0 (well, 1 BCE).
-    fn years_from_2000(&self) -> i64 { self.year() - 2000 }
-
-    // I'd ideally like to include 'century' here, but there's some
-    // discrepancy over what the result should be: the Gregorian
-    // calendar calls the span from 2000 to 2099 the '21st Century', but
-    // the ISO-8601 calendar calls it Century 20. I think the only way
-    // for people to safely know which one they're going to get is to
-    // just get the year value and do the calculation themselves, which
-    // is simple enough because it's just a division.
-}
-
-/// The **time piece** trait is used for date and time values that have
-/// time components of hours, minutes, and seconds.
-pub trait TimePiece {
-
-    /// The hour of the day.
-    fn hour(&self) -> i8;
-
-    /// The minute of the hour.
-    fn minute(&self) -> i8;
-
-    /// The second of the minute.
-    fn second(&self) -> i8;
-
-    /// The millisecond of the second.
-    fn millisecond(&self) -> i16;
-}
-
-impl DatePiece for LocalDate {
-    fn year(&self) -> i64 { self.ymd.year }
-    fn month(&self) -> Month { self.ymd.month }
-    fn day(&self) -> i8 { self.ymd.day }
-    fn yearday(&self) -> i16 { self.yearday }
-    fn weekday(&self) -> Weekday { self.weekday }
-}
-
-impl TimePiece for LocalTime {
-    fn hour(&self) -> i8 { self.hour }
-    fn minute(&self) -> i8 { self.minute }
-    fn second(&self) -> i8 { self.second }
-    fn millisecond(&self) -> i16 { self.millisecond }
-}
-
 impl DatePiece for LocalDateTime {
     fn year(&self) -> i64 { self.date.ymd.year }
     fn month(&self) -> Month { self.date.ymd.month }
@@ -740,14 +623,6 @@ impl TimePiece for LocalDateTime {
     fn minute(&self) -> i8 { self.time.minute }
     fn second(&self) -> i8 { self.time.second }
     fn millisecond(&self) -> i16 { self.time.millisecond }
-}
-
-// ---- helper implementations ----
-
-impl PartialEq for LocalDate {
-    fn eq(&self, other: &LocalDate) -> bool {
-        self.ymd == other.ymd
-    }
 }
 
 impl Add<Duration> for LocalDateTime {
@@ -766,15 +641,136 @@ impl Sub<Duration> for LocalDateTime {
     }
 }
 
-// ---- errors ----
+
+/// A **YMD** is an implementation detail of LocalDate. It provides
+/// helper methods relating to the construction of LocalDate instances.
+///
+/// The main difference is that while all LocalDates get checked for
+/// validity before they are used, there is no such check for YMD. The
+/// interface to LocalDate ensures that it should be impossible to
+/// create an instance of the 74th of March, for example, but you're
+/// free to create such an instance of YMD. For this reason, it is not
+/// exposed to implementors of this library.
+#[derive(PartialEq, Eq, Clone, Debug, Copy)]
+struct YMD {
+    year:    i64,
+    month:   Month,
+    day:     i8,
+}
+
+impl YMD {
+    /// Calculates the number of days that have elapsed since the 1st
+    /// January, 1970. Returns the number of days if this datestamp is
+    /// valid; None otherwise.
+    ///
+    /// This method returns a Result instead of exposing is_valid to
+    /// the user, because the leap year calculations are used in both
+    /// functions, so it makes more sense to only do them once.
+    fn to_days_since_epoch(&self) -> Result<i64, Error> {
+        let years = self.year - 2000;
+        let (leap_days_elapsed, is_leap_year) = self.leap_year_calculations();
+
+        if !self.is_valid(is_leap_year) {
+            return Err(Error::OutOfRange);
+        }
+
+        // Work out the number of days from the start of 1970 to now,
+        // which is a multiple of the number of years...
+        let days = years * 365
+
+            // Plus the number of days between the start of 2000 and the
+            // start of 1970, to make up the difference because our
+            // dates start at 2000 and instants start at 1970...
+            + 10958
+
+            // Plus the number of leap years that have elapsed between
+            // now and the start of 2000...
+            + leap_days_elapsed
+
+            // Plus the number of days in all the months leading up to
+            // the current month...
+            + self.month.days_before_start() as i64
+
+            // Plus an extra leap day for *this* year...
+            + if is_leap_year && self.month >= March { 1 } else { 0 }
+
+            // Plus the number of days in the month so far! (Days are
+            // 1-indexed, so we make them 0-indexed here)
+            + (self.day - 1) as i64;
+
+        Ok(days)
+    }
+
+    /// Returns whether this datestamp is valid, which basically means
+    /// whether the day is in the range allowed by the month.
+    ///
+    /// Whether the current year is a leap year should already have been
+    /// calculated at this point, so the value is passed in rather than
+    /// calculating it afresh.
+    fn is_valid(&self, is_leap_year: bool) -> bool {
+        self.day >= 1 && self.day <= self.month.days_in_month(is_leap_year)
+    }
+
+    /// Performs two related calculations for leap years, returning the
+    /// results as a two-part tuple:
+    ///
+    /// 1. The number of leap years that have elapsed prior to this date;
+    /// 2. Whether the current year is a leap year or not.
+    fn leap_year_calculations(&self) -> (i64, bool) {
+        let year = self.year - 2000;
+
+        // This calculation is the reverse of LocalDate::from_days_since_epoch.
+        let (num_400y_cycles, mut remainder) = split_cycles(year, 400);
+
+        // Standard leap-year calculations, performed on the remainder
+        let currently_leap_year = remainder == 0 || (remainder % 100 != 0 && remainder % 4 == 0);
+
+        let num_100y_cycles = remainder / 100;
+        remainder -= num_100y_cycles * 100;
+
+        let leap_years_elapsed = remainder / 4
+            + 97 * num_400y_cycles  // There are 97 leap years in 400 years
+            + 24 * num_100y_cycles  // There are 24 leap years in 100 years
+            - if currently_leap_year { 1 } else { 0 };
+
+        (leap_years_elapsed, currently_leap_year)
+    }
+}
+
+/// Computes the weekday, given the number of days that have passed
+/// since the EPOCH.
+fn days_to_weekday(days: i64) -> Weekday {
+    // March 1st, 2000 was a Wednesday, so add 3 to the number of days.
+    let weekday = (days + 3) % 7;
+    Weekday::from_zero(if weekday < 0 { weekday + 7 } else { weekday } as i8)
+}
+
+/// Split a number of years into a number of year-cycles, and the number
+/// of years left over that don't fit into a cycle. This is also used
+/// for day-cycles.
+///
+/// This is essentially a division operation with the result and the
+/// remainder, with the difference that a negative value gets 'wrapped
+/// around' to be a positive value, owing to the way the modulo operator
+/// works for negative values.
+fn split_cycles(number_of_periods: i64, cycle_length: i64) -> (i64, i64) {
+    let mut cycles    = number_of_periods / cycle_length;
+    let mut remainder = number_of_periods % cycle_length;
+
+    if remainder < 0 {
+        remainder += cycle_length;
+        cycles    -= 1;
+    }
+
+    (cycles, remainder)
+}
+
 
 #[derive(PartialEq, Debug)]
 pub enum Error {
     OutOfRange,
 }
 
-
-// ---- tests ----
 
 #[cfg(test)]
 mod test {
@@ -1008,18 +1004,18 @@ mod test {
     #[test]
     fn yearday() {
         for year in 1..2058 {
-            assert_eq!( LocalDate::ymd(year,Month::from_one(01),31).unwrap().yearday() + 1,
-                        LocalDate::ymd(year,Month::from_one(02),01).unwrap().yearday());
-            assert_eq!( LocalDate::ymd(year,Month::from_one(03),31).unwrap().yearday() + 1,
-                        LocalDate::ymd(year,Month::from_one(04),01).unwrap().yearday());
-            assert_eq!( LocalDate::ymd(year,Month::from_one(04),30).unwrap().yearday() + 1,
-                        LocalDate::ymd(year,Month::from_one(05),01).unwrap().yearday());
-            assert!(    LocalDate::ymd(year,Month::from_one(12),31).unwrap().yearday() > 0);
+            assert_eq!( LocalDate::ymd(year, Month::from_one(01), 31).unwrap().yearday() + 1,
+                        LocalDate::ymd(year, Month::from_one(02), 01).unwrap().yearday());
+            assert_eq!( LocalDate::ymd(year, Month::from_one(03), 31).unwrap().yearday() + 1,
+                        LocalDate::ymd(year, Month::from_one(04), 01).unwrap().yearday());
+            assert_eq!( LocalDate::ymd(year, Month::from_one(04), 30).unwrap().yearday() + 1,
+                        LocalDate::ymd(year, Month::from_one(05), 01).unwrap().yearday());
+            assert!(    LocalDate::ymd(year, Month::from_one(12), 31).unwrap().yearday() > 0);
         }
-        assert_eq!( LocalDate::ymd(1600,Month::from_one(02),29).unwrap().yearday() + 1, // leap year
-                    LocalDate::ymd(1600,Month::from_one(03),01).unwrap().yearday());
-        assert_eq!( LocalDate::ymd(1601,Month::from_one(02),28).unwrap().yearday() + 1, // no leap year
-                    LocalDate::ymd(1601,Month::from_one(03),01).unwrap().yearday());
+        assert_eq!( LocalDate::ymd(1600, Month::from_one(02), 29).unwrap().yearday() + 1, // leap year
+                    LocalDate::ymd(1600, Month::from_one(03), 01).unwrap().yearday());
+        assert_eq!( LocalDate::ymd(1601, Month::from_one(02), 28).unwrap().yearday() + 1, // no leap year
+                    LocalDate::ymd(1601, Month::from_one(03), 01).unwrap().yearday());
 
     }
 
@@ -1111,6 +1107,5 @@ mod test {
             let date = LocalDateTime::at(100000000);
             assert_eq!(LocalDateTime::at(99999999), date - Duration::of(1))
         }
-
     }
 }
