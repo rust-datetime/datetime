@@ -60,7 +60,7 @@ fn date_fromweekday_vs_new_vs_parse() {
                 let date_fwd_s = parse_iso_8601_date(&ex0).unwrap();
                 let date_fwd_t = LocalDate::from_weekday(wyear, week, wday).unwrap();
                 let date_new_s = parse_iso_8601_date(&ex2).unwrap();
-                let date_new_t = LocalDate::new(year, month, day as i8).unwrap();
+                let date_new_t = LocalDate::ymd(year, month, day as i8).unwrap();
                 let date_parse = LocalDate::parse(&ex0).unwrap();
 
                 // 5 way comparison
@@ -127,8 +127,8 @@ fn time_parse_vs_new(){
             let parsed0 = parse_iso_8601_date(&dstring);
             let parsed1 = LocalDate::parse(&dstring);
             if let Some(known) = tup.1 {
-                assert_eq!(parsed0.ok(), LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2).ok());
-                assert_eq!(parsed1.ok(), LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2).ok());
+                assert_eq!(parsed0.ok(), LocalDate::ymd(known.0, Month::from_one(known.1 as i8), known.2).ok());
+                assert_eq!(parsed1.ok(), LocalDate::ymd(known.0, Month::from_one(known.1 as i8), known.2).ok());
             }
 
             let parsed0 = parse_iso_8601_time(&tstring).ok();

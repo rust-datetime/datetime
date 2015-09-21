@@ -54,7 +54,7 @@ pub fn parse_iso_8601_date(string: &str) -> Result<LocalDate, Error> {
             let month = Month::from_one(month_num);
             let day   = caps.at(3).unwrap().parse().unwrap();
 
-            LocalDate::new(year, month, day).map_err(Error::InvalidDate)
+            LocalDate::ymd(year, month, day).map_err(Error::InvalidDate)
         }
         else {
             Err(Error::InvalidCharacter)
@@ -184,7 +184,7 @@ mod test {
     #[test]
     fn date() {
         let date = parse_iso_8601_date("1985-04-12").unwrap();
-        assert_eq!(date, LocalDate::new(1985, Month::April, 12).unwrap());
+        assert_eq!(date, LocalDate::ymd(1985, Month::April, 12).unwrap());
     }
 
     #[test]

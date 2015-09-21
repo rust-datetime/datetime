@@ -276,17 +276,10 @@ fn split_cycles(number_of_periods: i64, cycle_length: i64) -> (i64, i64) {
 
 impl LocalDate {
 
-    /// Manually create a new `LocalDate`.
-    ///
-    /// Takes integer values for `year:i64`, `month:Month`, `day:i8` .
-    pub fn new(year:i64, month:Month, day:i8) -> Result<LocalDate, Error> {
-        LocalDate::ymd(year,month,day)
-    }
-
     /// Creates `LocalDate` from year, week number and day in week.
     pub fn from_yearday(year:i64, yearday:i64) -> Result<LocalDate, Error> {
         if let 0...366 = yearday {
-            let jan1 = try!(LocalDate::new(year, Month::January, 1));
+            let jan1 = try!(LocalDate::ymd(year, Month::January, 1));
             let days = try!(jan1.ymd.to_days_since_epoch());
             Ok(LocalDate::from_days_since_epoch(days + yearday -1 - EPOCH_DIFFERENCE))
         }
@@ -301,7 +294,7 @@ impl LocalDate {
             0...7 => {
 
                 //let day = day - 1;
-                let jan1 = try!(LocalDate::new(year, Month::January, 1));
+                let jan1 = try!(LocalDate::ymd(year, Month::January, 1));
                 let yearday = match jan1.weekday().days_from_sunday() {
                     0...4 => (7i64 * week + day) - (jan1.weekday() as i64 + 6),
                     _ => (7i64 * week + day) - (jan1.weekday() as i64 - 1)
@@ -641,7 +634,7 @@ impl Month {
     }
 
     pub fn from_one(month: i8) -> Month {
-        match month{
+        match month {
             1 => January,   2 => February,   3 => March,
             4 => April,     5 => May,        6 => June,
             7 => July,      8 => August,     9 => September,
@@ -967,10 +960,10 @@ mod test {
     #[test]
     fn new() {
         for year in 1..3000 {
-            assert!(LocalDate::new(year, Month::from_one( 1), 32).is_err()); assert!(LocalDate::new(year, Month::from_one( 2), 30).is_err()); assert!(LocalDate::new(year, Month::from_one( 3), 32).is_err());
-            assert!(LocalDate::new(year, Month::from_one( 4), 31).is_err()); assert!(LocalDate::new(year, Month::from_one( 5), 32).is_err()); assert!(LocalDate::new(year, Month::from_one( 6), 31).is_err());
-            assert!(LocalDate::new(year, Month::from_one( 7), 32).is_err()); assert!(LocalDate::new(year, Month::from_one( 8), 32).is_err()); assert!(LocalDate::new(year, Month::from_one( 9), 31).is_err());
-            assert!(LocalDate::new(year, Month::from_one(10), 32).is_err()); assert!(LocalDate::new(year, Month::from_one(11), 31).is_err()); assert!(LocalDate::new(year, Month::from_one(12), 32).is_err());
+            assert!(LocalDate::ymd(year, Month::from_one( 1), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 2), 30).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 3), 32).is_err());
+            assert!(LocalDate::ymd(year, Month::from_one( 4), 31).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 5), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 6), 31).is_err());
+            assert!(LocalDate::ymd(year, Month::from_one( 7), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 8), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 9), 31).is_err());
+            assert!(LocalDate::ymd(year, Month::from_one(10), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one(11), 31).is_err()); assert!(LocalDate::ymd(year, Month::from_one(12), 32).is_err());
         }
     }
 
@@ -978,15 +971,15 @@ mod test {
     fn to_from_days_since_epoch() {
         let epoch_difference: i64 = 30 * 365 + 7 + 31 + 29;  // see EPOCH_DIFFERENCE
         for date in  vec![
-            LocalDate::new(1970, Month::from_one(01), 01).unwrap(),
-            LocalDate::new(  01, Month::from_one(01), 01).unwrap(),
-            LocalDate::new(1971, Month::from_one(01), 01).unwrap(),
-            LocalDate::new(1973, Month::from_one(01), 01).unwrap(),
-            LocalDate::new(1977, Month::from_one(01), 01).unwrap(),
-            LocalDate::new(1989, Month::from_one(11), 10).unwrap(),
-            LocalDate::new(1990, Month::from_one( 7),  8).unwrap(),
-            LocalDate::new(2014, Month::from_one( 7), 13).unwrap(),
-            LocalDate::new(2001, Month::from_one( 2), 03).unwrap()
+            LocalDate::ymd(1970, Month::from_one(01), 01).unwrap(),
+            LocalDate::ymd(  01, Month::from_one(01), 01).unwrap(),
+            LocalDate::ymd(1971, Month::from_one(01), 01).unwrap(),
+            LocalDate::ymd(1973, Month::from_one(01), 01).unwrap(),
+            LocalDate::ymd(1977, Month::from_one(01), 01).unwrap(),
+            LocalDate::ymd(1989, Month::from_one(11), 10).unwrap(),
+            LocalDate::ymd(1990, Month::from_one( 7),  8).unwrap(),
+            LocalDate::ymd(2014, Month::from_one( 7), 13).unwrap(),
+            LocalDate::ymd(2001, Month::from_one( 2), 03).unwrap()
         ]{
             assert_eq!( date,
                 LocalDate::from_days_since_epoch(
@@ -997,14 +990,14 @@ mod test {
     #[test]
     fn from_yearday() {
         for date in vec![
-            //LocalDate::new(1970, 01 , 01).unwrap(),
-            LocalDate::new(1971, Month::from_one(01), 01).unwrap(),
-            LocalDate::new(1973, Month::from_one(01), 01).unwrap(),
-            LocalDate::new(1977, Month::from_one(01), 01).unwrap(),
-            LocalDate::new(1989, Month::from_one(11), 10).unwrap(),
-            LocalDate::new(1990, Month::from_one( 7),  8).unwrap(),
-            LocalDate::new(2014, Month::from_one( 7), 13).unwrap(),
-            LocalDate::new(2001, Month::from_one( 2), 03).unwrap(),
+            //LocalDate::ymd(1970, 01 , 01).unwrap(),
+            LocalDate::ymd(1971, Month::from_one(01), 01).unwrap(),
+            LocalDate::ymd(1973, Month::from_one(01), 01).unwrap(),
+            LocalDate::ymd(1977, Month::from_one(01), 01).unwrap(),
+            LocalDate::ymd(1989, Month::from_one(11), 10).unwrap(),
+            LocalDate::ymd(1990, Month::from_one( 7),  8).unwrap(),
+            LocalDate::ymd(2014, Month::from_one( 7), 13).unwrap(),
+            LocalDate::ymd(2001, Month::from_one( 2), 03).unwrap(),
         ]{
             let new_date = LocalDate::from_yearday(date.year(), date.yearday() as i64).unwrap();
             assert_eq!(new_date, date);
@@ -1015,18 +1008,18 @@ mod test {
     #[test]
     fn yearday() {
         for year in 1..2058 {
-            assert_eq!( LocalDate::new(year,Month::from_one(01),31).unwrap().yearday() + 1,
-                        LocalDate::new(year,Month::from_one(02),01).unwrap().yearday());
-            assert_eq!( LocalDate::new(year,Month::from_one(03),31).unwrap().yearday() + 1,
-                        LocalDate::new(year,Month::from_one(04),01).unwrap().yearday());
-            assert_eq!( LocalDate::new(year,Month::from_one(04),30).unwrap().yearday() + 1,
-                        LocalDate::new(year,Month::from_one(05),01).unwrap().yearday());
-            assert!(    LocalDate::new(year,Month::from_one(12),31).unwrap().yearday() > 0);
+            assert_eq!( LocalDate::ymd(year,Month::from_one(01),31).unwrap().yearday() + 1,
+                        LocalDate::ymd(year,Month::from_one(02),01).unwrap().yearday());
+            assert_eq!( LocalDate::ymd(year,Month::from_one(03),31).unwrap().yearday() + 1,
+                        LocalDate::ymd(year,Month::from_one(04),01).unwrap().yearday());
+            assert_eq!( LocalDate::ymd(year,Month::from_one(04),30).unwrap().yearday() + 1,
+                        LocalDate::ymd(year,Month::from_one(05),01).unwrap().yearday());
+            assert!(    LocalDate::ymd(year,Month::from_one(12),31).unwrap().yearday() > 0);
         }
-        assert_eq!( LocalDate::new(1600,Month::from_one(02),29).unwrap().yearday() + 1, // leap year
-                    LocalDate::new(1600,Month::from_one(03),01).unwrap().yearday());
-        assert_eq!( LocalDate::new(1601,Month::from_one(02),28).unwrap().yearday() + 1, // no leap year
-                    LocalDate::new(1601,Month::from_one(03),01).unwrap().yearday());
+        assert_eq!( LocalDate::ymd(1600,Month::from_one(02),29).unwrap().yearday() + 1, // leap year
+                    LocalDate::ymd(1600,Month::from_one(03),01).unwrap().yearday());
+        assert_eq!( LocalDate::ymd(1601,Month::from_one(02),28).unwrap().yearday() + 1, // no leap year
+                    LocalDate::ymd(1601,Month::from_one(03),01).unwrap().yearday());
 
     }
 
