@@ -131,16 +131,13 @@ pub struct ZonedDateTime {
 impl ZonedDateTime {
 
     /// Instantiates a ZonedDateTime from ISO (RFC3339)
-    pub fn parse(input: &str) -> Option<ZonedDateTime> {
-        if let Some((local_date_time, time_zone)) = parse::parse_iso_8601_zoned(input) {
-            Some(ZonedDateTime {
+    pub fn parse(input: &str) -> Result<ZonedDateTime, parse::Error> {
+        parse::parse_iso_8601_zoned(input).map(|(local_date_time, time_zone)| {
+            ZonedDateTime {
                 local: local_date_time,
                 time_zone: time_zone,
-            })
-        }
-        else {
-            None
-        }
+            }
+        })
     }
 }
 
@@ -237,7 +234,7 @@ mod test {
                            zdt.minute(),
                            zdt.second(),
                            zdt.millisecond())
-        ),Some((2001,02,03, 04,05,06,123)));
+        ), Ok((2001,02,03, 04,05,06,123)));
 
         // TODO is this expected behaviour?
         // match
@@ -248,24 +245,24 @@ mod test {
         //     _ => panic!("parsing error")
         // }
 
-        assert!(ZonedDateTime::parse("2001-w05-6t04:05:06.123z").is_none());
-        //assert!(ZonedDateTime::parse("2015-06-26T22:57:09Z00:00").is_none());
-        //assert!(ZonedDateTime::parse("2015-06-26T22:57:09Z+00:00").is_none());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06.123455Z").is_none());
+        assert!(ZonedDateTime::parse("2001-w05-6t04:05:06.123z").is_err());
+        //assert!(ZonedDateTime::parse("2015-06-26T22:57:09Z00:00").is_err());
+        //assert!(ZonedDateTime::parse("2015-06-26T22:57:09Z+00:00").is_err());
+        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06.123455Z").is_err());
 
-        assert!(ZonedDateTime::parse("2001-02-03T04:05:06+07:00").is_some());
-        assert!(ZonedDateTime::parse("20010203T040506+0700").is_some());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05").is_some());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06").is_some());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06.123").is_some());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06.123Z").is_some());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06+07").is_some());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06+07:00").is_some());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06-07:00").is_some());
-        assert!(ZonedDateTime::parse("2015-06-26TZ").is_some());
-        assert!(ZonedDateTime::parse("2015-06-26").is_some());
-        assert!(ZonedDateTime::parse("2015-06-26T22:57:09+00:00").is_some());
-        assert!(ZonedDateTime::parse("2015-06-26T22:57:09Z").is_some());
+        assert!(ZonedDateTime::parse("2001-02-03T04:05:06+07:00").is_ok());
+        assert!(ZonedDateTime::parse("20010203T040506+0700").is_ok());
+        assert!(ZonedDateTime::parse("2001-W05-6T04:05").is_ok());
+        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06").is_ok());
+        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06.123").is_ok());
+        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06.123Z").is_ok());
+        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06+07").is_ok());
+        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06+07:00").is_ok());
+        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06-07:00").is_ok());
+        assert!(ZonedDateTime::parse("2015-06-26TZ").is_ok());
+        assert!(ZonedDateTime::parse("2015-06-26").is_ok());
+        assert!(ZonedDateTime::parse("2015-06-26T22:57:09+00:00").is_ok());
+        assert!(ZonedDateTime::parse("2015-06-26T22:57:09Z").is_ok());
     }
 }
 

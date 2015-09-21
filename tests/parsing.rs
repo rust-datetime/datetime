@@ -1,6 +1,7 @@
 extern crate datetime;
 use datetime::local::*;
-use datetime::parse::*;
+use datetime::parse::{parse_iso_8601, parse_iso_8601_date};
+use datetime::parse::{parse_iso_8601_time, split_iso_8601};
 
 extern crate rustc_serialize;
 use rustc_serialize::json::Json;
@@ -67,7 +68,6 @@ fn date_fromweekday_vs_new_vs_parse() {
                 assert_eq!(date_new_t, date_fwd_s);
                 assert_eq!(date_fwd_s, date_new_s);
                 assert_eq!(date_fwd_s, date_parse);
-
             }
         }
     }
@@ -120,28 +120,22 @@ fn time_parse_vs_new(){
         let parsed0 = parse_iso_8601(&string).map(|d| (
                 d.year(), d.month() as i32, d.day(),
                 d.hour(), d.minute(), d.second(), d.millisecond()));
-        println!("{:?} {:?}", parsed0, known);
-        assert_eq!(parsed0, known);
-
-        let parsed1 = LocalDateTime::parse(&string).map(|d| (
-                d.year(), d.month() as i32, d.day(),
-                d.hour(), d.minute(), d.second(), d.millisecond()));
-        assert_eq!(parsed1, known);
+        assert_eq!(parsed0.ok(), known);
 
         // date and time
-        if let Some((dstring,tstring)) = split_iso_8601(&string) {
+        if let Ok((dstring, tstring)) = split_iso_8601(string) {
             let parsed0 = parse_iso_8601_date(&dstring);
             let parsed1 = LocalDate::parse(&dstring);
             if let Some(known) = tup.1 {
-                assert_eq!(parsed0.unwrap(), LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2).unwrap());
-                assert_eq!(parsed1.unwrap(), LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2).unwrap());
+                assert_eq!(parsed0.ok(), LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2).ok());
+                assert_eq!(parsed1.ok(), LocalDate::new(known.0, Month::from_one(known.1 as i8), known.2).ok());
             }
 
-            let parsed0 = parse_iso_8601_time(&tstring);
-            let parsed1 = LocalTime::parse(&tstring);
+            let parsed0 = parse_iso_8601_time(&tstring).ok();
+            let parsed1 = LocalTime::parse(&tstring).ok();
             if let Some(known) = tup.1 {
-                assert_eq!(parsed0, LocalTime::hms_ms(known.3, known.4, known.5, known.6 as i16));
-                assert_eq!(parsed1, LocalTime::hms_ms(known.3, known.4, known.5, known.6 as i16));
+                assert_eq!(parsed0, LocalTime::hms_ms(known.3, known.4, known.5, known.6 as i16).ok());
+                assert_eq!(parsed1, LocalTime::hms_ms(known.3, known.4, known.5, known.6 as i16).ok());
             }
         }
     }

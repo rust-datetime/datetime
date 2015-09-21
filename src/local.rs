@@ -329,7 +329,9 @@ impl LocalDate {
                                 LocalDate::from_yearday(year + 1, yearday - 365 as i64)
                             }
                         }
-                        Err(e)
+                        else {
+                            Err(e)
+                        }
                     }
                 }
             },
@@ -437,7 +439,7 @@ impl LocalDate {
 
     /// Parse an input string matching the ISO-8601 format (RFC 3339), returning
     /// the constructed date if successful, and None if unsuccessful.
-    pub fn parse(input: &str) -> Option<LocalDate> {
+    pub fn parse(input: &str) -> Result<LocalDate, parse::Error> {
         parse::parse_iso_8601_date(input)
     }
 
@@ -493,15 +495,15 @@ impl LocalTime {
     ///
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return None.
-    pub fn hms(hour: i8, minute: i8, second: i8) -> Option<LocalTime> {
+    pub fn hms(hour: i8, minute: i8, second: i8) -> Result<LocalTime, Error> {
         if hour >= 0 && hour <= 23
             && minute >= 0 && minute <= 59
             && second >= 0 && second <= 59
         {
-            Some(LocalTime { hour: hour, minute: minute, second: second, millisecond: 0 })
+            Ok(LocalTime { hour: hour, minute: minute, second: second, millisecond: 0 })
         }
         else {
-            None
+            Err(Error::OutOfRange)
         }
     }
 
@@ -510,16 +512,16 @@ impl LocalTime {
     ///
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return None.
-    pub fn hms_ms(hour: i8, minute: i8, second: i8, millisecond: i16) -> Option<LocalTime> {
+    pub fn hms_ms(hour: i8, minute: i8, second: i8, millisecond: i16) -> Result<LocalTime, Error> {
         if hour >= 0 && hour <= 23
             && minute >= 0 && minute <= 59
             && second >= 0 && second <= 59
             && millisecond >= 0 && millisecond <= 999
         {
-            Some(LocalTime { hour: hour, minute: minute, second: second, millisecond: millisecond })
+            Ok(LocalTime { hour: hour, minute: minute, second: second, millisecond: millisecond })
         }
         else {
-            None
+            Err(Error::OutOfRange)
         }
     }
 
@@ -533,7 +535,7 @@ impl LocalTime {
     }
     /// Parse an input string matching the ISO-8601 format, returning
     /// the constructed date if successful, and None if unsuccessful.
-    pub fn parse(input: &str) -> Option<LocalTime> {
+    pub fn parse(input: &str) -> Result<LocalTime, parse::Error> {
         parse::parse_iso_8601_time(input)
     }
 }
@@ -542,7 +544,7 @@ impl LocalDateTime {
 
     /// Parse an input string matching the ISO-8601 format, returning
     /// the constructed date if successful, and None if unsuccessful.
-    pub fn parse(input: &str) -> Option<LocalDateTime> {
+    pub fn parse(input: &str) -> Result<LocalDateTime, parse::Error> {
         parse::parse_iso_8601(input)
     }
 
@@ -953,10 +955,9 @@ mod test {
 
 
     #[test]
-    fn parse_iso_ymd()
-    {
+    fn parse_iso_ymd() {
         let date_option= LocalDate::parse("2015-06-26");
-        assert!(date_option.is_some());
+        assert!(date_option.is_ok());
         let date = date_option.unwrap();
         assert!(date.year() == 2015);
         assert!(date.month() == Month::June);
