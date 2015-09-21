@@ -63,6 +63,7 @@ use local::{DatePiece, TimePiece};
 use locale;
 use pad::{PadStr, Alignment};
 
+
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Field<'a> {
     Literal(&'a str),
@@ -98,10 +99,12 @@ impl<'a> Field<'a> {
     }
 }
 
+
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct DateFormat<'a> {
     pub fields: Vec<Field<'a>>,
 }
+
 
 #[derive(PartialEq, Eq, Clone, Debug, Copy)]
 pub enum FormatError {
@@ -170,6 +173,7 @@ impl Arguments {
     }
 }
 
+
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct TextArguments(Arguments);
 
@@ -183,6 +187,7 @@ impl TextArguments {
         self.0.format(w, string)
     }
 }
+
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct NumArguments(Arguments);
@@ -218,6 +223,7 @@ impl<'a> DateFormat<'a> {
         Ok(DateFormat { fields: parser.fields })
     }
 }
+
 
 struct FormatParser<'a> {
     iter:   CharIndices<'a>,
@@ -382,6 +388,7 @@ impl<'a> FormatParser<'a> {
         }
     }
 }
+
 
 #[cfg(test)]
 mod test {

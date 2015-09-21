@@ -11,39 +11,36 @@ use std::error::Error;
 use duration::Duration;
 use tz::{Transition, parse};
 
+
 /// A **time zone** is used to calculate how much to adjust a UTC-based time
 /// based on its geographical location.
 #[derive(Clone,Debug)]
 pub enum TimeZone {
     UTC,
-    FixedOffset{offset: i32},
-    VariableOffset{ transitions: Vec<Transition>}
+    FixedOffset { offset: i32 },
+    VariableOffset { transitions: Vec<Transition> }
 }
 
 /// A **time zone** is used to calculate how much to adjust a UTC-based time
 /// based on its geographical location.
 impl TimeZone {
-    fn adjust(&self, local: LocalDateTime) -> LocalDateTime
-    {
+    fn adjust(&self, local: LocalDateTime) -> LocalDateTime {
         match self{
-            &TimeZone::UTC => { self.adjust_utc(local)},
-            &TimeZone::FixedOffset{offset} => { self.adjust_fixed(offset, local)},
-            &TimeZone::VariableOffset{ref transitions} => { self.adjust_variable(&transitions, local)},
+            &TimeZone::UTC => { self.adjust_utc(local) },
+            &TimeZone::FixedOffset{offset} => { self.adjust_fixed(offset, local) },
+            &TimeZone::VariableOffset{ref transitions} => { self.adjust_variable(&transitions, local) },
         }
     }
 
-    fn adjust_utc(&self, local: LocalDateTime) -> LocalDateTime
-    {
+    fn adjust_utc(&self, local: LocalDateTime) -> LocalDateTime {
         local  // No adjustment needed! LocalDateTime uses UTC.
     }
 
-    fn adjust_fixed(&self, offset:i32,  local: LocalDateTime) -> LocalDateTime
-    {
+    fn adjust_fixed(&self, offset:i32,  local: LocalDateTime) -> LocalDateTime {
         local + Duration::of(offset as i64)
     }
 
-    fn adjust_variable(&self, transitions:&Vec<Transition>, local: LocalDateTime) -> LocalDateTime
-    {
+    fn adjust_variable(&self, transitions:&Vec<Transition>, local: LocalDateTime) -> LocalDateTime {
         let unix_timestamp = local.to_instant().seconds() as i32;
 
         // TODO: Replace this with a binary search
@@ -53,8 +50,7 @@ impl TimeZone {
         }
     }
 
-    pub fn at(&self, local: LocalDateTime) -> ZonedDateTime
-    {
+    pub fn at(&self, local: LocalDateTime) -> ZonedDateTime {
         ZonedDateTime {
             local: local,
             time_zone: self.clone()
@@ -62,8 +58,7 @@ impl TimeZone {
     }
 
     /// Read time zone information in from the user's local time zone.
-    pub fn localtime() -> Result<TimeZone, Box<Error>>
-    {
+    pub fn localtime() -> Result<TimeZone, Box<Error>> {
         // TODO: replace this with some kind of factory.
         // this won't be appropriate for all systems
         TimeZone::zoneinfo(&Path::new("/etc/localtime"))
@@ -72,8 +67,7 @@ impl TimeZone {
     /// Read time zone information in from the file at the given path,
     /// returning a variable offset containing time transitions if successful,
     /// or an error if not.
-    pub fn zoneinfo(path: &Path) -> Result<TimeZone, Box<Error>>
-    {
+    pub fn zoneinfo(path: &Path) -> Result<TimeZone, Box<Error>> {
         let mut contents = Vec::new();
         try!(File::open(path).unwrap().read_to_end(&mut contents));
         let mut tz = try!(parse(contents));
@@ -84,12 +78,12 @@ impl TimeZone {
 
         Ok(TimeZone::VariableOffset{ transitions: tz.transitions })
     }
+
     /// Create a new fixed-offset timezone with the given number of seconds.
     ///
     /// Panics if the number of seconds is greater than one day's worth of
     /// seconds (86400) in either direction.
-    pub fn of_seconds(seconds: i32) -> TimeZone
-    {
+    pub fn of_seconds(seconds: i32) -> TimeZone {
         if seconds <= -86400 || seconds >= 86400 {
             panic!("Seconds offset greater than one day ({})", seconds)
         }
@@ -107,7 +101,7 @@ impl TimeZone {
     /// hours or 59 minutes) in either direction, or if the values differ in
     /// sign (such as a positive number of hours with a negative number of
     /// minutes).
-    pub fn of_hours_and_minutes(hours: i8, minutes: i8) -> TimeZone{
+    pub fn of_hours_and_minutes(hours: i8, minutes: i8) -> TimeZone {
         if (hours.is_positive() && minutes.is_negative())
         || (hours.is_negative() && minutes.is_positive()) {
             panic!("Hour and minute values differ in sign ({} and {}", hours, minutes);
@@ -135,19 +129,22 @@ pub struct ZonedDateTime {
 }
 
 impl ZonedDateTime {
+
     /// Instantiates a ZonedDateTime from ISO (RFC3339)
     pub fn parse(input: &str) -> Option<ZonedDateTime> {
-        if let Some((local_date_time, time_zone)) = parse::parse_iso_8601_zoned(input){
-            Some(ZonedDateTime{
+        if let Some((local_date_time, time_zone)) = parse::parse_iso_8601_zoned(input) {
+            Some(ZonedDateTime {
                 local: local_date_time,
                 time_zone: time_zone,
             })
         }
-        else{
+        else {
             None
         }
     }
 }
+
+
 impl DatePiece for ZonedDateTime {
     fn year(&self) -> i64 {
         self.time_zone.adjust(self.local).year()
@@ -191,7 +188,8 @@ impl TimePiece for ZonedDateTime {
 
 #[cfg(test)]
 mod test {
-    use super::TimeZone;
+    use super::{TimeZone, ZonedDateTime};
+    use local::{DatePiece, TimePiece};
 
     #[test]
     fn fixed_seconds() {
@@ -228,11 +226,8 @@ mod test {
         TimeZone::of_hours_and_minutes(4, 0);
     }
 
-    use super::{ZonedDateTime};
-    use local::{DatePiece,TimePiece};
     #[test]
-    fn parse_zoned()
-    {
+    fn parse_zoned() {
         let foo = ZonedDateTime::parse("2001-W05-6T04:05:06.123");
         assert_eq!(foo.map(|zdt|(
                            zdt.year(),
@@ -271,7 +266,6 @@ mod test {
         assert!(ZonedDateTime::parse("2015-06-26").is_some());
         assert!(ZonedDateTime::parse("2015-06-26T22:57:09+00:00").is_some());
         assert!(ZonedDateTime::parse("2015-06-26T22:57:09Z").is_some());
-
     }
 }
 

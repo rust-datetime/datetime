@@ -1,5 +1,6 @@
 extern crate libc;
 
+
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 extern {
     fn gettimeofday(tp: *mut libc::timeval, tzp: *mut libc::timezone) -> libc::c_int;
@@ -9,6 +10,7 @@ extern {
 extern {
     fn clock_gettime(clk_id: libc::c_int, tp: *mut libc::timespec) -> libc::c_int;
 }
+
 
 /// Return the current time, as a number of seconds and milliseconds.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -27,6 +29,7 @@ pub unsafe fn now() -> (i64, i16) {
     clock_gettime(libc::CLOCK_REALTIME, &mut tv);
     (tv.tv_sec as i64, (tv.tv_nsec / 1000) as i16)
 }
+
 
 #[cfg(test)]
 mod test {

@@ -4,6 +4,7 @@ use std::ops::{Add, Sub};
 use now;
 use duration::Duration;
 
+
 /// An **Instant** is an exact point on the timeline, irrespective of time
 /// zone or calendar format, with millisecond precision.
 ///
@@ -82,6 +83,7 @@ impl Sub<Duration> for Instant {
         }
     }
 }
+
 
 #[cfg(test)]
 mod test {
