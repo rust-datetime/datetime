@@ -1,4 +1,5 @@
 use std::ops::{Add, Sub};
+use std::str::FromStr;
 
 use now;
 use parse;
@@ -418,12 +419,6 @@ impl LocalDate {
             .map(|days| LocalDate::from_days_since_epoch(days - EPOCH_DIFFERENCE))
     }
 
-    /// Parse an input string matching the ISO-8601 format (RFC 3339), returning
-    /// the constructed date if successful, and None if unsuccessful.
-    pub fn parse(input: &str) -> Result<LocalDate, parse::Error> {
-        parse::parse_iso_8601_date(input)
-    }
-
     /// Creates a new datestamp instance with the given year, month, day,
     /// weekday, and yearday fields.
     ///
@@ -453,6 +448,16 @@ impl DatePiece for LocalDate {
     fn day(&self) -> i8 { self.ymd.day }
     fn yearday(&self) -> i16 { self.yearday }
     fn weekday(&self) -> Weekday { self.weekday }
+}
+
+impl FromStr for LocalDate {
+    type Err = parse::Error;
+
+    /// Parse an input string matching the ISO-8601 format (RFC 3339), returning
+    /// the constructed date if successful, and None if unsuccessful.
+    fn from_str(input: &str) -> Result<LocalDate, Self::Err> {
+        parse::parse_iso_8601_date(input)
+    }
 }
 
 impl PartialEq for LocalDate {
@@ -529,9 +534,14 @@ impl LocalTime {
             + self.second as i64
 
     }
+}
+
+impl FromStr for LocalTime {
+    type Err = parse::Error;
+
     /// Parse an input string matching the ISO-8601 format, returning
     /// the constructed date if successful, and None if unsuccessful.
-    pub fn parse(input: &str) -> Result<LocalTime, parse::Error> {
+    fn from_str(input: &str) -> Result<LocalTime, Self::Err> {
         parse::parse_iso_8601_time(input)
     }
 }
@@ -545,12 +555,6 @@ impl TimePiece for LocalTime {
 
 
 impl LocalDateTime {
-
-    /// Parse an input string matching the ISO-8601 format, returning
-    /// the constructed date if successful, and None if unsuccessful.
-    pub fn parse(input: &str) -> Result<LocalDateTime, parse::Error> {
-        parse::parse_iso_8601(input)
-    }
 
     /// Computes a complete date-time based on the values in the given
     /// Instant parameter.
@@ -607,6 +611,16 @@ impl LocalDateTime {
     pub fn to_instant(&self) -> Instant {
         let seconds = self.date.ymd.to_days_since_epoch().unwrap() * SECONDS_IN_DAY + self.time.to_seconds();
         Instant::at_ms(seconds, self.time.millisecond)
+    }
+}
+
+impl FromStr for LocalDateTime {
+    type Err = parse::Error;
+
+    /// Parse an input string matching the ISO-8601 format, returning
+    /// the constructed date if successful, and None if unsuccessful.
+    fn from_str(input: &str) -> Result<LocalDateTime, Self::Err> {
+        parse::parse_iso_8601(input)
     }
 }
 
@@ -775,6 +789,7 @@ pub enum Error {
 #[cfg(test)]
 mod test {
     pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, DatePiece};
+    pub use std::str::FromStr;
     use super::YMD;
 
     mod seconds_to_datetimes {
@@ -945,7 +960,7 @@ mod test {
 
     #[test]
     fn parse_iso_ymd() {
-        let date_option= LocalDate::parse("2015-06-26");
+        let date_option = LocalDate::from_str("2015-06-26");
         assert!(date_option.is_ok());
         let date = date_option.unwrap();
         assert!(date.year() == 2015);
@@ -1021,9 +1036,9 @@ mod test {
 
     #[test]
     fn parse_month() {
-        assert_eq!( LocalDate::parse("2015-01-26").unwrap().month(), Month::January);
-        assert_eq!( LocalDate::parse("1970-01-26").unwrap().month(), Month::January);
-        assert_eq!( LocalDate::parse("1969-01-26").unwrap().month(), Month::January);
+        assert_eq!( LocalDate::from_str("2015-01-26").unwrap().month(), Month::January);
+        assert_eq!( LocalDate::from_str("1970-01-26").unwrap().month(), Month::January);
+        assert_eq!( LocalDate::from_str("1969-01-26").unwrap().month(), Month::January);
     }
 
     #[test]
