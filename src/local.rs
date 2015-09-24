@@ -1,3 +1,4 @@
+use std::num::ParseIntError;
 use std::ops::{Add, Sub};
 use std::str::FromStr;
 
@@ -24,7 +25,7 @@ const DAYS_IN_400Y: i64 = 365 * 400 + 97;
 const SECONDS_IN_DAY: i64 = 86400;
 
 
-/// Number of days between **1st March, 2000**, and **1st January, 1970**.
+/// Number of days between  **1st January, 1970** and **1st March, 2000**.
 ///
 /// This might seem like an odd number to calculate, instead of using the
 /// 1st of January as a reference point, but it turs out that by having the
@@ -440,6 +441,32 @@ impl LocalDate {
 
     // I'm not 100% convinced on using `unsafe` for something that doesn't
     // technically *need* to be unsafe, but I'll stick with it for now.
+
+    pub fn from_fields(fields: parse::DateFields) -> Result<Self, ParseError> {
+        if let parse::DateFields::YMD { year, month, day } = fields {
+            let y = try!(year.parse().map_err(ParseError::Number));
+            let m = try!(month.parse().map_err(ParseError::Number));
+            let d = try!(day.parse().map_err(ParseError::Number));
+
+            LocalDate::ymd(y, Month::from_one(m), d).map_err(ParseError::Date)
+        }
+        else if let parse::DateFields::YWD { year, week, weekday } = fields {
+            let y = try!(year.parse().map_err(ParseError::Number));
+            let w = try!(week.parse().map_err(ParseError::Number));
+            let d = try!(weekday.parse().map_err(ParseError::Number));
+
+            LocalDate::from_weekday(y, w, d).map_err(ParseError::Date)
+        }
+        else if let parse::DateFields::YD { year, yearday } = fields {
+            let y = try!(year.parse().map_err(ParseError::Number));
+            let d = try!(yearday.parse().map_err(ParseError::Number));
+
+            LocalDate::from_yearday(y, d).map_err(ParseError::Date)
+        }
+        else {
+            unreachable!()  // should be unnecessary??
+        }
+    }
 }
 
 impl DatePiece for LocalDate {
@@ -451,12 +478,13 @@ impl DatePiece for LocalDate {
 }
 
 impl FromStr for LocalDate {
-    type Err = parse::Error;
+    type Err = ParseError;
 
-    /// Parse an input string matching the ISO-8601 format (RFC 3339), returning
-    /// the constructed date if successful, and None if unsuccessful.
-    fn from_str(input: &str) -> Result<LocalDate, Self::Err> {
-        parse::parse_iso_8601_date(input)
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        match parse::parse_iso_8601_date(input) {
+            Ok(fields)  => LocalDate::from_fields(fields),
+            Err(e)      => Err(ParseError::Parse(e)),
+        }
     }
 }
 
@@ -491,11 +519,27 @@ impl LocalTime {
         LocalTime { hour: 0, minute: 0, second: 0, millisecond: 0 }
     }
 
+    /// Create a new timestamp instance with the given hour and minute
+    /// fields. The second and millisecond fields are set to 0.
+    ///
+    /// The values are checked for validity before instantiation, and
+    /// passing in values out of range will return an `Err`.
+    pub fn hm(hour: i8, minute: i8) -> Result<LocalTime, Error> {
+        if hour >= 0 && hour <= 23
+            && minute >= 0 && minute <= 59
+        {
+            Ok(LocalTime { hour: hour, minute: minute, second: 0, millisecond: 0 })
+        }
+        else {
+            Err(Error::OutOfRange)
+        }
+    }
+
     /// Create a new timestamp instance with the given hour, minute, and
     /// second fields. The millisecond field is set to 0.
     ///
     /// The values are checked for validity before instantiation, and
-    /// passing in values out of range will return None.
+    /// passing in values out of range will return an `Err`.
     pub fn hms(hour: i8, minute: i8, second: i8) -> Result<LocalTime, Error> {
         if hour >= 0 && hour <= 23
             && minute >= 0 && minute <= 59
@@ -512,7 +556,7 @@ impl LocalTime {
     /// second, and millisecond fields.
     ///
     /// The values are checked for validity before instantiation, and
-    /// passing in values out of range will return None.
+    /// passing in values out of range will return an `Err`.
     pub fn hms_ms(hour: i8, minute: i8, second: i8, millisecond: i16) -> Result<LocalTime, Error> {
         if hour >= 0 && hour <= 23
             && minute >= 0 && minute <= 59
@@ -534,15 +578,45 @@ impl LocalTime {
             + self.second as i64
 
     }
+
+    pub fn from_fields(fields: parse::TimeFields) -> Result<Self, ParseError> {
+        if let parse::TimeFields::HM { hour, minute } = fields {
+            let h = try!(hour.parse().map_err(ParseError::Number));
+            let m = try!(minute.parse().map_err(ParseError::Number));
+
+            LocalTime::hm(h, m).map_err(ParseError::Date)
+        }
+        else if let parse::TimeFields::HMS { hour, minute, second } = fields {
+            let h = try!(hour.parse().map_err(ParseError::Number));
+            let m = try!(minute.parse().map_err(ParseError::Number));
+            let s = try!(second.parse().map_err(ParseError::Number));
+
+            LocalTime::hms(h, m, s).map_err(ParseError::Date)
+        }
+        else if let parse::TimeFields::HMSms { hour, minute, second, millisecond } = fields {
+            let h = try!(hour.parse().map_err(ParseError::Number));
+            let m = try!(minute.parse().map_err(ParseError::Number));
+            let s = try!(second.parse().map_err(ParseError::Number));
+            let ms = try!(millisecond.parse().map_err(ParseError::Number));
+
+            LocalTime::hms_ms(h, m, s, ms).map_err(ParseError::Date)
+        }
+        else {
+            unreachable!()  // should be unnecessary??
+        }
+    }
 }
 
 impl FromStr for LocalTime {
-    type Err = parse::Error;
+    type Err = ParseError;
 
     /// Parse an input string matching the ISO-8601 format, returning
     /// the constructed date if successful, and None if unsuccessful.
     fn from_str(input: &str) -> Result<LocalTime, Self::Err> {
-        parse::parse_iso_8601_time(input)
+        match parse::parse_iso_8601_time(input) {
+            Ok(fields)  => LocalTime::from_fields(fields),
+            Err(e)      => Err(ParseError::Parse(e)),
+        }
     }
 }
 
@@ -615,12 +689,13 @@ impl LocalDateTime {
 }
 
 impl FromStr for LocalDateTime {
-    type Err = parse::Error;
+    type Err = ParseError;
 
-    /// Parse an input string matching the ISO-8601 format, returning
-    /// the constructed date if successful, and None if unsuccessful.
     fn from_str(input: &str) -> Result<LocalDateTime, Self::Err> {
-        parse::parse_iso_8601(input)
+        let (date_fields, time_fields) = try!(parse::parse_iso_8601(input).map_err(ParseError::Parse));
+        let date = try!(LocalDate::from_fields(date_fields));
+        let time = try!(LocalTime::from_fields(time_fields));
+        Ok(LocalDateTime { date: date, time: time })
     }
 }
 
@@ -783,6 +858,13 @@ fn split_cycles(number_of_periods: i64, cycle_length: i64) -> (i64, i64) {
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Error {
     OutOfRange,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum ParseError {
+    Date(Error),
+    Number(ParseIntError),
+    Parse(parse::Error),
 }
 
 

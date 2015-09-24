@@ -1,202 +1,235 @@
-use local::{self, LocalDate, LocalTime, LocalDateTime, Month};
-use zoned::*;
+//! Parsing [ISO-8601](w) formats.
+//!
+//! [w]: https://en.wikipedia.org/wiki/ISO_8601
 
 use regex::Regex;
 
-
-/// Splits Date String, Time String
+/// A set of regexes to test against.
 ///
-/// for further parsing by `parse_iso_8601_date` and `parse_iso_8601_time`.
-pub fn split_iso_8601(string: &str) -> Result<(&str, &str), Error> {
-    let split = Regex::new(r"^([^T]*)T?(.*)$").unwrap();
+/// All of these regexes use the `(?x)` flag, which means they support
+/// comments and whitespace directly in the regex string!
+lazy_static! {
+    static ref YMD_REGEX: Regex = Regex::new(r##"(?x) ^
+        ( ?P<year>  \d{4} ) -?
+        ( ?P<month> \d{2} ) -?
+        ( ?P<day>   \d{2} )
+    $ "##).unwrap();
 
-    if split.is_match(&string) {
-        let caps = split.captures(&string).unwrap();
-        if caps.len() > 1 {
-            return Ok((caps.at(1).unwrap().into(), caps.at(2).unwrap().into()));
-        }
-    }
+    static ref YWD_REGEX: Regex = Regex::new(r##"(?x) ^
+        ( ?P<year>  \d{4} ) -?
+      W ( ?P<week>  \d{2} ) -?
+        ( ?P<day>   \d{1} )
+    $ "##).unwrap();
 
-    Err(Error::InvalidCharacter)
+    static ref YD_REGEX: Regex = Regex::new(r##"(?x) ^
+        ( ?P<year>  \d{4} ) -?
+        ( ?P<day>   \d{3} )
+    $ "##).unwrap();
+
+    static ref HM_REGEX: Regex = Regex::new(r##"(?x) ^
+        ( ?P<hour>   \d{2} ) :?
+        ( ?P<minute> \d{2} )
+    $ "##).unwrap();
+
+    static ref HMS_REGEX: Regex = Regex::new(r##"(?x) ^
+        ( ?P<hour>   \d{2} ) :?
+        ( ?P<minute> \d{2} ) :?
+        ( ?P<second> \d{2} )
+    $ "##).unwrap();
+
+    static ref HMS_MS_REGEX: Regex = Regex::new(r##"(?x) ^
+        ( ?P<hour>   \d{2} ) :?
+        ( ?P<minute> \d{2} ) :?
+        ( ?P<second> \d{2} ) .
+        ( ?P<millis> \d{3} ) .
+    $ "##).unwrap();
+
+    static ref TZ_REGEX: Regex = Regex::new(r##"(?x) ^
+        ( ?P<sign>    [+-]  )
+        ( ?P<hours>   \d{2} ) :?
+        ( ?P<minutes> \d{2} )?
+    $ "##).unwrap();
 }
 
-/// Parses a ISO 8601 a string into LocalDateTime Object.
-pub fn parse_iso_8601(string: &str) -> Result<LocalDateTime, Error> {
-    let (date_string, time_string) = try!(split_iso_8601(string));
 
-    match (parse_iso_8601_date(&date_string), parse_iso_8601_time(&time_string)) {
-        (Ok(date), Ok(time)) => Ok(LocalDateTime::from_date_time(date, time)),
-        _ => Err(Error::InvalidCharacter)
-    }
+/// A set of string fields representing date components.
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum DateFields<'a> {
+
+    /// Year, month, and day components.
+    YMD {
+
+        /// The year component, which should be a *four*-digit string.
+        year: &'a str,
+
+        /// The month component, which should be a *two*-digit string.
+        month: &'a str,
+
+        /// The day component, which should also be a *two*-digit string.
+        day: &'a str,
+    },
+
+    /// Year, week-of-year, and day-of-week components.
+    YWD {
+
+        /// The year component, which should be a *four*-digit string.
+        year: &'a str,
+
+        /// The week-of-year component, which should be a *two*-digit string.
+        week: &'a str,
+
+        /// The weekday component, which should also be a *single*-digit
+        /// string from 1 (Monday) to 7 (Sunday).
+        weekday: &'a str,
+    },
+
+    /// Ordinal year and day-of-year components.
+    YD {
+
+        /// The year component, which should be a *four*-digit string.
+        year: &'a str,
+
+        /// The day component, which should also be a *three*-digit string.
+        yearday: &'a str,
+    },
 }
 
 
-/// Parses ISO 8601 Date a string into a LocalDate Object.
-///
-/// Used by `LocalDate::parse()`
-pub fn parse_iso_8601_date(string: &str) -> Result<LocalDate, Error> {
-    let week = Regex::new(r##"(?x)^
-        (\d{4})   # year
-        -W(\d{2}) # number of week
-        -(\d{1})  # day in week (1..7)//}
-        $"##).unwrap();
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum TimeFields<'a> {
 
-    let ymd = Regex::new(r##"(?x)^
-        (\d{4})   # year
-        -?(\d{2}) # month
-        -?(\d{2}) # day
-        $"##).unwrap();
+    HM {
+        hour: &'a str,
+        minute: &'a str,
+    },
 
-    if ymd.is_match(&string) {
-        if let Some(caps) = ymd.captures(string) {
-            let year       = caps.at(1).unwrap().parse().unwrap();
-            let month_num  = caps.at(2).unwrap().parse().unwrap();
-            let month      = Month::from_one(month_num);
-            let day        = caps.at(3).unwrap().parse().unwrap();
+    HMS {
+        hour: &'a str,
+        minute: &'a str,
+        second: &'a str,
+    },
 
-            LocalDate::ymd(year, month, day).map_err(Error::InvalidDate)
-        }
-        else {
-            Err(Error::InvalidCharacter)
-        }
-    }
-    else if week.is_match(&string) {
-        if let Some(caps) = week.captures(string) {
-            let year   = caps.at(1).unwrap().parse().unwrap();
-            let month  = caps.at(2).unwrap().parse().unwrap();
-            let day    = caps.at(3).unwrap().parse().unwrap();
-
-            LocalDate::from_weekday(year, month, day).map_err(Error::InvalidDate)
-        }
-        else {
-            Err(Error::InvalidCharacter)
-        }
-    }
-    else {
-        Err(Error::InvalidCharacter)
-    }
-}
-
-/// Parses ISO 8601 a string into a ZonedDateTime Object.
-///
-/// Used by `ZonedDateTime::parse()`
-pub fn parse_iso_8601_zoned(string: &str) -> Result<(LocalDateTime, TimeZone), Error> {
-    let (date_string, time_string) = try!(split_iso_8601(string));
-
-    match (parse_iso_8601_date(&date_string), parse_iso_8601_tuple(&time_string)) {
-        (Ok(date), Ok((hour, minute, second, millisecond, zh, zm, z))) => {
-            if let Ok(time) = LocalTime::hms_ms(hour, minute, second, millisecond as i16) {
-                let time_zone = if z == "Z" {
-                    TimeZone::UTC
-                }
-                else {
-                    TimeZone::of_hours_and_minutes(zh, zm)
-                };
-
-                Ok((LocalDateTime::from_date_time(date, time), time_zone))
-            }
-            else {
-                Err(Error::InvalidCharacter)
-            }
-        }
-        (Ok(date), Err(Error::InvalidCharacter)) => {
-            if let Ok(time) = LocalTime::hms(0, 0, 0) {
-                Ok((LocalDateTime::from_date_time(date, time), TimeZone::UTC))
-            }
-            else {
-                Err(Error::InvalidCharacter)
-            }
-        }
-        _ => Err(Error::InvalidCharacter)
-    }
-}
-
-/// Parses ISO 8601 a string into a LocalTime Object.
-///
-/// Used by `LocalTime::parse()`
-pub fn parse_iso_8601_time(string: &str) -> Result<LocalTime, Error> {
-    if string.is_empty() {
-        return Ok(LocalTime::hms(0, 0, 0).unwrap());
-    }
-
-    if let Ok((hour, minute, second, millisecond, _zh, _zm, _z)) = parse_iso_8601_tuple(string) {
-        return LocalTime::hms_ms(hour, minute, second, millisecond as i16).map_err(Error::InvalidDate);
-    }
-
-    Err(Error::InvalidCharacter)
-}
-
-// implementation detail
-fn parse_iso_8601_tuple(string: &str) -> Result<(i8,i8,i8,i32,i8,i8,&str), Error> {
-    let exp = Regex::new(r##"(?x) ^
-        (\d{2}) :?     # hour
-        (\d{2})? :?    # minute
-
-        (?:
-            (\d{2})         # second
-            \.?
-            ((?:\d{1,9}))?  # millisecond
-        )?
-
-        (?:                 # time zone offset:
-            (Z) |           # or just Z for UTC
-            ([+-]\d\d)? :?  # hour and
-            (\d\d)?         # minute,
-        )?
-    $"##).ok().expect("Regex Broken");
-
-    if exp.is_match(&string) {
-        if let Some(caps) = exp.captures(string) {
-            Ok((
-                caps.at(1).unwrap_or("00").parse::<i8>().unwrap(), // HH
-                caps.at(2).unwrap_or("00").parse::<i8>().unwrap(), // MM
-                caps.at(3).unwrap_or("00").parse::<i8>().unwrap(), // SS
-                caps.at(4).unwrap_or("000").parse::<i32>().unwrap(), // MS
-                caps.at(6).unwrap_or("+00").trim_matches('+').parse::<i8>().unwrap(), // ZH
-                caps.at(7).unwrap_or("00").parse::<i8>().unwrap(), // ZM
-                caps.at(5).unwrap_or("_"), // "Z"
-            ))
-
-            //TODO: check this with the rfc3339 standard
-            //if tup.3 > 0 && &format!("{}", tup.3).len() %3 != 0{ return Err(Error::InvalidCharacter)}
-        }
-        else {
-            Err(Error::InvalidCharacter)
-        }
-    }
-    else {
-        Err(Error::InvalidCharacter)
+    HMSms {
+        hour: &'a str,
+        minute: &'a str,
+        second: &'a str,
+        millisecond: &'a str,
     }
 }
 
 
 #[derive(PartialEq, Debug, Copy, Clone)]
+pub enum ZoneFields<'a> {
+    Zulu {
+        z: &'a str,
+    },
+
+    Offset {
+        sign: &'a str,
+        hours: &'a str,
+        minutes: Option<&'a str>,
+    }
+}
+
+
+/// Parses an ISO 8601 date string into a set of `DateFields`.
+pub fn parse_iso_8601_date(input: &str) -> Result<DateFields, Error> {
+    if let Some(caps) = YMD_REGEX.captures(input) {
+        Ok(DateFields::YMD {
+            year:   caps.name("year").unwrap(),
+            month:  caps.name("month").unwrap(),
+            day:    caps.name("day").unwrap(),
+        })
+    }
+    else if let Some(caps) = YWD_REGEX.captures(input) {
+        Ok(DateFields::YWD {
+            year:     caps.name("year").unwrap(),
+            week:     caps.name("week").unwrap(),
+            weekday:  caps.name("day").unwrap(),
+        })
+    }
+    else if let Some(caps) = YD_REGEX.captures(input) {
+        Ok(DateFields::YD {
+            year:     caps.name("year").unwrap(),
+            yearday:  caps.name("day").unwrap(),
+        })
+    }
+    else {
+        Err(Error::InvalidFormat)
+    }
+}
+
+
+pub fn parse_iso_8601_time(input: &str) -> Result<TimeFields, Error> {
+    if let Some(caps) = HM_REGEX.captures(input) {
+        Ok(TimeFields::HM {
+            hour:   caps.name("hour").unwrap(),
+            minute: caps.name("minute").unwrap(),
+        })
+    }
+    else if let Some(caps) = HMS_REGEX.captures(input) {
+        Ok(TimeFields::HMS {
+            hour:   caps.name("hour").unwrap(),
+            minute: caps.name("minute").unwrap(),
+            second: caps.name("second").unwrap(),
+        })
+    }
+    else if let Some(caps) = HMS_MS_REGEX.captures(input) {
+        Ok(TimeFields::HMSms {
+            hour:   caps.name("hour").unwrap(),
+            minute: caps.name("minute").unwrap(),
+            second: caps.name("second").unwrap(),
+            millisecond: caps.name("millis").unwrap(),
+        })
+    }
+    else {
+        Err(Error::InvalidFormat)
+    }
+}
+
+
+pub fn parse_iso_8601_zone(input: &str) -> Result<ZoneFields, Error> {
+    if input == "Z" {
+        Ok(ZoneFields::Zulu { z: input })
+    }
+    else if let Some(caps) = TZ_REGEX.captures(input) {
+        Ok(ZoneFields::Offset {
+            sign:    caps.name("sign").unwrap(),
+            hours:   caps.name("hours").unwrap(),
+            minutes: caps.name("minutes"),  // minutes is Optional!
+        })
+    }
+    else {
+        Err(Error::InvalidFormat)
+    }
+}
+
+pub fn parse_iso_8601(input: &str) -> Result<(DateFields, TimeFields), Error> {
+    if let Some((date_str, time_str)) = split_date_and_time(input) {
+        let date_fields = try!(parse_iso_8601_date(date_str));
+        let time_fields = try!(parse_iso_8601_time(time_str));
+        Ok((date_fields, time_fields))
+    }
+    else {
+        Err(Error::InvalidFormat)
+    }
+}
+
+pub fn split_date_and_time(input: &str) -> Option<(&str, &str)> {
+    match input.bytes().position(|c| c == b'T') {
+        Some(index) => Some(( &input[.. index], &input[index + 1 ..] )),
+        None        => None,
+    }
+}
+
+/// An error that can occur while trying to parse a date, time, or zone string.
+///
+/// Unfortunately, as this whole thing is implemented using regexes, there
+/// isn't very much that we can do in the way of error diagnostics: either the
+/// string matches, or it doesn't.
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Error {
-    InvalidCharacter,
-    InvalidDate(local::Error),
+
+    /// The input string didn't match the format required.
+    InvalidFormat,
 }
-
-
-#[cfg(test)]
-mod test {
-    pub use super::{parse_iso_8601_date, Error};
-    pub use local::{LocalDate, Month};
-
-    #[test]
-    fn date() {
-        let date = parse_iso_8601_date("1985-04-12").unwrap();
-        assert_eq!(date, LocalDate::ymd(1985, Month::April, 12).unwrap());
-    }
-
-    #[test]
-    fn fail() {
-        let date = parse_iso_8601_date("");
-        assert_eq!(date, Err(Error::InvalidCharacter));
-    }
-}
-
-// 2014-12-25
-// Combined date and time in UTC:   2014-12-25T02:56:40+00:00, 2014-12-25T02:56:40Z
-// Week:    2014-W52
-// Date with week number:   2014-W52-4
-// Ordinal date:    2014-359
