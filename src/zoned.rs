@@ -25,10 +25,10 @@ pub enum TimeZone {
 /// based on its geographical location.
 impl TimeZone {
     fn adjust(&self, local: LocalDateTime) -> LocalDateTime {
-        match self {
-            &TimeZone::UTC => { self.adjust_utc(local) },
-            &TimeZone::FixedOffset{offset} => { self.adjust_fixed(offset, local) },
-            &TimeZone::VariableOffset{ref transitions} => { self.adjust_variable(&transitions, local) },
+        match *self {
+            TimeZone::UTC                                 => { self.adjust_utc(local) },
+            TimeZone::FixedOffset { offset }              => { self.adjust_fixed(offset, local) },
+            TimeZone::VariableOffset { ref transitions }  => { self.adjust_variable(&transitions, local) },
         }
     }
 

@@ -207,7 +207,7 @@ impl<'a> DateFormat<'a> {
     pub fn format<T>(&self, when: &T, locale: &locale::Time) -> String where T: DatePiece+TimePiece{
         let mut buf = Vec::<u8>::new();
 
-        for field in self.fields.iter() {
+        for field in &self.fields {
             // It's safe to just ignore the error when writing to an in-memory
             // Vec<u8> buffer. If it fails then you have bigger problems
             match field.format(when, &mut buf, locale) { _ => {} }
