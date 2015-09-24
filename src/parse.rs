@@ -233,3 +233,68 @@ pub enum Error {
     /// The input string didn't match the format required.
     InvalidFormat,
 }
+
+
+
+#[cfg(test)]
+mod test {
+    pub use super::*;
+
+    mod dates {
+        use super::*;
+
+        #[test]
+        fn ymd() {
+            let expected = DateFields::YMD {
+                year: "2014",
+                month: "12",
+                day: "25",
+            };
+
+            assert_eq!(parse_iso_8601_date("2014-12-25"), Ok(expected));
+            assert_eq!(parse_iso_8601_date("20141225"), Ok(expected));
+        }
+
+        #[test]
+        fn ymd_fails() {
+            assert!(parse_iso_8601_date("wibble").is_err());
+            assert!(parse_iso_8601_date("19424-07-11").is_err());
+        }
+
+
+        #[test]
+        fn ywd() {
+            let expected = DateFields::YWD {
+                year: "2014",
+                week: "22",
+                weekday: "3",
+            };
+
+            assert_eq!(parse_iso_8601_date("2014-W22-3"), Ok(expected));
+            assert_eq!(parse_iso_8601_date("2014W223"), Ok(expected));
+        }
+
+        #[test]
+        fn ywd_fails() {
+            assert!(parse_iso_8601_date("2014-W22").is_err());
+            assert!(parse_iso_8601_date("2014-w22-3").is_err());
+        }
+
+
+        #[test]
+        fn yd() {
+            let expected = DateFields::YD {
+                year: "2014",
+                yearday: "123",
+            };
+
+            assert_eq!(parse_iso_8601_date("2014-123"), Ok(expected));
+            assert_eq!(parse_iso_8601_date("2014123"), Ok(expected));
+        }
+
+        #[test]
+        fn yd_fails() {
+            assert!(parse_iso_8601_date("2014-12").is_err());
+        }
+    }
+}
