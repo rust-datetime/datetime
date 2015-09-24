@@ -1,6 +1,7 @@
 //! Dates and times paired with a time zone, and time zone definitions.
 
-use local::{LocalDateTime, DatePiece, TimePiece, Month, Weekday};
+use local::{LocalDateTime, LocalDate, LocalTime, DatePiece, TimePiece, Month, Weekday};
+use local::ParseError as LocalParseError;
 use parse;
 
 use std::error::Error as StdError;
@@ -8,6 +9,7 @@ use std::fs::File;
 use std::io::Read;
 use std::num::ParseIntError;
 use std::path::Path;
+use std::str::FromStr;
 
 use duration::Duration;
 use tz::{Transition, parse};
@@ -122,9 +124,33 @@ impl TimeZone {
     }
 
     pub fn from_fields(fields: parse::ZoneFields) -> Result<TimeZone, ParseError> {
-        unimplemented!()
+        use parse::ZoneFields::*;
+        let parse = |input: &str| input.parse().map_err(ParseError::Number);
+
+        let result = match fields {
+            Zulu => TimeZone::UTC,
+            Offset { sign: "+", hours, minutes: None } => TimeZone::of_hours_and_minutes( try!(parse(hours)), 0),
+            Offset { sign: "-", hours, minutes: None } => TimeZone::of_hours_and_minutes(-try!(parse(hours)), 0),
+            Offset { sign: "+", hours, minutes: Some(mins) } => TimeZone::of_hours_and_minutes( try!(parse(hours)),  try!(parse(mins))),
+            Offset { sign: "-", hours, minutes: Some(mins) } => TimeZone::of_hours_and_minutes(-try!(parse(hours)), -try!(parse(mins))),
+            _ => unreachable!(),  // this definitely should be unreachable: the regex only checks for [Z+-].
+        };
+
+        Ok(result)
     }
 }
+
+impl FromStr for TimeZone {
+    type Err = ParseError;
+
+    fn from_str(input: &str) -> Result<TimeZone, Self::Err> {
+        match parse::parse_iso_8601_zone(input) {
+            Ok(fields)  => TimeZone::from_fields(fields),
+            Err(e)      => Err(ParseError::Parse(e)),
+        }
+    }
+}
+
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Error {
@@ -133,7 +159,8 @@ pub enum Error {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseError {
-    Date(Error),
+    Zone(Error),
+    Date(LocalParseError),
     Number(ParseIntError),
     Parse(parse::Error),
 }
@@ -147,11 +174,15 @@ pub struct ZonedDateTime {
     time_zone: TimeZone,
 }
 
-impl ZonedDateTime {
+impl FromStr for ZonedDateTime {
+    type Err = ParseError;
 
-    /// Instantiates a ZonedDateTime from ISO (RFC3339)
-    pub fn parse(input: &str) -> Result<ZonedDateTime, parse::Error> {
-        unimplemented!()
+    fn from_str(input: &str) -> Result<ZonedDateTime, Self::Err> {
+        let (date_fields, time_fields, zone_fields) = try!(parse::parse_iso_8601_date_time_zone(input).map_err(ParseError::Parse));
+        let date = try!(LocalDate::from_fields(date_fields).map_err(ParseError::Date));
+        let time = try!(LocalTime::from_fields(time_fields).map_err(ParseError::Date));
+        let zone = try!(TimeZone::from_fields(zone_fields));
+        Ok(ZonedDateTime { local: LocalDateTime { date: date, time: time }, time_zone: zone })
     }
 }
 

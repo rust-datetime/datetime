@@ -692,7 +692,7 @@ impl FromStr for LocalDateTime {
     type Err = ParseError;
 
     fn from_str(input: &str) -> Result<LocalDateTime, Self::Err> {
-        let (date_fields, time_fields) = try!(parse::parse_iso_8601(input).map_err(ParseError::Parse));
+        let (date_fields, time_fields) = try!(parse::parse_iso_8601_date_time(input).map_err(ParseError::Parse));
         let date = try!(LocalDate::from_fields(date_fields));
         let time = try!(LocalTime::from_fields(time_fields));
         Ok(LocalDateTime { date: date, time: time })

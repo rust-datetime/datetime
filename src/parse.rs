@@ -4,6 +4,7 @@
 
 use regex::Regex;
 
+
 /// A set of regexes to test against.
 ///
 /// All of these regexes use the `(?x)` flag, which means they support
@@ -145,11 +146,7 @@ pub enum TimeFields<'a> {
 pub enum ZoneFields<'a> {
 
     /// A single "Z", indicating UTC time.
-    Zulu {
-
-        /// The Z!
-        z: &'a str,
-    },
+    Zulu,
 
     Offset {
         /// The sign, a plus or a minus.
@@ -281,7 +278,7 @@ pub fn parse_iso_8601_time(input: &str) -> Result<TimeFields, Error> {
 /// ```
 pub fn parse_iso_8601_zone(input: &str) -> Result<ZoneFields, Error> {
     if input == "Z" {
-        Ok(ZoneFields::Zulu { z: input })
+        Ok(ZoneFields::Zulu)
     }
     else if let Some(caps) = TZ_REGEX.captures(input) {
         Ok(ZoneFields::Offset {
@@ -295,7 +292,29 @@ pub fn parse_iso_8601_zone(input: &str) -> Result<ZoneFields, Error> {
     }
 }
 
-pub fn parse_iso_8601(input: &str) -> Result<(DateFields, TimeFields), Error> {
+
+/// Parses an ISO 8601 string into a pair of `DateFields` and `TimeFields`.
+/// The formats allowed are any formats accepted by their two parsers, with
+/// the strings separated by a 'T' as per the ISO 8601 standard.
+///
+/// ### Examples
+///
+/// ```rust
+/// use datetime::parse::{DateFields, TimeFields, parse_iso_8601_date_time};
+///
+/// let date = DateFields::YD {
+///     year: "1969",
+///     yearday: "201",
+/// };
+///
+/// let time = TimeFields::HM {
+///     hour:   "20",
+///     minute: "18",
+/// };
+///
+/// assert_eq!(parse_iso_8601_date_time("1969-201T20:18"), Ok((date, time)));
+/// ```
+pub fn parse_iso_8601_date_time(input: &str) -> Result<(DateFields, TimeFields), Error> {
     if let Some((date_str, time_str)) = split_date_and_time(input) {
         let date_fields = try!(parse_iso_8601_date(date_str));
         let time_fields = try!(parse_iso_8601_time(time_str));
@@ -306,14 +325,102 @@ pub fn parse_iso_8601(input: &str) -> Result<(DateFields, TimeFields), Error> {
     }
 }
 
-/// Splits the input string around the first 'T' that it finds.
-/// Returns `None` if it can't find a 'T'.
+
+/// Parses an ISO 8601 time string into a pair of `TimeFields` and `ZoneFields`.
+/// The formats allowed are any formats accepted by their two parsers, and the
+/// strings do not need to be separated by any character.
+///
+/// ### Examples
+///
+/// ```rust
+/// use datetime::parse::{TimeFields, ZoneFields, parse_iso_8601_time_zone};
+///
+/// let time = TimeFields::HM {
+///     hour:   "14",
+///     minute: "45",
+/// };
+///
+/// assert_eq!(parse_iso_8601_time_zone("14:45Z"), Ok((time, ZoneFields::Zulu)));
+/// ```
+pub fn parse_iso_8601_time_zone(input: &str) -> Result<(TimeFields, ZoneFields), Error> {
+    if let Some((time_str, zone_str)) = split_time_and_zone(input) {
+        let time_fields = try!(parse_iso_8601_time(time_str));
+        let zone_fields = try!(parse_iso_8601_zone(zone_str));
+        Ok((time_fields, zone_fields))
+    }
+    else {
+        Err(Error::InvalidFormat)
+    }
+}
+
+
+/// Parses an ISO 8601 string into a triple of `DateFields`, `TimeFields`, and `ZoneFields`.
+/// The formats allowed are any formats accepted by their three parsers. The
+/// date and time must be separated by a `T` as per the ISO 8601 standard, and
+/// the time and time zone fields cannot be separated by anything.
+///
+/// ### Examples
+///
+/// ```rust
+/// use datetime::parse::{DateFields, TimeFields, ZoneFields};
+/// use datetime::parse::parse_iso_8601_date_time_zone;
+///
+/// let date = DateFields::YMD {
+///     year:  "2001",
+///     month: "09",
+///     day:   "09",
+/// };
+///
+/// let time = TimeFields::HMS {
+///     hour:   "01",
+///     minute: "46",
+///     second: "40",
+/// };
+///
+/// let zone = ZoneFields::Offset {
+///     sign:    "-",
+///     hours:   "13",
+///     minutes: Some("37"),
+/// };
+///
+/// assert_eq!(parse_iso_8601_date_time_zone("2001-09-09T01:46:40-1337"), Ok((date, time, zone)));
+/// ```
+pub fn parse_iso_8601_date_time_zone(input: &str) -> Result<(DateFields, TimeFields, ZoneFields), Error> {
+    if let Some((date_time_str, zone_str)) = split_time_and_zone(input) {
+        if let Some((date_str, time_str)) = split_date_and_time(date_time_str) {
+            let date_fields = try!(parse_iso_8601_date(date_str));
+            let time_fields = try!(parse_iso_8601_time(time_str));
+            let zone_fields = try!(parse_iso_8601_zone(zone_str));
+
+            return Ok((date_fields, time_fields, zone_fields));
+        }
+    }
+
+    Err(Error::InvalidFormat)
+}
+
+
+/// Splits the input string around the first 'T' that it finds into date and
+/// time components. Returns `None` if it can't find a 'T'. The 'T' is
+/// necessary as the date/time delimiter.
 fn split_date_and_time(input: &str) -> Option<(&str, &str)> {
-    match input.bytes().position(|c| c == b'T') {
+    match input.find('T') {
         Some(index) => Some(( &input[.. index], &input[index + 1 ..] )),
         None        => None,
     }
 }
+
+/// Splits the input string up to the first 'Z', '+', or '-' that it finds
+/// into time and time zone components. Returns `None` if it can't find any of
+/// those characters. Time zones must begin with one of those characters,
+/// which is why it's used to split them here.
+fn split_time_and_zone(input: &str) -> Option<(&str, &str)> {
+    match input.rfind(|c| c == 'Z' || c == '+' || c == '-') {
+        Some(index) => Some((  &input[.. index], &input[index ..] )),
+        None        => None,
+    }
+}
+
 
 /// An error that can occur while trying to parse a date, time, or zone string.
 ///
@@ -326,7 +433,6 @@ pub enum Error {
     /// The input string didn't match the format required.
     InvalidFormat,
 }
-
 
 
 #[cfg(test)]
@@ -454,13 +560,13 @@ mod test {
                 second: "06",
             };
 
-            assert_eq!(parse_iso_8601("2001-02-03T04:05:06"), Ok((expected_date, expected_time)));
-            assert_eq!(parse_iso_8601("20010203T040506"), Ok((expected_date, expected_time)));
+            assert_eq!(parse_iso_8601_date_time("2001-02-03T04:05:06"), Ok((expected_date, expected_time)));
+            assert_eq!(parse_iso_8601_date_time("20010203T040506"), Ok((expected_date, expected_time)));
         }
 
         #[test]
         fn lowercase_t() {
-            assert!(parse_iso_8601_time("2001-02-03T04:05:06").is_err());
+            assert!(parse_iso_8601_date_time("2001-02-03t04:05:06").is_err());
         }
     }
 }
