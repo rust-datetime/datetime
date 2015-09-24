@@ -1,12 +1,15 @@
 //! Dates and times paired with a time zone, and time zone definitions.
 
-use local::{LocalDateTime, DatePiece, TimePiece, Month, Weekday};
+use local::{LocalDateTime, LocalDate, LocalTime, DatePiece, TimePiece, Month, Weekday};
+use local::ParseError as LocalParseError;
 use parse;
 
-use std::path::Path;
+use std::error::Error as StdError;
 use std::fs::File;
 use std::io::Read;
-use std::error::Error;
+use std::num::ParseIntError;
+use std::path::Path;
+use std::str::FromStr;
 
 use duration::Duration;
 use tz::{Transition, parse};
@@ -58,7 +61,7 @@ impl TimeZone {
     }
 
     /// Read time zone information in from the user's local time zone.
-    pub fn localtime() -> Result<TimeZone, Box<Error>> {
+    pub fn localtime() -> Result<TimeZone, Box<StdError>> {
         // TODO: replace this with some kind of factory.
         // this won't be appropriate for all systems
         TimeZone::zoneinfo(&Path::new("/etc/localtime"))
@@ -67,7 +70,7 @@ impl TimeZone {
     /// Read time zone information in from the file at the given path,
     /// returning a variable offset containing time transitions if successful,
     /// or an error if not.
-    pub fn zoneinfo(path: &Path) -> Result<TimeZone, Box<Error>> {
+    pub fn zoneinfo(path: &Path) -> Result<TimeZone, Box<StdError>> {
         let mut contents = Vec::new();
         let mut file     = try!(File::open(path));
         let _bytes_read  = try!(file.read_to_end(&mut contents));
@@ -77,7 +80,7 @@ impl TimeZone {
         // one *after* a specified time.
         tz.transitions.sort_by(|b, a| a.timestamp.cmp(&b.timestamp));
 
-        Ok(TimeZone::VariableOffset{ transitions: tz.transitions })
+        Ok(TimeZone::VariableOffset { transitions: tz.transitions })
     }
 
     /// Create a new fixed-offset timezone with the given number of seconds.
@@ -89,7 +92,7 @@ impl TimeZone {
             panic!("Seconds offset greater than one day ({})", seconds)
         }
         else {
-            TimeZone::FixedOffset{ offset: seconds }
+            TimeZone::FixedOffset { offset: seconds }
         }
     }
 
@@ -119,7 +122,49 @@ impl TimeZone {
             TimeZone::of_seconds(hours * 24 + minutes * 60)
         }
     }
+
+    pub fn from_fields(fields: parse::ZoneFields) -> Result<TimeZone, ParseError> {
+        use parse::ZoneFields::*;
+        let parse = |input: &str| input.parse().map_err(ParseError::Number);
+
+        let result = match fields {
+            Zulu => TimeZone::UTC,
+            Offset { sign: "+", hours, minutes: None } => TimeZone::of_hours_and_minutes( try!(parse(hours)), 0),
+            Offset { sign: "-", hours, minutes: None } => TimeZone::of_hours_and_minutes(-try!(parse(hours)), 0),
+            Offset { sign: "+", hours, minutes: Some(mins) } => TimeZone::of_hours_and_minutes( try!(parse(hours)),  try!(parse(mins))),
+            Offset { sign: "-", hours, minutes: Some(mins) } => TimeZone::of_hours_and_minutes(-try!(parse(hours)), -try!(parse(mins))),
+            _ => unreachable!(),  // this definitely should be unreachable: the regex only checks for [Z+-].
+        };
+
+        Ok(result)
+    }
 }
+
+impl FromStr for TimeZone {
+    type Err = ParseError;
+
+    fn from_str(input: &str) -> Result<TimeZone, Self::Err> {
+        match parse::parse_iso_8601_zone(input) {
+            Ok(fields)  => TimeZone::from_fields(fields),
+            Err(e)      => Err(ParseError::Parse(e)),
+        }
+    }
+}
+
+
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum Error {
+    OutOfRange,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum ParseError {
+    Zone(Error),
+    Date(LocalParseError),
+    Number(ParseIntError),
+    Parse(parse::Error),
+}
+
 
 
 /// A time paired with a time zone.
@@ -129,16 +174,15 @@ pub struct ZonedDateTime {
     time_zone: TimeZone,
 }
 
-impl ZonedDateTime {
+impl FromStr for ZonedDateTime {
+    type Err = ParseError;
 
-    /// Instantiates a ZonedDateTime from ISO (RFC3339)
-    pub fn parse(input: &str) -> Result<ZonedDateTime, parse::Error> {
-        parse::parse_iso_8601_zoned(input).map(|(local_date_time, time_zone)| {
-            ZonedDateTime {
-                local: local_date_time,
-                time_zone: time_zone,
-            }
-        })
+    fn from_str(input: &str) -> Result<ZonedDateTime, Self::Err> {
+        let (date_fields, time_fields, zone_fields) = try!(parse::parse_iso_8601_date_time_zone(input).map_err(ParseError::Parse));
+        let date = try!(LocalDate::from_fields(date_fields).map_err(ParseError::Date));
+        let time = try!(LocalTime::from_fields(time_fields).map_err(ParseError::Date));
+        let zone = try!(TimeZone::from_fields(zone_fields));
+        Ok(ZonedDateTime { local: LocalDateTime { date: date, time: time }, time_zone: zone })
     }
 }
 
@@ -187,8 +231,7 @@ impl TimePiece for ZonedDateTime {
 #[cfg(test)]
 #[allow(unused_results)]
 mod test {
-    use super::{TimeZone, ZonedDateTime};
-    use local::{DatePiece, TimePiece};
+    use super::TimeZone;
 
     #[test]
     fn fixed_seconds() {
@@ -224,47 +267,4 @@ mod test {
     fn fixed_hm_signs_zero() {
         TimeZone::of_hours_and_minutes(4, 0);
     }
-
-    #[test]
-    fn parse_zoned() {
-        let foo = ZonedDateTime::parse("2001-W05-6T04:05:06.123");
-        assert_eq!(foo.map(|zdt|(
-                           zdt.year(),
-                           zdt.month() as i8,
-                           zdt.day(),
-                           zdt.hour(),
-                           zdt.minute(),
-                           zdt.second(),
-                           zdt.millisecond())
-        ), Ok((2001,02,03, 04,05,06,123)));
-
-        // TODO is this expected behaviour?
-        // match
-        // (ZonedDateTime::parse("2001-W05-6T04:05:06.123+00:00"),
-        //  ZonedDateTime::parse("2001-W05-6T03:05:06.123+01:00"))
-        // {
-        //     (Some(UTC0),Some(UTC1)) => assert_eq!(UTC0.hour(),UTC1.hour()),
-        //     _ => panic!("parsing error")
-        // }
-
-        assert!(ZonedDateTime::parse("2001-w05-6t04:05:06.123z").is_err());
-        //assert!(ZonedDateTime::parse("2015-06-26T22:57:09Z00:00").is_err());
-        //assert!(ZonedDateTime::parse("2015-06-26T22:57:09Z+00:00").is_err());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06.123455Z").is_err());
-
-        assert!(ZonedDateTime::parse("2001-02-03T04:05:06+07:00").is_ok());
-        assert!(ZonedDateTime::parse("20010203T040506+0700").is_ok());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05").is_ok());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06").is_ok());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06.123").is_ok());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06.123Z").is_ok());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06+07").is_ok());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06+07:00").is_ok());
-        assert!(ZonedDateTime::parse("2001-W05-6T04:05:06-07:00").is_ok());
-        assert!(ZonedDateTime::parse("2015-06-26TZ").is_ok());
-        assert!(ZonedDateTime::parse("2015-06-26").is_ok());
-        assert!(ZonedDateTime::parse("2015-06-26T22:57:09+00:00").is_ok());
-        assert!(ZonedDateTime::parse("2015-06-26T22:57:09Z").is_ok());
-    }
 }
-

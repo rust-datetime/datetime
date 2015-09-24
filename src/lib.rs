@@ -29,6 +29,9 @@ extern crate pad;
 extern crate regex;
 extern crate tz;
 
+#[macro_use]
+extern crate lazy_static;
+
 mod now;
 pub mod parse;
 pub mod zoned;
