@@ -328,7 +328,7 @@ impl<'a> FormatParser<'a> {
             if let Some((_, n)) = self.peek() {
                 if n.is_digit(10) {
                     buf.push(n);
-                    self.next();  // ignore result - it's going to be the same!
+                    let _ = self.next();  // ignore result - it's going to be the same!
                 }
                 else {
                     break;

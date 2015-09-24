@@ -14,7 +14,7 @@ use tz::{Transition, parse};
 
 /// A **time zone** is used to calculate how much to adjust a UTC-based time
 /// based on its geographical location.
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub enum TimeZone {
     UTC,
     FixedOffset { offset: i32 },
@@ -25,7 +25,7 @@ pub enum TimeZone {
 /// based on its geographical location.
 impl TimeZone {
     fn adjust(&self, local: LocalDateTime) -> LocalDateTime {
-        match self{
+        match self {
             &TimeZone::UTC => { self.adjust_utc(local) },
             &TimeZone::FixedOffset{offset} => { self.adjust_fixed(offset, local) },
             &TimeZone::VariableOffset{ref transitions} => { self.adjust_variable(&transitions, local) },
@@ -36,11 +36,11 @@ impl TimeZone {
         local  // No adjustment needed! LocalDateTime uses UTC.
     }
 
-    fn adjust_fixed(&self, offset:i32,  local: LocalDateTime) -> LocalDateTime {
+    fn adjust_fixed(&self, offset: i32,  local: LocalDateTime) -> LocalDateTime {
         local + Duration::of(offset as i64)
     }
 
-    fn adjust_variable(&self, transitions:&Vec<Transition>, local: LocalDateTime) -> LocalDateTime {
+    fn adjust_variable(&self, transitions: &Vec<Transition>, local: LocalDateTime) -> LocalDateTime {
         let unix_timestamp = local.to_instant().seconds() as i32;
 
         // TODO: Replace this with a binary search
@@ -69,8 +69,9 @@ impl TimeZone {
     /// or an error if not.
     pub fn zoneinfo(path: &Path) -> Result<TimeZone, Box<Error>> {
         let mut contents = Vec::new();
-        try!(File::open(path).unwrap().read_to_end(&mut contents));
-        let mut tz = try!(parse(contents));
+        let mut file     = try!(File::open(path));
+        let _bytes_read  = try!(file.read_to_end(&mut contents));
+        let mut tz       = try!(parse(contents));
 
         // Sort the transitions *backwards* to make it easier to get the first
         // one *after* a specified time.
@@ -184,6 +185,7 @@ impl TimePiece for ZonedDateTime {
 
 
 #[cfg(test)]
+#[allow(unused_results)]
 mod test {
     use super::{TimeZone, ZonedDateTime};
     use local::{DatePiece, TimePiece};

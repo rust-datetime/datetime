@@ -268,7 +268,7 @@ impl LocalDate {
     /// Creates `LocalDate` from year, week number and day in week.
     pub fn from_yearday(year:i64, yearday:i64) -> Result<LocalDate, Error> {
         if let 0...366 = yearday {
-            let jan1 = try!(LocalDate::ymd(year, Month::January, 1));
+            let jan1 = try!(LocalDate::ymd(year, January, 1));
             let days = try!(jan1.ymd.to_days_since_epoch());
             Ok(LocalDate::from_days_since_epoch(days + yearday -1 - EPOCH_DIFFERENCE))
         }
@@ -283,32 +283,32 @@ impl LocalDate {
             0...7 => {
 
                 //let day = day - 1;
-                let jan1 = try!(LocalDate::ymd(year, Month::January, 1));
+                let jan1 = try!(LocalDate::ymd(year, January, 1));
                 let yearday = match jan1.weekday().days_from_sunday() {
                     0...4 => (7i64 * week + day) - (jan1.weekday() as i64 + 6),
                     _ => (7i64 * week + day) - (jan1.weekday() as i64 - 1)
                 };
 
-                match LocalDate::from_yearday(year, yearday as i64){
+                match LocalDate::from_yearday(year, yearday) {
                     Ok(date) => Ok(date),
                     Err(e) => {
                         if yearday < 1 {
-                            let is_leap_year = YMD { year: year - 1, month: Month::January, day: 1 }.leap_year_calculations().1;
+                            let is_leap_year = YMD { year: year - 1, month: January, day: 1 }.leap_year_calculations().1;
                             if is_leap_year {
-                                LocalDate::from_yearday(year - 1, 366 + yearday as i64)
+                                LocalDate::from_yearday(year - 1, 366 + yearday)
                             }
                             else {
-                                LocalDate::from_yearday(year - 1, 365 + yearday as i64)
+                                LocalDate::from_yearday(year - 1, 365 + yearday)
                             }
                         }
                         else if yearday > 365 {
-                            let is_leap_year = YMD { year: year, month: Month::January, day: 1 }.leap_year_calculations().1;
+                            let is_leap_year = YMD { year: year, month: January, day: 1 }.leap_year_calculations().1;
 
                             if is_leap_year {
-                                LocalDate::from_yearday(year + 1, yearday - 366 as i64)
+                                LocalDate::from_yearday(year + 1, yearday - 366)
                             }
                             else {
-                                LocalDate::from_yearday(year + 1, yearday - 365 as i64)
+                                LocalDate::from_yearday(year + 1, yearday - 365)
                             }
                         }
                         else {
@@ -780,7 +780,7 @@ fn split_cycles(number_of_periods: i64, cycle_length: i64) -> (i64, i64) {
 }
 
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Error {
     OutOfRange,
 }

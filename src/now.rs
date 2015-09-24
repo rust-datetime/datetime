@@ -18,8 +18,8 @@ pub unsafe fn now() -> (i64, i16) {
     use std::ptr::null_mut;
 
     let mut tv = libc::timeval { tv_sec: 0, tv_usec: 0 };
-    gettimeofday(&mut tv, null_mut());
-    (tv.tv_sec as i64, (tv.tv_usec / 1000) as i16)
+    let _ = gettimeofday(&mut tv, null_mut());
+    (tv.tv_sec, (tv.tv_usec / 1000) as i16)
 }
 
 /// Return the current time, as a number of seconds and milliseconds.
@@ -27,7 +27,7 @@ pub unsafe fn now() -> (i64, i16) {
 pub unsafe fn now() -> (i64, i16) {
     let mut tv = libc::timespec { tv_sec: 0, tv_nsec: 0 };
     clock_gettime(libc::CLOCK_REALTIME, &mut tv);
-    (tv.tv_sec as i64, (tv.tv_nsec / 1000) as i16)
+    (tv.tv_sec, (tv.tv_nsec / 1000) as i16)
 }
 
 

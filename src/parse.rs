@@ -170,7 +170,7 @@ fn parse_iso_8601_tuple(string: &str) -> Result<(i8,i8,i8,i32,i8,i8,&str), Error
 }
 
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Error {
     InvalidCharacter,
     InvalidDate(local::Error),
