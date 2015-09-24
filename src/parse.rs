@@ -59,26 +59,26 @@ pub enum DateFields<'a> {
     /// Year, month, and day components.
     YMD {
 
-        /// The year component, which should be a *four*-digit string.
+        /// The year component, which should be a **four**-digit string.
         year: &'a str,
 
-        /// The month component, which should be a *two*-digit string.
+        /// The month component, which should be a **two**-digit string.
         month: &'a str,
 
-        /// The day component, which should also be a *two*-digit string.
+        /// The day component, which should also be a **two**-digit string.
         day: &'a str,
     },
 
     /// Year, week-of-year, and day-of-week components.
     YWD {
 
-        /// The year component, which should be a *four*-digit string.
+        /// The year component, which should be a **four**-digit string.
         year: &'a str,
 
-        /// The week-of-year component, which should be a *two*-digit string.
+        /// The week-of-year component, which should be a **two**-digit string.
         week: &'a str,
 
-        /// The weekday component, which should also be a *single*-digit
+        /// The weekday component, which should also be a **single**-digit
         /// string from 1 (Monday) to 7 (Sunday).
         weekday: &'a str,
     },
@@ -86,53 +86,104 @@ pub enum DateFields<'a> {
     /// Ordinal year and day-of-year components.
     YD {
 
-        /// The year component, which should be a *four*-digit string.
+        /// The year component, which should be a **four**-digit string.
         year: &'a str,
 
-        /// The day component, which should also be a *three*-digit string.
+        /// The day component, which should also be a **three**-digit string.
         yearday: &'a str,
     },
 }
 
 
+/// A set of string fields representing time components.
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum TimeFields<'a> {
 
+    /// Hour and minute components.
     HM {
+
+        /// The hour component, which should be a **two**-digit string.
         hour: &'a str,
+
+        /// The minute component, which should also be a **two**-digit string.
         minute: &'a str,
     },
 
+    /// Hour, minute, and second components.
     HMS {
+        /// The hour component, which should be a **two**-digit string.
         hour: &'a str,
+
+        /// The minute component, which should also be a **two**-digit string.
         minute: &'a str,
+
+        /// The second component, which should also also be a **two**-digit
+        /// string.
         second: &'a str,
     },
 
+    /// Hour, minute, second, and millisecond components.
     HMSms {
+        /// The hour component, which should be a **two**-digit string.
         hour: &'a str,
+
+        /// The minute component, which should also be a **two**-digit string.
         minute: &'a str,
+
+        /// The second component, which should also also be a **two**-digit
+        /// string.
         second: &'a str,
+
+        /// The millisecond component, which should be a **three**-digit string.
         millisecond: &'a str,
     }
 }
 
 
+/// A set of string fields representing time zone components.
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum ZoneFields<'a> {
+
+    /// A single "Z", indicating UTC time.
     Zulu {
+
+        /// The Z!
         z: &'a str,
     },
 
     Offset {
+        /// The sign, a plus or a minus.
         sign: &'a str,
+
+        /// The hours component, which should be a **two**-digit string.
         hours: &'a str,
+
+        /// The minutes component, which should also be a **two**-digit string.
         minutes: Option<&'a str>,
     }
 }
 
 
 /// Parses an ISO 8601 date string into a set of `DateFields`.
+/// It accepts the following formats:
+///
+/// - `yyyy-mm-dd`
+/// - `yyyy-Www`
+/// - `yyyy-ddd`
+///
+/// ### Examples
+///
+/// ```rust
+/// use datetime::parse::{DateFields, parse_iso_8601_date};
+///
+/// let date = DateFields::YMD {
+///     year:  "2015",
+///     month: "12",
+///     day:   "25",
+/// };
+///
+/// assert_eq!(parse_iso_8601_date("2015-12-25"), Ok(date));
+/// ```
 pub fn parse_iso_8601_date(input: &str) -> Result<DateFields, Error> {
     if let Some(caps) = YMD_REGEX.captures(input) {
         Ok(DateFields::YMD {
@@ -160,6 +211,26 @@ pub fn parse_iso_8601_date(input: &str) -> Result<DateFields, Error> {
 }
 
 
+/// Parses an ISO 8601 time string into a set of `TimeFields`.
+/// It accepts the following formats:
+///
+/// - `hh:mm`
+/// - `hh:mm:ss`
+/// - `hh:mm:ss.SSS`
+///
+/// ### Examples
+///
+/// ```rust
+/// use datetime::parse::{TimeFields, parse_iso_8601_time};
+///
+/// let time = TimeFields::HMS {
+///     hour:   "17",
+///     minute: "30",
+///     second: "00",
+/// };
+///
+/// assert_eq!(parse_iso_8601_time("17:30:00"), Ok(time));
+/// ```
 pub fn parse_iso_8601_time(input: &str) -> Result<TimeFields, Error> {
     if let Some(caps) = HM_REGEX.captures(input) {
         Ok(TimeFields::HM {
@@ -188,6 +259,26 @@ pub fn parse_iso_8601_time(input: &str) -> Result<TimeFields, Error> {
 }
 
 
+/// Parses an ISO 8601 time zone string into a set of `ZoneFields`.
+/// It accepts the following formats:
+///
+/// - `Z`
+/// - `±hh:mm`
+/// - `±hh`
+///
+/// ### Examples
+///
+/// ```rust
+/// use datetime::parse::{ZoneFields, parse_iso_8601_zone};
+///
+/// let zone = ZoneFields::Offset {
+///     sign:    "+",
+///     hours:   "02",
+///     minutes: Some("30"),
+/// };
+///
+/// assert_eq!(parse_iso_8601_zone("+02:30"), Ok(zone));
+/// ```
 pub fn parse_iso_8601_zone(input: &str) -> Result<ZoneFields, Error> {
     if input == "Z" {
         Ok(ZoneFields::Zulu { z: input })
@@ -215,7 +306,9 @@ pub fn parse_iso_8601(input: &str) -> Result<(DateFields, TimeFields), Error> {
     }
 }
 
-pub fn split_date_and_time(input: &str) -> Option<(&str, &str)> {
+/// Splits the input string around the first 'T' that it finds.
+/// Returns `None` if it can't find a 'T'.
+fn split_date_and_time(input: &str) -> Option<(&str, &str)> {
     match input.bytes().position(|c| c == b'T') {
         Some(index) => Some(( &input[.. index], &input[index + 1 ..] )),
         None        => None,
