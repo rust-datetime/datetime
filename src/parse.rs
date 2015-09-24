@@ -41,7 +41,7 @@ lazy_static! {
         ( ?P<hour>   \d{2} ) :?
         ( ?P<minute> \d{2} ) :?
         ( ?P<second> \d{2} ) .
-        ( ?P<millis> \d{3} ) .
+        ( ?P<millis> \d{3} )
     $ "##).unwrap();
 
     static ref TZ_REGEX: Regex = Regex::new(r##"(?x) ^
@@ -388,6 +388,79 @@ mod test {
         #[test]
         fn yd_fails() {
             assert!(parse_iso_8601_date("2014-12").is_err());
+        }
+    }
+
+    mod times {
+        use super::*;
+
+        #[test]
+        fn hm() {
+            let expected = TimeFields::HM {
+                hour: "14",
+                minute: "45",
+            };
+
+            assert_eq!(parse_iso_8601_time("14:45"), Ok(expected));
+            assert_eq!(parse_iso_8601_time("1445"), Ok(expected));
+        }
+
+
+        #[test]
+        fn hms() {
+            let expected = TimeFields::HMS {
+                hour: "14",
+                minute: "45",
+                second: "12",
+            };
+
+            assert_eq!(parse_iso_8601_time("14:45:12"), Ok(expected));
+            assert_eq!(parse_iso_8601_time("144512"), Ok(expected));
+        }
+
+        #[test]
+        fn hms_ms() {
+            let expected = TimeFields::HMSms {
+                hour: "14",
+                minute: "45",
+                second: "12",
+                millisecond: "753",
+            };
+
+            assert_eq!(parse_iso_8601_time("14:45:12.753"), Ok(expected));
+            assert_eq!(parse_iso_8601_time("144512.753"), Ok(expected));
+        }
+
+        #[test]
+        fn hms_ms_fails() {
+            assert!(parse_iso_8601_time("144512753").is_err());
+        }
+    }
+
+    mod datetimes {
+        use super::*;
+
+        #[test]
+        fn ymd_hms() {
+            let expected_date = DateFields::YMD {
+                year: "2001",
+                month: "02",
+                day: "03",
+            };
+
+            let expected_time = TimeFields::HMS {
+                hour: "04",
+                minute: "05",
+                second: "06",
+            };
+
+            assert_eq!(parse_iso_8601("2001-02-03T04:05:06"), Ok((expected_date, expected_time)));
+            assert_eq!(parse_iso_8601("20010203T040506"), Ok((expected_date, expected_time)));
+        }
+
+        #[test]
+        fn lowercase_t() {
+            assert!(parse_iso_8601_time("2001-02-03T04:05:06").is_err());
         }
     }
 }
