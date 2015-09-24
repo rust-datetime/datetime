@@ -231,8 +231,7 @@ impl TimePiece for ZonedDateTime {
 #[cfg(test)]
 #[allow(unused_results)]
 mod test {
-    use super::{TimeZone, ZonedDateTime};
-    use local::{DatePiece, TimePiece};
+    use super::TimeZone;
 
     #[test]
     fn fixed_seconds() {

@@ -439,134 +439,183 @@ pub enum Error {
 mod test {
     pub use super::*;
 
-    mod dates {
-        use super::*;
-
-        #[test]
-        fn ymd() {
-            let expected = DateFields::YMD {
-                year: "2014",
-                month: "12",
-                day: "25",
-            };
-
-            assert_eq!(parse_iso_8601_date("2014-12-25"), Ok(expected));
-            assert_eq!(parse_iso_8601_date("20141225"), Ok(expected));
-        }
-
-        #[test]
-        fn ymd_fails() {
-            assert!(parse_iso_8601_date("wibble").is_err());
-            assert!(parse_iso_8601_date("19424-07-11").is_err());
-        }
-
-
-        #[test]
-        fn ywd() {
-            let expected = DateFields::YWD {
-                year: "2014",
-                week: "22",
-                weekday: "3",
-            };
-
-            assert_eq!(parse_iso_8601_date("2014-W22-3"), Ok(expected));
-            assert_eq!(parse_iso_8601_date("2014W223"), Ok(expected));
-        }
-
-        #[test]
-        fn ywd_fails() {
-            assert!(parse_iso_8601_date("2014-W22").is_err());
-            assert!(parse_iso_8601_date("2014-w22-3").is_err());
-        }
-
-
-        #[test]
-        fn yd() {
-            let expected = DateFields::YD {
-                year: "2014",
-                yearday: "123",
-            };
-
-            assert_eq!(parse_iso_8601_date("2014-123"), Ok(expected));
-            assert_eq!(parse_iso_8601_date("2014123"), Ok(expected));
-        }
-
-        #[test]
-        fn yd_fails() {
-            assert!(parse_iso_8601_date("2014-12").is_err());
+    macro_rules! test_parse {
+        ($name:ident: $left:expr => $right:expr) => {
+            #[test]
+            fn $name() {
+                assert_eq!($left, $right);
+            }
         }
     }
 
-    mod times {
+    mod ymd {
         use super::*;
 
-        #[test]
-        fn hm() {
-            let expected = TimeFields::HM {
-                hour: "14",
-                minute: "45",
-            };
+        static EXPECTED: DateFields<'static> = DateFields::YMD {
+            year: "2014",
+            month: "12",
+            day: "25",
+        };
 
-            assert_eq!(parse_iso_8601_time("14:45"), Ok(expected));
-            assert_eq!(parse_iso_8601_time("1445"), Ok(expected));
-        }
+        test_parse!(hyphens:    parse_iso_8601_date("2014-12-25")  => Ok(EXPECTED));
+        test_parse!(no_hyphens: parse_iso_8601_date("20141225")    => Ok(EXPECTED));
+        test_parse!(far_future: parse_iso_8601_date("19424-07-11") => Err(Error::InvalidFormat));
+        test_parse!(wibble:     parse_iso_8601_date("wibble")      => Err(Error::InvalidFormat));
+    }
 
+    mod ywd {
+        use super::*;
 
-        #[test]
-        fn hms() {
-            let expected = TimeFields::HMS {
-                hour: "14",
-                minute: "45",
-                second: "12",
-            };
+        static EXPECTED: DateFields<'static> = DateFields::YWD {
+            year: "2014",
+            week: "22",
+            weekday: "3",
+        };
 
-            assert_eq!(parse_iso_8601_time("14:45:12"), Ok(expected));
-            assert_eq!(parse_iso_8601_time("144512"), Ok(expected));
-        }
+        test_parse!(hyphens:    parse_iso_8601_date("2014-W22-3")  => Ok(EXPECTED));
+        test_parse!(no_hyphens: parse_iso_8601_date("2014W223")    => Ok(EXPECTED));
+        test_parse!(no_day:     parse_iso_8601_date("2014-W22")    => Err(Error::InvalidFormat));
+        test_parse!(lowercase:  parse_iso_8601_date("2014-w22-3")  => Err(Error::InvalidFormat));
+        test_parse!(blarg:      parse_iso_8601_date("blarg")       => Err(Error::InvalidFormat));
+    }
 
-        #[test]
-        fn hms_ms() {
-            let expected = TimeFields::HMSms {
-                hour: "14",
-                minute: "45",
-                second: "12",
-                millisecond: "753",
-            };
+    mod yd {
+        use super::*;
 
-            assert_eq!(parse_iso_8601_time("14:45:12.753"), Ok(expected));
-            assert_eq!(parse_iso_8601_time("144512.753"), Ok(expected));
-        }
+        static EXPECTED: DateFields<'static> = DateFields::YD {
+            year: "2014",
+            yearday: "123",
+        };
 
-        #[test]
-        fn hms_ms_fails() {
-            assert!(parse_iso_8601_time("144512753").is_err());
-        }
+        test_parse!(hyphens:    parse_iso_8601_date("2014-123")  => Ok(EXPECTED));
+        test_parse!(no_hyphens: parse_iso_8601_date("2014123")   => Ok(EXPECTED));
+        test_parse!(two_digits: parse_iso_8601_date("2014-12")   => Err(Error::InvalidFormat));
+        test_parse!(fizzle:     parse_iso_8601_date("fizzle")    => Err(Error::InvalidFormat));
+    }
+
+    mod hm {
+        use super::*;
+
+        static EXPECTED: TimeFields<'static> = TimeFields::HM {
+            hour: "14",
+            minute: "45",
+        };
+
+        test_parse!(colons: parse_iso_8601_time("14:45") => Ok(EXPECTED));
+        test_parse!(nolons: parse_iso_8601_time("1445")  => Ok(EXPECTED));
+    }
+
+    mod hms {
+        use super::*;
+
+        static EXPECTED: TimeFields<'static> = TimeFields::HMS {
+            hour:   "14",
+            minute: "45",
+            second: "12",
+        };
+
+        test_parse!(colons: parse_iso_8601_time("14:45:12") => Ok(EXPECTED));
+        test_parse!(nolons: parse_iso_8601_time("144512")   => Ok(EXPECTED));
+    }
+
+    mod hms_ms {
+        use super::*;
+
+        static EXPECTED: TimeFields<'static> = TimeFields::HMSms {
+            hour:   "14",
+            minute: "45",
+            second: "12",
+            millisecond: "753",
+        };
+
+        test_parse!(colons:  parse_iso_8601_time("14:45:12.753") => Ok(EXPECTED));
+        test_parse!(nolons:  parse_iso_8601_time("144512.753")   => Ok(EXPECTED));
+        test_parse!(extra:   parse_iso_8601_time("144512.7538")  => Err(Error::InvalidFormat));
+        test_parse!(fewer:   parse_iso_8601_time("144512.75")    => Err(Error::InvalidFormat));
+        test_parse!(dotless: parse_iso_8601_time("144512753")    => Err(Error::InvalidFormat));
     }
 
     mod datetimes {
         use super::*;
 
-        #[test]
-        fn ymd_hms() {
-            let expected_date = DateFields::YMD {
-                year: "2001",
+        static EXPECTED: (DateFields<'static>, TimeFields<'static>) = (
+            DateFields::YMD {
+                year:  "2001",
                 month: "02",
-                day: "03",
-            };
-
-            let expected_time = TimeFields::HMS {
-                hour: "04",
+                day:   "03",
+            },
+            TimeFields::HMS {
+                hour:   "04",
                 minute: "05",
                 second: "06",
-            };
+            },
+        );
 
-            assert_eq!(parse_iso_8601_date_time("2001-02-03T04:05:06"), Ok((expected_date, expected_time)));
-            assert_eq!(parse_iso_8601_date_time("20010203T040506"), Ok((expected_date, expected_time)));
-        }
+        test_parse!(hyphens:    parse_iso_8601_date_time("2001-02-03T04:05:06") => Ok(EXPECTED));
+        test_parse!(no_hyphens: parse_iso_8601_date_time("20010203T040506")     => Ok(EXPECTED));
+        test_parse!(lowercase:  parse_iso_8601_date_time("2001-02-03t04:05:06") => Err(Error::InvalidFormat));
+    }
 
-        #[test]
-        fn lowercase_t() {
-            assert!(parse_iso_8601_date_time("2001-02-03t04:05:06").is_err());
-        }
+    mod zones {
+        use super::*;
+
+        static EXPECTED: ZoneFields<'static> = ZoneFields::Offset {
+            sign:    "+",
+            hours:   "11",
+            minutes: Some("15"),
+        };
+
+        test_parse!(zulu:  parse_iso_8601_zone("Z") => Ok(ZoneFields::Zulu));
+        test_parse!(lower: parse_iso_8601_zone("z") => Err(Error::InvalidFormat));
+
+        test_parse!(hyphen:    parse_iso_8601_zone("+11:15")  => Ok(EXPECTED));
+        test_parse!(no_hyphen: parse_iso_8601_zone("+1115")   => Ok(EXPECTED));
+        test_parse!(no_sign:   parse_iso_8601_zone("11:15")   => Err(Error::InvalidFormat));
+        test_parse!(both:      parse_iso_8601_zone("Z11:15")  => Err(Error::InvalidFormat));
+    }
+
+    mod timezones {
+        use super::*;
+
+        static EXPECTED: (TimeFields<'static>, ZoneFields<'static>) = (
+            TimeFields::HMS {
+                hour:   "04",
+                minute: "05",
+                second: "06",
+            },
+            ZoneFields::Offset {
+                sign:    "-",
+                hours:   "11",
+                minutes: Some("15"),
+            },
+        );
+
+        test_parse!(delimiters:     parse_iso_8601_time_zone("04:05:06-11:15") => Ok(EXPECTED));
+        test_parse!(no_delimiters:  parse_iso_8601_time_zone("040506-1115")    => Ok(EXPECTED));
+    }
+
+    mod datetimezones {
+        use super::*;
+
+        static EXPECTED: (DateFields<'static>, TimeFields<'static>, ZoneFields<'static>) = (
+            DateFields::YMD {
+                year:  "2001",
+                month: "09",
+                day:   "09",
+            },
+            TimeFields::HMS {
+                hour:   "01",
+                minute: "46",
+                second: "40",
+            },
+            ZoneFields::Offset {
+                sign:    "-",
+                hours:   "13",
+                minutes: Some("37"),
+            },
+        );
+
+        test_parse!(moon:     parse_iso_8601_date_time_zone("2001-09-09T01:46:40-1337") => Ok(EXPECTED));
+        test_parse!(timeless: parse_iso_8601_date_time_zone("2001-09-09TZ") => Err(Error::InvalidFormat));
     }
 }
