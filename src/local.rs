@@ -1,3 +1,5 @@
+use std::error::Error as ErrorTrait;
+use std::fmt;
 use std::num::ParseIntError;
 use std::ops::{Add, Sub};
 use std::str::FromStr;
@@ -891,6 +893,19 @@ pub enum Error {
     OutOfRange,
 }
 
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.description())
+    }
+}
+
+impl ErrorTrait for Error {
+    fn description(&self) -> &str {
+        "datetime field out of range"
+    }
+}
+
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseError {
     Date(Error),
@@ -898,6 +913,33 @@ pub enum ParseError {
     Parse(parse::Error),
 }
 
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match *self {
+            ParseError::Date(ref error)   => write!(f, "{}: {}", self.description(), error),
+            ParseError::Number(ref error) => write!(f, "{}: {}", self.description(), error),
+            ParseError::Parse(ref error)  => write!(f, "{}: {}", self.description(), error),
+        }
+    }
+}
+
+impl ErrorTrait for ParseError {
+    fn description(&self) -> &str {
+        match *self {
+            ParseError::Date(_)     => "parsing resulted in an invalid date",
+            ParseError::Number(_)   => "parsing a number failed",
+            ParseError::Parse(_)    => "parse error",
+        }
+    }
+
+    fn cause(&self) -> Option<&ErrorTrait> {
+        match *self {
+            ParseError::Date(ref error)   => Some(error),
+            ParseError::Number(ref error) => Some(error),
+            ParseError::Parse(ref error)  => Some(error),
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {
