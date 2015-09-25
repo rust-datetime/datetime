@@ -286,15 +286,30 @@ pub struct LocalTime {
 /// time zone*.
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct LocalDateTime {
-    pub date: LocalDate,
-    pub time: LocalTime,
+    date: LocalDate,
+    time: LocalTime,
 }
 
 
 impl LocalDate {
 
-    /// Creates `LocalDate` from year, week number and day in week.
-    pub fn from_yearday(year: i64, yearday: i64) -> Result<LocalDate, Error> {
+    /// Creates a new local date instance from the given year, month, and day
+    /// fields.
+    ///
+    /// The values are checked for validity before instantiation, and
+    /// passing in values out of range will return an error.
+    pub fn ymd(year: i64, month: Month, day: i8) -> Result<LocalDate, Error> {
+        YMD { year: year, month: month, day: day }
+            .to_days_since_epoch()
+            .map(|days| LocalDate::from_days_since_epoch(days - EPOCH_DIFFERENCE))
+    }
+
+    /// Creates a new local date instance from the given year and day-of-year
+    /// values.
+    ///
+    /// The values are checked for validity before instantiation, and
+    /// passing in values out of range will return an error.
+    pub fn yd(year: i64, yearday: i64) -> Result<LocalDate, Error> {
         if yearday.is_within(0..367) {
             let jan1 = try!(LocalDate::ymd(year, January, 1));
             let days = try!(jan1.ymd.to_days_since_epoch());
@@ -305,8 +320,12 @@ impl LocalDate {
         }
     }
 
-    /// Creates `LocalDate` from year, week number and day in week.
-    pub fn from_weekday(year: i64, week: i64, day: i64) -> Result<LocalDate, Error> {
+    /// Creates a new local date instance from the given year, week-of-year,
+    /// and weekday values.
+    ///
+    /// The values are checked for validity before instantiation, and
+    /// passing in values out of range will return an error.
+    pub fn ywd(year: i64, week: i64, day: i64) -> Result<LocalDate, Error> {
         if day.is_within(0..7) {
 
             let jan1 = LocalDate::ymd(year, January, 1).unwrap();
@@ -318,26 +337,26 @@ impl LocalDate {
                 (7i64 * week + day) - (jan1.weekday() as i64 - 1)
             };
 
-            match LocalDate::from_yearday(year, yearday) {
+            match LocalDate::yd(year, yearday) {
                 Ok(date) => Ok(date),
                 Err(e) => {
                     if yearday < 1 {
                         let is_leap_year = YMD { year: year - 1, month: January, day: 1 }.leap_year_calculations().1;
                         if is_leap_year {
-                            LocalDate::from_yearday(year - 1, 366 + yearday)
+                            LocalDate::yd(year - 1, 366 + yearday)
                         }
                         else {
-                            LocalDate::from_yearday(year - 1, 365 + yearday)
+                            LocalDate::yd(year - 1, 365 + yearday)
                         }
                     }
                     else if yearday > 365 {
                         let is_leap_year = YMD { year: year, month: January, day: 1 }.leap_year_calculations().1;
 
                         if is_leap_year {
-                            LocalDate::from_yearday(year + 1, yearday - 366)
+                            LocalDate::yd(year + 1, yearday - 366)
                         }
                         else {
-                            LocalDate::from_yearday(year + 1, yearday - 365)
+                            LocalDate::yd(year + 1, yearday - 365)
                         }
                     }
                     else {
@@ -354,7 +373,7 @@ impl LocalDate {
     /// Computes a LocalDate - year, month, day, weekday, and yearday -
     /// given the number of days that have passed since the EPOCH.
     ///
-    /// This is used by LocalDateTime::at() below.
+    /// This is used by all the other constructor functions.
     fn from_days_since_epoch(days: i64) -> LocalDate {
 
         // The Gregorian calendar works in 400-year cycles, which repeat
@@ -442,17 +461,6 @@ impl LocalDate {
         }
     }
 
-    /// Creates a new datestamp instance with the given year, month, and
-    /// day fields.
-    ///
-    /// The values are checked for validity before instantiation, and
-    /// passing in values out of range will return None.
-    pub fn ymd(year: i64, month: Month, day: i8) -> Result<LocalDate, Error> {
-        YMD { year: year, month: month, day: day }
-            .to_days_since_epoch()
-            .map(|days| LocalDate::from_days_since_epoch(days - EPOCH_DIFFERENCE))
-    }
-
     /// Creates a new datestamp instance with the given year, month, day,
     /// weekday, and yearday fields.
     ///
@@ -475,7 +483,9 @@ impl LocalDate {
     // I'm not 100% convinced on using `unsafe` for something that doesn't
     // technically *need* to be unsafe, but I'll stick with it for now.
 
-    pub fn from_fields(fields: parse::DateFields) -> Result<Self, ParseError> {
+    /// Creates a new local date instance by parsing the strings in the given
+    /// set of fields.
+    pub fn from_fields(fields: parse::DateFields) -> Result<LocalDate, ParseError> {
         if let parse::DateFields::YMD { year, month, day } = fields {
             let y = try!(year.parse().map_err(ParseError::Number));
             let m = try!(month.parse().map_err(ParseError::Number));
@@ -493,13 +503,13 @@ impl LocalDate {
             let w = try!(week.parse().map_err(ParseError::Number));
             let d = try!(weekday.parse().map_err(ParseError::Number));
 
-            LocalDate::from_weekday(y, w, d).map_err(ParseError::Date)
+            LocalDate::ywd(y, w, d).map_err(ParseError::Date)
         }
         else if let parse::DateFields::YD { year, yearday } = fields {
             let y = try!(year.parse().map_err(ParseError::Number));
             let d = try!(yearday.parse().map_err(ParseError::Number));
 
-            LocalDate::from_yearday(y, d).map_err(ParseError::Date)
+            LocalDate::yd(y, d).map_err(ParseError::Date)
         }
         else {
             unreachable!()  // should be unnecessary??
@@ -607,9 +617,10 @@ impl LocalTime {
         self.hour as i64 * 3600
             + self.minute as i64 * 60
             + self.second as i64
-
     }
 
+    /// Creates a new local time instance by parsing the strings in the given
+    /// set of fields.
     pub fn from_fields(fields: parse::TimeFields) -> Result<Self, ParseError> {
         if let parse::TimeFields::HM { hour, minute } = fields {
             let h = try!(hour.parse().map_err(ParseError::Number));
@@ -641,8 +652,6 @@ impl LocalTime {
 impl FromStr for LocalTime {
     type Err = ParseError;
 
-    /// Parse an input string matching the ISO-8601 format, returning
-    /// the constructed date if successful, and None if unsuccessful.
     fn from_str(input: &str) -> Result<LocalTime, Self::Err> {
         match parse::parse_iso_8601_time(input) {
             Ok(fields)  => LocalTime::from_fields(fields),
@@ -689,11 +698,11 @@ impl LocalDateTime {
         }
     }
 
-    /// Computes a LocalDateTime from two separate LocalDate and LocalTime instances.
-    pub fn from_date_time(date:LocalDate, time:LocalTime) -> LocalDateTime{
-        LocalDateTime{
-            date : date,
-            time : time
+    /// Creates a new local date time from a local date and a local time.
+    pub fn new(date: LocalDate, time: LocalTime) -> LocalDateTime {
+        LocalDateTime {
+            date: date,
+            time: time,
         }
     }
 
@@ -1165,9 +1174,9 @@ mod test {
             LocalDate::ymd(2014, Month::from_one( 7).unwrap(), 13).unwrap(),
             LocalDate::ymd(2001, Month::from_one( 2).unwrap(), 03).unwrap(),
         ]{
-            let new_date = LocalDate::from_yearday(date.year(), date.yearday() as i64).unwrap();
+            let new_date = LocalDate::yd(date.year(), date.yearday() as i64).unwrap();
             assert_eq!(new_date, date);
-            assert!(LocalDate::from_yearday(2002, 1).is_ok());
+            assert!(LocalDate::yd(2002, 1).is_ok());
         }
     }
 

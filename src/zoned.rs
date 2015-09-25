@@ -184,7 +184,7 @@ impl FromStr for ZonedDateTime {
         let date = try!(LocalDate::from_fields(date_fields).map_err(ParseError::Date));
         let time = try!(LocalTime::from_fields(time_fields).map_err(ParseError::Date));
         let zone = try!(TimeZone::from_fields(zone_fields));
-        Ok(ZonedDateTime { local: LocalDateTime { date: date, time: time }, time_zone: zone })
+        Ok(ZonedDateTime { local: LocalDateTime::new(date, time), time_zone: zone })
     }
 }
 
