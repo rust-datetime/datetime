@@ -3,6 +3,7 @@
 use local::{LocalDateTime, LocalDate, LocalTime, DatePiece, TimePiece, Month, Weekday};
 use local::ParseError as LocalParseError;
 use parse;
+use util::RangeExt;
 
 use std::error::Error as StdError;
 use std::fs::File;
@@ -85,14 +86,14 @@ impl TimeZone {
 
     /// Create a new fixed-offset timezone with the given number of seconds.
     ///
-    /// Panics if the number of seconds is greater than one day's worth of
-    /// seconds (86400) in either direction.
-    pub fn of_seconds(seconds: i32) -> TimeZone {
-        if seconds <= -86400 || seconds >= 86400 {
-            panic!("Seconds offset greater than one day ({})", seconds)
+    /// Returns an error if the number of seconds is greater than one day's
+    /// worth of seconds (86400) in either direction.
+    pub fn of_seconds(seconds: i32) -> Result<TimeZone, Error> {
+        if seconds.is_within(-86400..86401) {
+            Ok(TimeZone::FixedOffset { offset: seconds })
         }
         else {
-            TimeZone::FixedOffset { offset: seconds }
+            Err(Error::OutOfRange)
         }
     }
 
@@ -101,20 +102,20 @@ impl TimeZone {
     ///
     /// The values should either be both positive or both negative.
     ///
-    /// Panics if the numbers are greater than their unit allows (more than 23
-    /// hours or 59 minutes) in either direction, or if the values differ in
-    /// sign (such as a positive number of hours with a negative number of
-    /// minutes).
-    pub fn of_hours_and_minutes(hours: i8, minutes: i8) -> TimeZone {
+    /// Returns an error if the numbers are greater than their unit allows
+    /// (more than 23 hours or 59 minutes) in either direction, or if the
+    /// values differ in sign (such as a positive number of hours with a
+    /// negative number of minutes).
+    pub fn of_hours_and_minutes(hours: i8, minutes: i8) -> Result<TimeZone, Error> {
         if (hours.is_positive() && minutes.is_negative())
         || (hours.is_negative() && minutes.is_positive()) {
-            panic!("Hour and minute values differ in sign ({} and {}", hours, minutes);
+            Err(Error::SignMismatch)
         }
         else if hours <= -24 || hours >= 24 {
-            panic!("Hours offset greater than one day ({})", hours);
+            Err(Error::OutOfRange)
         }
         else if minutes <= -60 || minutes >= 60 {
-            panic!("Minutes offset greater than one hour ({})", minutes);
+            Err(Error::OutOfRange)
         }
         else {
             let hours = hours as i32;
@@ -128,7 +129,7 @@ impl TimeZone {
         let parse = |input: &str| input.parse().map_err(ParseError::Number);
 
         let result = match fields {
-            Zulu => TimeZone::UTC,
+            Zulu => return Ok(TimeZone::UTC),
             Offset { sign: "+", hours, minutes: None } => TimeZone::of_hours_and_minutes( try!(parse(hours)), 0),
             Offset { sign: "-", hours, minutes: None } => TimeZone::of_hours_and_minutes(-try!(parse(hours)), 0),
             Offset { sign: "+", hours, minutes: Some(mins) } => TimeZone::of_hours_and_minutes( try!(parse(hours)),  try!(parse(mins))),
@@ -136,7 +137,7 @@ impl TimeZone {
             _ => unreachable!(),  // this definitely should be unreachable: the regex only checks for [Z+-].
         };
 
-        Ok(result)
+        result.map_err(ParseError::Zone)
     }
 }
 
@@ -155,6 +156,7 @@ impl FromStr for TimeZone {
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Error {
     OutOfRange,
+    SignMismatch,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -229,42 +231,41 @@ impl TimePiece for ZonedDateTime {
 
 
 #[cfg(test)]
-#[allow(unused_results)]
 mod test {
     use super::TimeZone;
 
     #[test]
     fn fixed_seconds() {
-        TimeZone::of_seconds(1234);
+        assert!(TimeZone::of_seconds(1234).is_ok());
     }
 
-    #[test] #[should_panic]
+    #[test]
     fn fixed_seconds_panic() {
-        TimeZone::of_seconds(100_000);
+        assert!(TimeZone::of_seconds(100_000).is_err());
     }
 
     #[test]
     fn fixed_hm() {
-        TimeZone::of_hours_and_minutes(5, 30);
+        assert!(TimeZone::of_hours_and_minutes(5, 30).is_ok());
     }
 
     #[test]
     fn fixed_hm_negative() {
-        TimeZone::of_hours_and_minutes(-3, -45);
+        assert!(TimeZone::of_hours_and_minutes(-3, -45).is_ok());
     }
 
-    #[test] #[should_panic]
-    fn fixed_hm_panic() {
-        TimeZone::of_hours_and_minutes(8, 60);
+    #[test]
+    fn fixed_hm_err() {
+        assert!(TimeZone::of_hours_and_minutes(8, 60).is_err());
     }
 
-    #[test] #[should_panic]
+    #[test]
     fn fixed_hm_signs() {
-        TimeZone::of_hours_and_minutes(-4, 30);
+        assert!(TimeZone::of_hours_and_minutes(-4, 30).is_err());
     }
 
     #[test]
     fn fixed_hm_signs_zero() {
-        TimeZone::of_hours_and_minutes(4, 0);
+        assert!(TimeZone::of_hours_and_minutes(4, 0).is_ok());
     }
 }
