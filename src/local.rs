@@ -219,7 +219,7 @@ impl Month {
 
 /// A named day of the week, starting with Sunday, and ending with Saturday.
 ///
-/// Sunday is day 0. This seems to be a North American thing? It's pretty
+/// Sunday is Day 0. This seems to be a North American thing? It's pretty
 /// much an arbitrary choice, and as you can't use the from_zero method,
 /// it won't affect you at all. If you want to change it, the only thing
 /// that should be affected is LocalDate::days_to_weekday.
@@ -243,12 +243,20 @@ impl Weekday {
         }
     }
 
-    fn from_zero(weekday: i8) -> Weekday {
-        match weekday {
+    /// Return the weekday based on a number, with Sunday as Day 0, Monday as
+    /// Day 1, and so on.
+    ///
+    /// ```rust
+    /// use datetime::local::Weekday;
+    /// assert_eq!(Weekday::from_zero(4), Ok(Weekday::Thursday));
+    /// assert!(Weekday::from_zero(7).is_err());
+    /// ```
+    pub fn from_zero(weekday: i8) -> Result<Weekday, Error> {
+        Ok(match weekday {
             0 => Sunday,     1 => Monday,    2 => Tuesday,
             3 => Wednesday,  4 => Thursday,  5 => Friday,
-            6 => Saturday,   _ => unreachable!()
-        }
+            6 => Saturday,   _ => return Err(Error::OutOfRange),
+        })
     }
 }
 
@@ -852,7 +860,9 @@ impl YMD {
 fn days_to_weekday(days: i64) -> Weekday {
     // March 1st, 2000 was a Wednesday, so add 3 to the number of days.
     let weekday = (days + 3) % 7;
-    Weekday::from_zero(if weekday < 0 { weekday + 7 } else { weekday } as i8)
+
+    // We can unwrap since we've already done the bounds checking.
+    Weekday::from_zero(if weekday < 0 { weekday + 7 } else { weekday } as i8).unwrap()
 }
 
 /// Split a number of years into a number of year-cycles, and the number
