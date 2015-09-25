@@ -6,6 +6,7 @@ use now;
 use parse;
 use instant::Instant;
 use duration::Duration;
+use util::RangeExt;
 
 use self::Month::*;
 use self::Weekday::*;
@@ -267,8 +268,8 @@ pub struct LocalDateTime {
 impl LocalDate {
 
     /// Creates `LocalDate` from year, week number and day in week.
-    pub fn from_yearday(year:i64, yearday:i64) -> Result<LocalDate, Error> {
-        if let 0...366 = yearday {
+    pub fn from_yearday(year: i64, yearday: i64) -> Result<LocalDate, Error> {
+        if yearday.is_within(0..367) {
             let jan1 = try!(LocalDate::ymd(year, January, 1));
             let days = try!(jan1.ymd.to_days_since_epoch());
             Ok(LocalDate::from_days_since_epoch(days + yearday -1 - EPOCH_DIFFERENCE))
@@ -280,45 +281,47 @@ impl LocalDate {
 
     /// Creates `LocalDate` from year, week number and day in week.
     pub fn from_weekday(year: i64, week: i64, day: i64) -> Result<LocalDate, Error> {
-        match day {
-            0...7 => {
+        if day.is_within(0..7) {
 
-                //let day = day - 1;
-                let jan1 = try!(LocalDate::ymd(year, January, 1));
-                let yearday = match jan1.weekday().days_from_sunday() {
-                    0...4 => (7i64 * week + day) - (jan1.weekday() as i64 + 6),
-                    _ => (7i64 * week + day) - (jan1.weekday() as i64 - 1)
-                };
+            let jan1 = LocalDate::ymd(year, January, 1).unwrap();
 
-                match LocalDate::from_yearday(year, yearday) {
-                    Ok(date) => Ok(date),
-                    Err(e) => {
-                        if yearday < 1 {
-                            let is_leap_year = YMD { year: year - 1, month: January, day: 1 }.leap_year_calculations().1;
-                            if is_leap_year {
-                                LocalDate::from_yearday(year - 1, 366 + yearday)
-                            }
-                            else {
-                                LocalDate::from_yearday(year - 1, 365 + yearday)
-                            }
-                        }
-                        else if yearday > 365 {
-                            let is_leap_year = YMD { year: year, month: January, day: 1 }.leap_year_calculations().1;
+            let yearday = if jan1.weekday().days_from_sunday().is_within(0..5) {
+                (7i64 * week + day) - (jan1.weekday() as i64 + 6)
+            }
+            else {
+                (7i64 * week + day) - (jan1.weekday() as i64 - 1)
+            };
 
-                            if is_leap_year {
-                                LocalDate::from_yearday(year + 1, yearday - 366)
-                            }
-                            else {
-                                LocalDate::from_yearday(year + 1, yearday - 365)
-                            }
+            match LocalDate::from_yearday(year, yearday) {
+                Ok(date) => Ok(date),
+                Err(e) => {
+                    if yearday < 1 {
+                        let is_leap_year = YMD { year: year - 1, month: January, day: 1 }.leap_year_calculations().1;
+                        if is_leap_year {
+                            LocalDate::from_yearday(year - 1, 366 + yearday)
                         }
                         else {
-                            Err(e)
+                            LocalDate::from_yearday(year - 1, 365 + yearday)
                         }
                     }
+                    else if yearday > 365 {
+                        let is_leap_year = YMD { year: year, month: January, day: 1 }.leap_year_calculations().1;
+
+                        if is_leap_year {
+                            LocalDate::from_yearday(year + 1, yearday - 366)
+                        }
+                        else {
+                            LocalDate::from_yearday(year + 1, yearday - 365)
+                        }
+                    }
+                    else {
+                        Err(e)
+                    }
                 }
-            },
-            _ => Err(Error::OutOfRange)
+            }
+        }
+        else {
+            Err(Error::OutOfRange)
         }
     }
 
@@ -525,9 +528,7 @@ impl LocalTime {
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return an `Err`.
     pub fn hm(hour: i8, minute: i8) -> Result<LocalTime, Error> {
-        if hour >= 0 && hour <= 23
-            && minute >= 0 && minute <= 59
-        {
+        if hour.is_within(0..24) && minute.is_within(0..60) {
             Ok(LocalTime { hour: hour, minute: minute, second: 0, millisecond: 0 })
         }
         else {
@@ -541,10 +542,7 @@ impl LocalTime {
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return an `Err`.
     pub fn hms(hour: i8, minute: i8, second: i8) -> Result<LocalTime, Error> {
-        if hour >= 0 && hour <= 23
-            && minute >= 0 && minute <= 59
-            && second >= 0 && second <= 59
-        {
+        if hour.is_within(0..24) && minute.is_within(0..60) && second.is_within(0..60) {
             Ok(LocalTime { hour: hour, minute: minute, second: second, millisecond: 0 })
         }
         else {
@@ -558,10 +556,8 @@ impl LocalTime {
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return an `Err`.
     pub fn hms_ms(hour: i8, minute: i8, second: i8, millisecond: i16) -> Result<LocalTime, Error> {
-        if hour >= 0 && hour <= 23
-            && minute >= 0 && minute <= 59
-            && second >= 0 && second <= 59
-            && millisecond >= 0 && millisecond <= 999
+        if hour.is_within(0..24)   && minute.is_within(0..60)
+        && second.is_within(0..60) && millisecond.is_within(0..1000)
         {
             Ok(LocalTime { hour: hour, minute: minute, second: second, millisecond: millisecond })
         }
