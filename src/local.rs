@@ -471,9 +471,9 @@ impl LocalDate {
             let m = try!(month.parse().map_err(ParseError::Number));
             let d = try!(day.parse().map_err(ParseError::Number));
 
-            /// Need to do a further try! here to convert the month number
-            /// into the Month enum variant, which returns Err if outside the
-            /// range (1..13).
+            // Need to do a further try! here to convert the month number
+            // into the Month enum variant, which returns Err if outside the
+            // range (1..13).
             let mv = try!(Month::from_one(m).map_err(ParseError::Date));
 
             LocalDate::ymd(y, mv, d).map_err(ParseError::Date)
