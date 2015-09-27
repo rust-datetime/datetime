@@ -148,6 +148,7 @@ pub enum Month {
 }
 
 impl Month {
+
     /// The number of days in this month, depending on whether it's a
     /// leap year or not.
     fn days_in_month(&self, leap_year: bool) -> i8 {
@@ -262,6 +263,49 @@ impl Weekday {
     }
 }
 
+/// TODO: Make the YMD constructor able to use this
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub struct Year(pub i64);
+
+impl Year {
+    pub fn is_leap_year(&self) -> bool {
+        YMD { year: self.0, month: January, day: 1 }
+            .leap_year_calculations()
+            .1
+    }
+
+    pub fn days_for_month(&self, month: Month) -> DaysForMonth {
+        DaysForMonth {
+            year: self,
+            month: month,
+            day: 1,
+            max: month.days_in_month(self.is_leap_year()),
+        }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct DaysForMonth<'year> {
+    year: &'year Year,
+    month: Month,
+    day: i8,
+    max: i8,
+}
+
+impl<'year> Iterator for DaysForMonth<'year> {
+    type Item = LocalDate;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.day <= self.max {
+            let date = LocalDate::ymd(self.year.0, self.month, self.day).unwrap();  // Can this ever be invalid?
+            self.day += 1;
+            Some(date)
+        }
+        else {
+            None
+        }
+    }
+}
 
 /// A **local date** is a day-long span on the timeline, *without a time
 /// zone*.
@@ -1023,7 +1067,7 @@ impl ErrorTrait for ParseError {
 
 #[cfg(test)]
 mod test {
-    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, DatePiece};
+    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, DatePiece, Year};
     pub use std::str::FromStr;
     use super::YMD;
 
@@ -1384,6 +1428,22 @@ mod test {
         fn subtraction() {
             let date = LocalDateTime::at(100000000);
             assert_eq!(LocalDateTime::at(99999999), date - Duration::of(1))
+        }
+    }
+
+    mod spans {
+        use super::*;
+
+        #[test]
+        fn iterator() {
+            let year = Year(2016);
+            let mut days = year.days_for_month(Month::February);
+
+            for i in 1..30 {
+                assert_eq!(days.next().unwrap(), LocalDate::ymd(2016, Month::February, i).unwrap());
+            }
+
+            assert!(days.next().is_none());
         }
     }
 }
