@@ -307,6 +307,19 @@ impl<'year> Iterator for DaysForMonth<'year> {
     }
 }
 
+impl<'year> DoubleEndedIterator for DaysForMonth<'year> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.day <= self.max {
+            let date = LocalDate::ymd(self.year.0, self.month, self.max).unwrap();  // ditto
+            self.max -= 1;
+            Some(date)
+        }
+        else {
+            None
+        }
+    }
+}
+
 /// A **local date** is a day-long span on the timeline, *without a time
 /// zone*.
 #[derive(Eq, Debug, Clone, Copy)]
@@ -1444,6 +1457,27 @@ mod test {
             }
 
             assert!(days.next().is_none());
+        }
+
+        #[test]
+        fn iterator_back() {
+            let year = Year(2014);
+            let mut days = year.days_for_month(Month::February).rev();
+
+            for i in (1..29).rev() {
+                assert_eq!(days.next().unwrap(), LocalDate::ymd(2014, Month::February, i).unwrap());
+            }
+
+            assert!(days.next().is_none());
+        }
+
+        #[test]
+        fn double() {
+            let year = Year(2012);
+
+            let mut days = year.days_for_month(Month::February);
+            assert_eq!(days.next().unwrap(), LocalDate::ymd(2012, Month::February, 1).unwrap());
+            assert_eq!(days.next_back().unwrap(), LocalDate::ymd(2012, Month::February, 29).unwrap());
         }
     }
 }
