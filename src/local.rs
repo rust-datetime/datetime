@@ -1,3 +1,4 @@
+use std::cmp::{Ordering, PartialOrd};
 use std::error::Error as ErrorTrait;
 use std::fmt;
 use std::num::ParseIntError;
@@ -331,7 +332,7 @@ pub struct LocalDate {
 
 /// A **local time** is a time on the timeline that recurs once a day,
 /// *without a time zone*.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub struct LocalTime {
     hour:   i8,
     minute: i8,
@@ -341,7 +342,7 @@ pub struct LocalTime {
 
 /// A **local date-time** is an exact instant on the timeline, *without a
 /// time zone*.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub struct LocalDateTime {
     date: LocalDate,
     time: LocalTime,
@@ -669,6 +670,17 @@ impl PartialEq for LocalDate {
     }
 }
 
+impl PartialOrd for LocalDate {
+    fn partial_cmp(&self, other: &LocalDate) -> Option<Ordering> {
+        self.ymd.partial_cmp(&other.ymd)
+    }
+}
+
+impl Ord for LocalDate {
+    fn cmp(&self, other: &LocalDate) -> Ordering {
+        self.ymd.cmp(&other.ymd)
+    }
+}
 
 impl LocalTime {
 
@@ -700,7 +712,8 @@ impl LocalTime {
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return an `Err`.
     pub fn hm(hour: i8, minute: i8) -> Result<LocalTime, Error> {
-        if hour.is_within(0..24) && minute.is_within(0..60) {
+        if (hour.is_within(0..24) && minute.is_within(0..60))
+        || (hour == 24 && minute == 00) {
             Ok(LocalTime { hour: hour, minute: minute, second: 0, millisecond: 0 })
         }
         else {
@@ -714,7 +727,8 @@ impl LocalTime {
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return an `Err`.
     pub fn hms(hour: i8, minute: i8, second: i8) -> Result<LocalTime, Error> {
-        if hour.is_within(0..24) && minute.is_within(0..60) && second.is_within(0..60) {
+        if (hour.is_within(0..24) && minute.is_within(0..60) && second.is_within(0..60))
+        || (hour == 24 && minute == 00 && second == 00) {
             Ok(LocalTime { hour: hour, minute: minute, second: second, millisecond: 0 })
         }
         else {
@@ -740,7 +754,7 @@ impl LocalTime {
 
     /// Calculate the number of seconds since midnight this time is at,
     /// ignoring milliseconds.
-    fn to_seconds(&self) -> i64 {
+    pub fn to_seconds(&self) -> i64 {
         self.hour as i64 * 3600
             + self.minute as i64 * 60
             + self.second as i64
@@ -853,6 +867,10 @@ impl LocalDateTime {
         let seconds = self.date.ymd.to_days_since_epoch().unwrap() * SECONDS_IN_DAY + self.time.to_seconds();
         Instant::at_ms(seconds, self.time.millisecond)
     }
+
+    pub fn add_seconds(&self, seconds: i64) -> LocalDateTime {
+        Self::from_instant(self.to_instant() + Duration::of(seconds))
+    }
 }
 
 impl FromStr for LocalDateTime {
@@ -907,7 +925,7 @@ impl Sub<Duration> for LocalDateTime {
 /// create an instance of the 74th of March, for example, but you're
 /// free to create such an instance of YMD. For this reason, it is not
 /// exposed to implementors of this library.
-#[derive(PartialEq, Eq, Clone, Debug, Copy)]
+#[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Debug, Copy)]
 struct YMD {
     year:    i64,
     month:   Month,
