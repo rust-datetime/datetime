@@ -1,7 +1,9 @@
 extern crate datetime;
 use datetime::local::*;
 use datetime::parse::{parse_iso_8601, parse_iso_8601_date};
-use datetime::parse::{parse_iso_8601_time, split_iso_8601};
+use datetime::parse::{parse_iso_8601_time,Error as ParseError};
+extern crate regex;
+use regex::Regex;
 
 extern crate rustc_serialize;
 use rustc_serialize::json::Json;
@@ -74,6 +76,23 @@ fn date_fromweekday_vs_new_vs_parse() {
     }
 }
 
+/// Splits Date String, Time String
+///
+/// for further parsing by `parse_iso_8601_date` and `parse_iso_8601_time`.
+/// TODO does not need to be `pub`
+fn split_iso_8601(string: &str) -> Result<(&str, &str), ParseError> {
+    let split = Regex::new(r"^([^T]*)T?(.*)$").unwrap();
+
+    if split.is_match(&string) {
+        let caps = split.captures(&string).unwrap();
+        if caps.len() > 1 {
+            return Ok((caps.at(1).unwrap().into(), caps.at(2).unwrap().into()));
+        }
+    }
+
+    Err(ParseError::InvalidCharacter)
+}
+
 #[test]
 fn time_parse_vs_new(){
     let strings = [
@@ -141,3 +160,4 @@ fn time_parse_vs_new(){
         }
     }
 }
+

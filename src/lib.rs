@@ -26,8 +26,10 @@ extern crate locale;
 extern crate libc;
 extern crate num;
 extern crate pad;
-extern crate regex;
 extern crate tz;
+
+extern crate iso8601;
+extern crate nom;
 
 mod now;
 pub mod parse;

@@ -17,9 +17,12 @@ doctest = false
 locale = "0.1"
 num = "*"
 pad = "0.1"
-regex = "0.1"
 tz = "0.2"
 libc = "0.1"
 
+iso8601 = { git = "https://github.com/hoodie/iso8601.git" }
+nom = "0.5"
+
 [dev-dependencies]
 rustc-serialize = "0.3"
+regex = "0.1"
