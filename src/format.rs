@@ -1,56 +1,3 @@
-//! # Date and Time Formatting
-//!
-//! There are various competing standards for how a date-time formatting string should look:
-//! Unix-style `strftime` with `%` symbols and flags, Joda-style formatters that use the number of
-//! letters as their widths, and many others, each with their own idiosyncrasies and subtle
-//! differences. Thus, it should come as no surprise that this library invents *another* style of
-//! formatting string, designed to mimic the syntax of the `format!` and `println!` macros.
-//!
-//! In order to format a date, you must first create a *formatter object*, passing in a formatting
-//! string. This string is checked for correctness, after which it's guaranteed to always work. For
-//! example:
-//!
-//! ```rust
-//! use datetime::format::DateFormat;
-//! let formatter = match DateFormat::parse("{_:M} {:D}, {:Y}") {
-//!     Ok(f) => f,
-//!     Err(e) => panic!("Error in format string: {}", e),
-//! };
-//! ```
-//!
-//! If there's a syntax error in the formatting string, the `Err(e)` path will be followed,
-//! terminating the program and printing out an error. (It's usually considered better style to
-//! handle your errors more gracefully than this.) For this reason, it's preferable to use the
-//! `date_format!` macro whenever your formatting string is fixed, as this will check its syntax at
-//! compile-time, reporting an error if it is invalid, and removing the need for the `match`
-//! construct entirely:
-//!
-//! ```rust
-//! use datetime::format::DateFormat;
-//! let formatter = date_format!("{_:M} {:D}, {:Y}");
-//! ```
-//!
-//! ## Locales
-//!
-//! The second thing you need to be aware of before actually being able to format a date into a
-//! string is the concept of *locales*. A Locale object specifies how the months and days should be
-//! named. "January" isn't universally understood: in some places it's "janvier"; in others,
-//! "Janeiro", or "Ιανουαρίου", or "января", or "一月".
-//!
-//! To govern which language a formatter should use, a Locale object can be passed in. For more
-//! information on how Locale objects work, see the [documentation on the Locale
-//! crate](http://bsago.me/doc/locale).
-//!
-//! If you're in a hurry and just want to format a date *right now* then the simplest way to get
-//! around this is to just use the English locale:
-//!
-//! ```rust
-//! use locale;
-//! let my_locale = locale::Time::english();
-//! ```
-//!
-//! ## Actually Formatting a Date
-
 use num::Integer;
 
 use std::fmt::Display;
@@ -87,11 +34,11 @@ impl<'a> Field<'a> {
             Field::Literal(s)             => w.write_all(s.as_bytes()),
             Field::Year(a)                => a.format(w, when.year()),
             Field::YearOfCentury(a)       => a.format(w, when.year_of_century()),
-            Field::MonthName(true, a)     => a.format(w, &locale.long_month_name(when.month().months_from_january())[..]),
-            Field::MonthName(false, a)    => a.format(w, &locale.short_month_name(when.month().months_from_january())[..]),
+            Field::MonthName(true, a)     => a.format(w, &locale.long_month_name(when.month() as usize - 1)[..]),
+            Field::MonthName(false, a)    => a.format(w, &locale.short_month_name(when.month() as usize - 1)[..]),
             Field::Day(a)                 => a.format(w, when.day()),
-            Field::WeekdayName(true, a)   => a.format(w, &locale.long_day_name(when.weekday().days_from_sunday())[..]),
-            Field::WeekdayName(false, a)  => a.format(w, &locale.short_day_name(when.weekday().days_from_sunday())[..]),
+            Field::WeekdayName(true, a)   => a.format(w, &locale.long_day_name(when.weekday() as usize)[..]),
+            Field::WeekdayName(false, a)  => a.format(w, &locale.short_day_name(when.weekday() as usize)[..]),
             Field::Hour(a)                => a.format(w, when.hour()),
             Field::Minute(a)              => a.format(w, when.minute()),
             Field::Second(a)              => a.format(w, when.second()),

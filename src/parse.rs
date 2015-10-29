@@ -2,6 +2,9 @@
 //!
 //! [w]: https://en.wikipedia.org/wiki/ISO_8601
 
+use std::error::Error as ErrorTrait;
+use std::fmt;
+
 use regex::Regex;
 
 
@@ -434,6 +437,17 @@ pub enum Error {
     InvalidFormat,
 }
 
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.description())
+    }
+}
+
+impl ErrorTrait for Error {
+    fn description(&self) -> &str {
+        "invalid format"
+    }
+}
 
 #[cfg(test)]
 mod test {

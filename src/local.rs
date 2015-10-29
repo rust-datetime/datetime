@@ -1,3 +1,6 @@
+use std::cmp::{Ordering, PartialOrd};
+use std::error::Error as ErrorTrait;
+use std::fmt;
 use std::num::ParseIntError;
 use std::ops::{Add, Sub};
 use std::str::FromStr;
@@ -146,6 +149,7 @@ pub enum Month {
 }
 
 impl Month {
+
     /// The number of days in this month, depending on whether it's a
     /// leap year or not.
     fn days_in_month(&self, leap_year: bool) -> i8 {
@@ -179,31 +183,47 @@ impl Month {
         }
     }
 
-    pub fn from_one(month: i8) -> Month {
-        match month {
-            1 => January,   2 => February,   3 => March,
-            4 => April,     5 => May,        6 => June,
-            7 => July,      8 => August,     9 => September,
+    /// Return the month based on a number, with January as Month 1, February
+    /// as Month 2, and so on.
+    ///
+    /// ```rust
+    /// use datetime::local::Month;
+    /// assert_eq!(Month::from_one(5), Ok(Month::May));
+    /// assert!(Month::from_one(0).is_err());
+    /// ```
+    pub fn from_one(month: i8) -> Result<Month, Error> {
+        Ok(match month {
+             1 => January,   2 => February,   3 => March,
+             4 => April,     5 => May,        6 => June,
+             7 => July,      8 => August,     9 => September,
             10 => October,  11 => November,  12 => December,
-            _ => unreachable!("month={} is not in range of 1..12"),
-        }
+             _ => return Err(Error::OutOfRange),
+        })
     }
 
-    pub fn from_zero(month: i8) -> Month {
-        match month {
+    /// Return the month based on a number, with January as Month 0, February
+    /// as Month 1, and so on.
+    ///
+    /// ```rust
+    /// use datetime::local::Month;
+    /// assert_eq!(Month::from_zero(5), Ok(Month::June));
+    /// assert!(Month::from_zero(12).is_err());
+    /// ```
+    pub fn from_zero(month: i8) -> Result<Month, Error> {
+        Ok(match month {
             0 => January,   1 => February,   2 => March,
             3 => April,     4 => May,        5 => June,
             6 => July,      7 => August,     8 => September,
             9 => October,  10 => November,  11 => December,
-            _ => unreachable!(),
-        }
+            _ => return Err(Error::OutOfRange),
+        })
     }
 }
 
 
 /// A named day of the week, starting with Sunday, and ending with Saturday.
 ///
-/// Sunday is day 0. This seems to be a North American thing? It's pretty
+/// Sunday is Day 0. This seems to be a North American thing? It's pretty
 /// much an arbitrary choice, and as you can't use the from_zero method,
 /// it won't affect you at all. If you want to change it, the only thing
 /// that should be affected is LocalDate::days_to_weekday.
@@ -218,24 +238,88 @@ pub enum Weekday {
 // ignored when comparing LocalDates.
 
 impl Weekday {
-    pub fn days_from_sunday(&self) -> usize {
+    fn days_from_monday_as_one(&self) -> i8 {
         match *self {
-            Sunday => 0,   Monday => 1,
+            Sunday => 7,   Monday => 1,
             Tuesday => 2,  Wednesday => 3,
             Thursday => 4, Friday => 5,
             Saturday => 6,
         }
     }
 
-    fn from_zero(weekday: i8) -> Weekday {
-        match weekday {
+    /// Return the weekday based on a number, with Sunday as Day 0, Monday as
+    /// Day 1, and so on.
+    ///
+    /// ```rust
+    /// use datetime::local::Weekday;
+    /// assert_eq!(Weekday::from_zero(4), Ok(Weekday::Thursday));
+    /// assert!(Weekday::from_zero(7).is_err());
+    /// ```
+    pub fn from_zero(weekday: i8) -> Result<Weekday, Error> {
+        Ok(match weekday {
             0 => Sunday,     1 => Monday,    2 => Tuesday,
             3 => Wednesday,  4 => Thursday,  5 => Friday,
-            6 => Saturday,   _ => unreachable!()
+            6 => Saturday,   _ => return Err(Error::OutOfRange),
+        })
+    }
+}
+
+/// TODO: Make the YMD constructor able to use this
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub struct Year(pub i64);
+
+impl Year {
+    pub fn is_leap_year(&self) -> bool {
+        YMD { year: self.0, month: January, day: 1 }
+            .leap_year_calculations()
+            .1
+    }
+
+    pub fn days_for_month(&self, month: Month) -> DaysForMonth {
+        DaysForMonth {
+            year: self,
+            month: month,
+            day: 1,
+            max: month.days_in_month(self.is_leap_year()),
         }
     }
 }
 
+#[derive(PartialEq, Debug)]
+pub struct DaysForMonth<'year> {
+    year: &'year Year,
+    month: Month,
+    day: i8,
+    max: i8,
+}
+
+impl<'year> Iterator for DaysForMonth<'year> {
+    type Item = LocalDate;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.day <= self.max {
+            let date = LocalDate::ymd(self.year.0, self.month, self.day).unwrap();  // Can this ever be invalid?
+            self.day += 1;
+            Some(date)
+        }
+        else {
+            None
+        }
+    }
+}
+
+impl<'year> DoubleEndedIterator for DaysForMonth<'year> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.day <= self.max {
+            let date = LocalDate::ymd(self.year.0, self.month, self.max).unwrap();  // ditto
+            self.max -= 1;
+            Some(date)
+        }
+        else {
+            None
+        }
+    }
+}
 
 /// A **local date** is a day-long span on the timeline, *without a time
 /// zone*.
@@ -248,7 +332,7 @@ pub struct LocalDate {
 
 /// A **local time** is a time on the timeline that recurs once a day,
 /// *without a time zone*.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub struct LocalTime {
     hour:   i8,
     minute: i8,
@@ -258,77 +342,162 @@ pub struct LocalTime {
 
 /// A **local date-time** is an exact instant on the timeline, *without a
 /// time zone*.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub struct LocalDateTime {
-    pub date: LocalDate,
-    pub time: LocalTime,
+    date: LocalDate,
+    time: LocalTime,
 }
 
 
 impl LocalDate {
 
-    /// Creates `LocalDate` from year, week number and day in week.
-    pub fn from_yearday(year: i64, yearday: i64) -> Result<LocalDate, Error> {
+    /// Creates a new local date instance from the given year, month, and day
+    /// fields.
+    ///
+    /// The values are checked for validity before instantiation, and
+    /// passing in values out of range will return an error.
+    ///
+    /// ### Examples
+    ///
+    /// Instantiate the 20th of July 1969 based on its year,
+    /// week-of-year, and weekday.
+    ///
+    /// ```rust
+    /// use datetime::local::{LocalDate, Month, DatePiece};
+    ///
+    /// let date = LocalDate::ymd(1969, Month::July, 20).unwrap();
+    /// assert_eq!(date.year(), 1969);
+    /// assert_eq!(date.month(), Month::July);
+    /// assert_eq!(date.day(), 20);
+    ///
+    /// assert!(LocalDate::ymd(2100, Month::February, 29).is_err());
+    /// ```
+    pub fn ymd(year: i64, month: Month, day: i8) -> Result<LocalDate, Error> {
+        YMD { year: year, month: month, day: day }
+            .to_days_since_epoch()
+            .map(|days| LocalDate::from_days_since_epoch(days - EPOCH_DIFFERENCE))
+    }
+
+    /// Creates a new local date instance from the given year and day-of-year
+    /// values.
+    ///
+    /// The values are checked for validity before instantiation, and
+    /// passing in values out of range will return an error.
+    ///
+    /// ### Examples
+    ///
+    /// Instantiate the 13th of September 2015 based on its year
+    /// and day-of-year.
+    ///
+    /// ```rust
+    /// use datetime::local::{LocalDate, Weekday, Month, DatePiece};
+    ///
+    /// let date = LocalDate::yd(2015, 0x100).unwrap();
+    /// assert_eq!(date.year(), 2015);
+    /// assert_eq!(date.month(), Month::September);
+    /// assert_eq!(date.day(), 13);
+    /// ```
+    pub fn yd(year: i64, yearday: i64) -> Result<LocalDate, Error> {
         if yearday.is_within(0..367) {
-            let jan1 = try!(LocalDate::ymd(year, January, 1));
-            let days = try!(jan1.ymd.to_days_since_epoch());
-            Ok(LocalDate::from_days_since_epoch(days + yearday -1 - EPOCH_DIFFERENCE))
+            let jan_1 = YMD { year: year, month: January, day: 1 };
+            let days = try!(jan_1.to_days_since_epoch());
+            Ok(LocalDate::from_days_since_epoch(days + yearday - 1 - EPOCH_DIFFERENCE))
         }
         else {
             Err(Error::OutOfRange)
         }
     }
 
-    /// Creates `LocalDate` from year, week number and day in week.
-    pub fn from_weekday(year: i64, week: i64, day: i64) -> Result<LocalDate, Error> {
-        if day.is_within(0..7) {
+    /// Creates a new local date instance from the given year, week-of-year,
+    /// and weekday values.
+    ///
+    /// The values are checked for validity before instantiation, and
+    /// passing in values out of range will return an error.
+    ///
+    /// ### Examples
+    ///
+    /// Instantiate the 11th of September 2015 based on its year,
+    /// week-of-year, and weekday.
+    ///
+    /// ```rust
+    /// use datetime::local::{LocalDate, Weekday, Month, DatePiece};
+    ///
+    /// let date = LocalDate::ywd(2015, 37, Weekday::Friday).unwrap();
+    /// assert_eq!(date.year(), 2015);
+    /// assert_eq!(date.month(), Month::September);
+    /// assert_eq!(date.day(), 11);
+    /// assert_eq!(date.weekday(), Weekday::Friday);
+    /// ```
+    ///
+    /// Note that according to the ISO-8601 standard, the year will change
+    /// when working with dates early in week 1, or late in week 53:
+    ///
+    /// ```rust
+    /// use datetime::local::{LocalDate, Weekday, Month, DatePiece};
+    ///
+    /// let date = LocalDate::ywd(2009, 1, Weekday::Monday).unwrap();
+    /// assert_eq!(date.year(), 2008);
+    /// assert_eq!(date.month(), Month::December);
+    /// assert_eq!(date.day(), 29);
+    /// assert_eq!(date.weekday(), Weekday::Monday);
+    ///
+    /// let date = LocalDate::ywd(2009, 53, Weekday::Sunday).unwrap();
+    /// assert_eq!(date.year(), 2010);
+    /// assert_eq!(date.month(), Month::January);
+    /// assert_eq!(date.day(), 3);
+    /// assert_eq!(date.weekday(), Weekday::Sunday);
+    /// ```
+    pub fn ywd(year: i64, week: i64, weekday: Weekday) -> Result<LocalDate, Error> {
+        let jan_4 = YMD { year: year, month: January, day: 4 };
+        let correction = days_to_weekday(jan_4.to_days_since_epoch().unwrap() - EPOCH_DIFFERENCE).days_from_monday_as_one() as i64 + 3;
 
-            let jan1 = LocalDate::ymd(year, January, 1).unwrap();
+        let yearday = 7 * week + weekday.days_from_monday_as_one() as i64 - correction;
 
-            let yearday = if jan1.weekday().days_from_sunday().is_within(0..5) {
-                (7i64 * week + day) - (jan1.weekday() as i64 + 6)
-            }
-            else {
-                (7i64 * week + day) - (jan1.weekday() as i64 - 1)
-            };
-
-            match LocalDate::from_yearday(year, yearday) {
-                Ok(date) => Ok(date),
-                Err(e) => {
-                    if yearday < 1 {
-                        let is_leap_year = YMD { year: year - 1, month: January, day: 1 }.leap_year_calculations().1;
-                        if is_leap_year {
-                            LocalDate::from_yearday(year - 1, 366 + yearday)
-                        }
-                        else {
-                            LocalDate::from_yearday(year - 1, 365 + yearday)
-                        }
-                    }
-                    else if yearday > 365 {
-                        let is_leap_year = YMD { year: year, month: January, day: 1 }.leap_year_calculations().1;
-
-                        if is_leap_year {
-                            LocalDate::from_yearday(year + 1, yearday - 366)
-                        }
-                        else {
-                            LocalDate::from_yearday(year + 1, yearday - 365)
-                        }
-                    }
-                    else {
-                        Err(e)
-                    }
-                }
-            }
+        if yearday <= 0 {
+            let (_, is_leap_year) = YMD { year: year - 1, month: January, day: 1 }.leap_year_calculations();
+            let days_in_year = if is_leap_year { 366 } else { 365 };
+            LocalDate::yd(year - 1, days_in_year + yearday)
         }
         else {
-            Err(Error::OutOfRange)
+            let (_, is_leap_year) = YMD { year: year, month: January, day: 1 }.leap_year_calculations();
+            let days_in_year = if is_leap_year { 366 } else { 365 };
+
+            if yearday >= days_in_year {
+                LocalDate::yd(year + 1, yearday - days_in_year)
+            }
+            else {
+                LocalDate::yd(year, yearday)
+            }
         }
     }
 
     /// Computes a LocalDate - year, month, day, weekday, and yearday -
     /// given the number of days that have passed since the EPOCH.
     ///
-    /// This is used by LocalDateTime::at() below.
+    /// This is used by all the other constructor functions.
+    /// ### Examples
+    ///
+    /// Instantiate the 25th of September 2015 given its day-of-year (268).
+    ///
+    /// ```rust
+    /// use datetime::local::{LocalDate, Month, DatePiece};
+    ///
+    /// let date = LocalDate::yd(2015, 268).unwrap();
+    /// assert_eq!(date.year(), 2015);
+    /// assert_eq!(date.month(), Month::September);
+    /// assert_eq!(date.day(), 25);
+    /// ```
+    ///
+    /// Remember that on leap years, the number of days in a year changes:
+    ///
+    /// ```rust
+    /// use datetime::local::{LocalDate, Month, DatePiece};
+    ///
+    /// let date = LocalDate::yd(2016, 268).unwrap();
+    /// assert_eq!(date.year(), 2016);
+    /// assert_eq!(date.month(), Month::September);
+    /// assert_eq!(date.day(), 24);  // not the 25th!
+    /// ```
     fn from_days_since_epoch(days: i64) -> LocalDate {
 
         // The Gregorian calendar works in 400-year cycles, which repeat
@@ -398,6 +567,10 @@ impl LocalDate {
             month -= 12;  // (yes, again)
         }
 
+        // The check immediately above means we can `unwrap` this, as the
+        // month number is guaranteed to be in the range (0..12).
+        let month_variant = Month::from_zero(month as i8).unwrap();
+
         // Finally, adjust the day numbers for human reasons: the first day
         // of the month is the 1st, rather than the 0th, and the year needs
         // to be adjusted relative to the EPOCH.
@@ -406,21 +579,10 @@ impl LocalDate {
             weekday: days_to_weekday(days),
             ymd: YMD {
                 year:  years + 2000,
-                month: Month::from_zero(month as i8),
+                month: month_variant,
                 day:   (month_days + 1) as i8,
             },
         }
-    }
-
-    /// Creates a new datestamp instance with the given year, month, and
-    /// day fields.
-    ///
-    /// The values are checked for validity before instantiation, and
-    /// passing in values out of range will return None.
-    pub fn ymd(year: i64, month: Month, day: i8) -> Result<LocalDate, Error> {
-        YMD { year: year, month: month, day: day }
-            .to_days_since_epoch()
-            .map(|days| LocalDate::from_days_since_epoch(days - EPOCH_DIFFERENCE))
     }
 
     /// Creates a new datestamp instance with the given year, month, day,
@@ -445,26 +607,37 @@ impl LocalDate {
     // I'm not 100% convinced on using `unsafe` for something that doesn't
     // technically *need* to be unsafe, but I'll stick with it for now.
 
-    pub fn from_fields(fields: parse::DateFields) -> Result<Self, ParseError> {
+    /// Creates a new local date instance by parsing the strings in the given
+    /// set of fields.
+    pub fn from_fields(fields: parse::DateFields) -> Result<LocalDate, ParseError> {
         if let parse::DateFields::YMD { year, month, day } = fields {
             let y = try!(year.parse().map_err(ParseError::Number));
             let m = try!(month.parse().map_err(ParseError::Number));
             let d = try!(day.parse().map_err(ParseError::Number));
 
-            LocalDate::ymd(y, Month::from_one(m), d).map_err(ParseError::Date)
+            // Need to do a further try! here to convert the month number
+            // into the Month enum variant, which returns Err if outside the
+            // range (1..13).
+            let mv = try!(Month::from_one(m).map_err(ParseError::Date));
+
+            LocalDate::ymd(y, mv, d).map_err(ParseError::Date)
         }
         else if let parse::DateFields::YWD { year, week, weekday } = fields {
             let y = try!(year.parse().map_err(ParseError::Number));
             let w = try!(week.parse().map_err(ParseError::Number));
             let d = try!(weekday.parse().map_err(ParseError::Number));
 
-            LocalDate::from_weekday(y, w, d).map_err(ParseError::Date)
+            // As above, convert the weekday number into a Weekday enum
+            // variant, which Errs if outside the range (0..7).
+            let dv = try!(Weekday::from_zero(d).map_err(ParseError::Date));
+
+            LocalDate::ywd(y, w, dv).map_err(ParseError::Date)
         }
         else if let parse::DateFields::YD { year, yearday } = fields {
             let y = try!(year.parse().map_err(ParseError::Number));
             let d = try!(yearday.parse().map_err(ParseError::Number));
 
-            LocalDate::from_yearday(y, d).map_err(ParseError::Date)
+            LocalDate::yd(y, d).map_err(ParseError::Date)
         }
         else {
             unreachable!()  // should be unnecessary??
@@ -497,6 +670,17 @@ impl PartialEq for LocalDate {
     }
 }
 
+impl PartialOrd for LocalDate {
+    fn partial_cmp(&self, other: &LocalDate) -> Option<Ordering> {
+        self.ymd.partial_cmp(&other.ymd)
+    }
+}
+
+impl Ord for LocalDate {
+    fn cmp(&self, other: &LocalDate) -> Ordering {
+        self.ymd.cmp(&other.ymd)
+    }
+}
 
 impl LocalTime {
 
@@ -528,7 +712,8 @@ impl LocalTime {
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return an `Err`.
     pub fn hm(hour: i8, minute: i8) -> Result<LocalTime, Error> {
-        if hour.is_within(0..24) && minute.is_within(0..60) {
+        if (hour.is_within(0..24) && minute.is_within(0..60))
+        || (hour == 24 && minute == 00) {
             Ok(LocalTime { hour: hour, minute: minute, second: 0, millisecond: 0 })
         }
         else {
@@ -542,7 +727,8 @@ impl LocalTime {
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return an `Err`.
     pub fn hms(hour: i8, minute: i8, second: i8) -> Result<LocalTime, Error> {
-        if hour.is_within(0..24) && minute.is_within(0..60) && second.is_within(0..60) {
+        if (hour.is_within(0..24) && minute.is_within(0..60) && second.is_within(0..60))
+        || (hour == 24 && minute == 00 && second == 00) {
             Ok(LocalTime { hour: hour, minute: minute, second: second, millisecond: 0 })
         }
         else {
@@ -568,13 +754,14 @@ impl LocalTime {
 
     /// Calculate the number of seconds since midnight this time is at,
     /// ignoring milliseconds.
-    fn to_seconds(&self) -> i64 {
+    pub fn to_seconds(&self) -> i64 {
         self.hour as i64 * 3600
             + self.minute as i64 * 60
             + self.second as i64
-
     }
 
+    /// Creates a new local time instance by parsing the strings in the given
+    /// set of fields.
     pub fn from_fields(fields: parse::TimeFields) -> Result<Self, ParseError> {
         if let parse::TimeFields::HM { hour, minute } = fields {
             let h = try!(hour.parse().map_err(ParseError::Number));
@@ -606,8 +793,6 @@ impl LocalTime {
 impl FromStr for LocalTime {
     type Err = ParseError;
 
-    /// Parse an input string matching the ISO-8601 format, returning
-    /// the constructed date if successful, and None if unsuccessful.
     fn from_str(input: &str) -> Result<LocalTime, Self::Err> {
         match parse::parse_iso_8601_time(input) {
             Ok(fields)  => LocalTime::from_fields(fields),
@@ -654,11 +839,11 @@ impl LocalDateTime {
         }
     }
 
-    /// Computes a LocalDateTime from two separate LocalDate and LocalTime instances.
-    pub fn from_date_time(date:LocalDate, time:LocalTime) -> LocalDateTime{
-        LocalDateTime{
-            date : date,
-            time : time
+    /// Creates a new local date time from a local date and a local time.
+    pub fn new(date: LocalDate, time: LocalTime) -> LocalDateTime {
+        LocalDateTime {
+            date: date,
+            time: time,
         }
     }
 
@@ -681,6 +866,10 @@ impl LocalDateTime {
     pub fn to_instant(&self) -> Instant {
         let seconds = self.date.ymd.to_days_since_epoch().unwrap() * SECONDS_IN_DAY + self.time.to_seconds();
         Instant::at_ms(seconds, self.time.millisecond)
+    }
+
+    pub fn add_seconds(&self, seconds: i64) -> LocalDateTime {
+        Self::from_instant(self.to_instant() + Duration::of(seconds))
     }
 }
 
@@ -736,7 +925,7 @@ impl Sub<Duration> for LocalDateTime {
 /// create an instance of the 74th of March, for example, but you're
 /// free to create such an instance of YMD. For this reason, it is not
 /// exposed to implementors of this library.
-#[derive(PartialEq, Eq, Clone, Debug, Copy)]
+#[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Debug, Copy)]
 struct YMD {
     year:    i64,
     month:   Month,
@@ -744,6 +933,7 @@ struct YMD {
 }
 
 impl YMD {
+
     /// Calculates the number of days that have elapsed since the 1st
     /// January, 1970. Returns the number of days if this datestamp is
     /// valid; None otherwise.
@@ -827,7 +1017,9 @@ impl YMD {
 fn days_to_weekday(days: i64) -> Weekday {
     // March 1st, 2000 was a Wednesday, so add 3 to the number of days.
     let weekday = (days + 3) % 7;
-    Weekday::from_zero(if weekday < 0 { weekday + 7 } else { weekday } as i8)
+
+    // We can unwrap since we've already done the bounds checking.
+    Weekday::from_zero(if weekday < 0 { weekday + 7 } else { weekday } as i8).unwrap()
 }
 
 /// Split a number of years into a number of year-cycles, and the number
@@ -856,6 +1048,19 @@ pub enum Error {
     OutOfRange,
 }
 
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.description())
+    }
+}
+
+impl ErrorTrait for Error {
+    fn description(&self) -> &str {
+        "datetime field out of range"
+    }
+}
+
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseError {
     Date(Error),
@@ -863,10 +1068,37 @@ pub enum ParseError {
     Parse(parse::Error),
 }
 
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match *self {
+            ParseError::Date(ref error)   => write!(f, "{}: {}", self.description(), error),
+            ParseError::Number(ref error) => write!(f, "{}: {}", self.description(), error),
+            ParseError::Parse(ref error)  => write!(f, "{}: {}", self.description(), error),
+        }
+    }
+}
+
+impl ErrorTrait for ParseError {
+    fn description(&self) -> &str {
+        match *self {
+            ParseError::Date(_)     => "parsing resulted in an invalid date",
+            ParseError::Number(_)   => "parsing a number failed",
+            ParseError::Parse(_)    => "parse error",
+        }
+    }
+
+    fn cause(&self) -> Option<&ErrorTrait> {
+        match *self {
+            ParseError::Date(ref error)   => Some(error),
+            ParseError::Number(ref error) => Some(error),
+            ParseError::Parse(ref error)  => Some(error),
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {
-    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, DatePiece};
+    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, DatePiece, Year};
     pub use std::str::FromStr;
     use super::YMD;
 
@@ -1009,8 +1241,34 @@ mod test {
             assert_eq!(Month::October, date.month());
             assert_eq!(13, date.day());
         }
-
     }
+
+    #[test]
+    fn start_of_year_day() {
+        let date = LocalDate::ymd(2015, Month::January, 1).unwrap();
+        assert_eq!(date.yearday(), 1);
+    }
+
+    #[test]
+    fn end_of_year_day() {
+        let date = LocalDate::ymd(2015, Month::December, 31).unwrap();
+        assert_eq!(date.yearday(), 365);
+    }
+
+    #[test]
+    fn end_of_leap_year_day() {
+        let date = LocalDate::ymd(2016, Month::December, 31).unwrap();
+        assert_eq!(date.yearday(), 366);
+    }
+
+    #[test]
+    fn day_start_of_year() {
+        let date = LocalDate::yd(2015, 1).unwrap();
+        assert_eq!(2015, date.year());
+        assert_eq!(Month::January, date.month());
+        assert_eq!(1, date.day());
+    }
+
 
     #[test]
     fn leap_year_1600() {
@@ -1049,10 +1307,10 @@ mod test {
     #[test]
     fn new() {
         for year in 1..3000 {
-            assert!(LocalDate::ymd(year, Month::from_one( 1), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 2), 30).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 3), 32).is_err());
-            assert!(LocalDate::ymd(year, Month::from_one( 4), 31).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 5), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 6), 31).is_err());
-            assert!(LocalDate::ymd(year, Month::from_one( 7), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 8), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 9), 31).is_err());
-            assert!(LocalDate::ymd(year, Month::from_one(10), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one(11), 31).is_err()); assert!(LocalDate::ymd(year, Month::from_one(12), 32).is_err());
+            assert!(LocalDate::ymd(year, Month::from_one( 1).unwrap(), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 2).unwrap(), 30).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 3).unwrap(), 32).is_err());
+            assert!(LocalDate::ymd(year, Month::from_one( 4).unwrap(), 31).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 5).unwrap(), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 6).unwrap(), 31).is_err());
+            assert!(LocalDate::ymd(year, Month::from_one( 7).unwrap(), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 8).unwrap(), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one( 9).unwrap(), 31).is_err());
+            assert!(LocalDate::ymd(year, Month::from_one(10).unwrap(), 32).is_err()); assert!(LocalDate::ymd(year, Month::from_one(11).unwrap(), 31).is_err()); assert!(LocalDate::ymd(year, Month::from_one(12).unwrap(), 32).is_err());
         }
     }
 
@@ -1060,15 +1318,15 @@ mod test {
     fn to_from_days_since_epoch() {
         let epoch_difference: i64 = 30 * 365 + 7 + 31 + 29;  // see EPOCH_DIFFERENCE
         for date in  vec![
-            LocalDate::ymd(1970, Month::from_one(01), 01).unwrap(),
-            LocalDate::ymd(  01, Month::from_one(01), 01).unwrap(),
-            LocalDate::ymd(1971, Month::from_one(01), 01).unwrap(),
-            LocalDate::ymd(1973, Month::from_one(01), 01).unwrap(),
-            LocalDate::ymd(1977, Month::from_one(01), 01).unwrap(),
-            LocalDate::ymd(1989, Month::from_one(11), 10).unwrap(),
-            LocalDate::ymd(1990, Month::from_one( 7),  8).unwrap(),
-            LocalDate::ymd(2014, Month::from_one( 7), 13).unwrap(),
-            LocalDate::ymd(2001, Month::from_one( 2), 03).unwrap()
+            LocalDate::ymd(1970, Month::from_one(01).unwrap(), 01).unwrap(),
+            LocalDate::ymd(  01, Month::from_one(01).unwrap(), 01).unwrap(),
+            LocalDate::ymd(1971, Month::from_one(01).unwrap(), 01).unwrap(),
+            LocalDate::ymd(1973, Month::from_one(01).unwrap(), 01).unwrap(),
+            LocalDate::ymd(1977, Month::from_one(01).unwrap(), 01).unwrap(),
+            LocalDate::ymd(1989, Month::from_one(11).unwrap(), 10).unwrap(),
+            LocalDate::ymd(1990, Month::from_one( 7).unwrap(),  8).unwrap(),
+            LocalDate::ymd(2014, Month::from_one( 7).unwrap(), 13).unwrap(),
+            LocalDate::ymd(2001, Month::from_one( 2).unwrap(), 03).unwrap()
         ]{
             assert_eq!( date,
                 LocalDate::from_days_since_epoch(
@@ -1080,35 +1338,37 @@ mod test {
     fn from_yearday() {
         for date in vec![
             //LocalDate::ymd(1970, 01 , 01).unwrap(),
-            LocalDate::ymd(1971, Month::from_one(01), 01).unwrap(),
-            LocalDate::ymd(1973, Month::from_one(01), 01).unwrap(),
-            LocalDate::ymd(1977, Month::from_one(01), 01).unwrap(),
-            LocalDate::ymd(1989, Month::from_one(11), 10).unwrap(),
-            LocalDate::ymd(1990, Month::from_one( 7),  8).unwrap(),
-            LocalDate::ymd(2014, Month::from_one( 7), 13).unwrap(),
-            LocalDate::ymd(2001, Month::from_one( 2), 03).unwrap(),
+            LocalDate::ymd(1971, Month::from_one(01).unwrap(), 01).unwrap(),
+            LocalDate::ymd(1973, Month::from_one(01).unwrap(), 01).unwrap(),
+            LocalDate::ymd(1977, Month::from_one(01).unwrap(), 01).unwrap(),
+            LocalDate::ymd(1989, Month::from_one(11).unwrap(), 10).unwrap(),
+            LocalDate::ymd(1990, Month::from_one( 7).unwrap(),  8).unwrap(),
+            LocalDate::ymd(2014, Month::from_one( 7).unwrap(), 13).unwrap(),
+            LocalDate::ymd(2001, Month::from_one( 2).unwrap(), 03).unwrap(),
         ]{
-            let new_date = LocalDate::from_yearday(date.year(), date.yearday() as i64).unwrap();
+            let new_date = LocalDate::yd(date.year(), date.yearday() as i64).unwrap();
             assert_eq!(new_date, date);
-            assert!(LocalDate::from_yearday(2002, 1).is_ok());
+            assert!(LocalDate::yd(2002, 1).is_ok());
+
+            assert_eq!(new_date.yearday(), date.yearday());
         }
     }
 
     #[test]
     fn yearday() {
         for year in 1..2058 {
-            assert_eq!( LocalDate::ymd(year, Month::from_one(01), 31).unwrap().yearday() + 1,
-                        LocalDate::ymd(year, Month::from_one(02), 01).unwrap().yearday());
-            assert_eq!( LocalDate::ymd(year, Month::from_one(03), 31).unwrap().yearday() + 1,
-                        LocalDate::ymd(year, Month::from_one(04), 01).unwrap().yearday());
-            assert_eq!( LocalDate::ymd(year, Month::from_one(04), 30).unwrap().yearday() + 1,
-                        LocalDate::ymd(year, Month::from_one(05), 01).unwrap().yearday());
-            assert!(    LocalDate::ymd(year, Month::from_one(12), 31).unwrap().yearday() > 0);
+            assert_eq!( LocalDate::ymd(year, Month::from_one(01).unwrap(), 31).unwrap().yearday() + 1,
+                        LocalDate::ymd(year, Month::from_one(02).unwrap(), 01).unwrap().yearday());
+            assert_eq!( LocalDate::ymd(year, Month::from_one(03).unwrap(), 31).unwrap().yearday() + 1,
+                        LocalDate::ymd(year, Month::from_one(04).unwrap(), 01).unwrap().yearday());
+            assert_eq!( LocalDate::ymd(year, Month::from_one(04).unwrap(), 30).unwrap().yearday() + 1,
+                        LocalDate::ymd(year, Month::from_one(05).unwrap(), 01).unwrap().yearday());
+            assert!(    LocalDate::ymd(year, Month::from_one(12).unwrap(), 31).unwrap().yearday() > 0);
         }
-        assert_eq!( LocalDate::ymd(1600, Month::from_one(02), 29).unwrap().yearday() + 1, // leap year
-                    LocalDate::ymd(1600, Month::from_one(03), 01).unwrap().yearday());
-        assert_eq!( LocalDate::ymd(1601, Month::from_one(02), 28).unwrap().yearday() + 1, // no leap year
-                    LocalDate::ymd(1601, Month::from_one(03), 01).unwrap().yearday());
+        assert_eq!( LocalDate::ymd(1600, Month::from_one(02).unwrap(), 29).unwrap().yearday() + 1, // leap year
+                    LocalDate::ymd(1600, Month::from_one(03).unwrap(), 01).unwrap().yearday());
+        assert_eq!( LocalDate::ymd(1601, Month::from_one(02).unwrap(), 28).unwrap().yearday() + 1, // no leap year
+                    LocalDate::ymd(1601, Month::from_one(03).unwrap(), 01).unwrap().yearday());
 
     }
 
@@ -1199,6 +1459,43 @@ mod test {
         fn subtraction() {
             let date = LocalDateTime::at(100000000);
             assert_eq!(LocalDateTime::at(99999999), date - Duration::of(1))
+        }
+    }
+
+    mod spans {
+        use super::*;
+
+        #[test]
+        fn iterator() {
+            let year = Year(2016);
+            let mut days = year.days_for_month(Month::February);
+
+            for i in 1..30 {
+                assert_eq!(days.next().unwrap(), LocalDate::ymd(2016, Month::February, i).unwrap());
+            }
+
+            assert!(days.next().is_none());
+        }
+
+        #[test]
+        fn iterator_back() {
+            let year = Year(2014);
+            let mut days = year.days_for_month(Month::February).rev();
+
+            for i in (1..29).rev() {
+                assert_eq!(days.next().unwrap(), LocalDate::ymd(2014, Month::February, i).unwrap());
+            }
+
+            assert!(days.next().is_none());
+        }
+
+        #[test]
+        fn double() {
+            let year = Year(2012);
+
+            let mut days = year.days_for_month(Month::February);
+            assert_eq!(days.next().unwrap(), LocalDate::ymd(2012, Month::February, 1).unwrap());
+            assert_eq!(days.next_back().unwrap(), LocalDate::ymd(2012, Month::February, 29).unwrap());
         }
     }
 }
