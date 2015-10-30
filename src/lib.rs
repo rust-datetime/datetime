@@ -15,7 +15,6 @@ extern crate libc;
 extern crate num;
 extern crate pad;
 extern crate regex;
-extern crate tz;
 
 #[macro_use]
 extern crate lazy_static;
