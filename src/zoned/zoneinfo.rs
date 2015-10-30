@@ -16,15 +16,8 @@ pub struct Zone<'a> {
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Transition<'name> {
     pub occurs_at:  Option<i64>,
-    pub utc_offset: i64,
-    pub dst_offset: i64,
+    pub offset:     i64,
     pub name:       &'name str,
-}
-
-impl<'_> Transition<'_> {
-    pub fn total_offset(&self) -> i64 {
-        self.utc_offset + self.dst_offset
-    }
 }
 
 /// The "type" of time that a time is.
@@ -53,7 +46,7 @@ impl<'a> TimeZone for Zone<'a> {
         let unix_timestamp = datetime.to_instant().seconds();
         match self.transitions.iter().rev().find(|t| t.occurs_at.unwrap_or(0) < unix_timestamp) {
             None     => 0,
-            Some(t)  => t.total_offset(),
+            Some(t)  => t.offset,
         }
     }
 
