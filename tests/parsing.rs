@@ -1,7 +1,7 @@
 extern crate datetime;
 use datetime::local::*;
-use datetime::parse::{parse_iso_8601, parse_iso_8601_date};
-use datetime::parse::{parse_iso_8601_time,Error as ParseError};
+use datetime::parse::{parse_iso_8601, parse_iso_8601_date,parse_iso_8601_time};
+use datetime::parse;
 extern crate regex;
 use regex::Regex;
 
@@ -80,7 +80,7 @@ fn date_fromweekday_vs_new_vs_parse() {
 ///
 /// for further parsing by `parse_iso_8601_date` and `parse_iso_8601_time`.
 /// TODO does not need to be `pub`
-fn split_iso_8601(string: &str) -> Result<(&str, &str), ParseError> {
+fn split_iso_8601(string: &str) -> Result<(&str, &str), parse::Error> {
     let split = Regex::new(r"^([^T]*)T?(.*)$").unwrap();
 
     if split.is_match(&string) {
@@ -90,7 +90,7 @@ fn split_iso_8601(string: &str) -> Result<(&str, &str), ParseError> {
         }
     }
 
-    Err(ParseError::InvalidCharacter)
+    Err(parse::Error::InvalidCharacter)
 }
 
 #[test]
