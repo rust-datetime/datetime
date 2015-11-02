@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use now;
 use parse;
+use iso8601;
 use instant::Instant;
 use duration::Duration;
 
@@ -783,6 +784,29 @@ fn split_cycles(number_of_periods: i64, cycle_length: i64) -> (i64, i64) {
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Error {
     OutOfRange,
+}
+
+use std::error;
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        "something went wrong" // TODO elaborate
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        match *self {
+            Error::OutOfRange=> Some(self),
+        }
+    }
+}
+
+
+use std::fmt;
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::OutOfRange=> write!(f, "The given day ist out of range."),
+        }
+    }
 }
 
 

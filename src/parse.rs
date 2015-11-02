@@ -12,7 +12,11 @@ pub fn parse_iso_8601(string: &str) -> Result<LocalDateTime, Error> {
             Date::Week{year, ww, d}     => LocalDate::from_weekday(year as i64, ww as i64 , d as i64),
             Date::Ordinal{ year, ddd }  => LocalDate::from_yearday(year as i64, ddd as i64)
         };
-        let time = LocalTime::hms_ms(parsed.time.hour as i8, parsed.time.minute as i8, parsed.time.second as i8,/* parsed.time.millisecond as i16*/ 0);
+        let time = LocalTime::hms_ms(
+            parsed.time.hour as i8,
+            parsed.time.minute as i8,
+            parsed.time.second as i8,
+            parsed.time.millisecond as i16);
         let date = try!(date.map_err(Error::InvalidDate));
         let time = try!(time.map_err(Error::InvalidDate));
         return Ok( LocalDateTime::from_date_time(date, time));
@@ -47,13 +51,15 @@ pub fn parse_iso_8601_zoned(string: &str) -> Result<(LocalDateTime, TimeZone), E
             Date::Week{year, ww, d}     => LocalDate::from_weekday(year as i64, ww as i64 , d as i64),
             Date::Ordinal{ year, ddd }  => LocalDate::from_yearday(year as i64, ddd as i64)
         };
-        let time = LocalTime::hms_ms(parsed.time.hour as i8, parsed.time.minute as i8, parsed.time.second as i8,/* parsed.time.millisecond as i16*/ 0);
+        let time = LocalTime::hms_ms(parsed.time.hour as i8, parsed.time.minute as i8, parsed.time.second as i8, parsed.time.millisecond as i16);
 
         let date = try!(date.map_err(Error::InvalidDate));
         let time = try!(time.map_err(Error::InvalidDate));
         return Ok(
             (LocalDateTime::from_date_time(date, time),
-            TimeZone::of_hours_and_minutes((parsed.time.tz_offset/3600) as i8, (parsed.time.tz_offset/60) as i8)))
+            TimeZone::of_hours_and_minutes(
+                (parsed.time.tz_offset_hours) as i8,
+                (parsed.time.tz_offset_minutes) as i8)))
             ;
     }
     Err(Error::InvalidCharacter)
@@ -68,7 +74,7 @@ pub fn parse_iso_8601_time(string: &str) -> Result<LocalTime, Error> {
         return LocalTime::hms_ms(parsed.hour as i8,
                                  parsed.minute as i8,
                                  parsed.second as i8,
-                                 8i16).map_err(Error::InvalidDate);
+                                 parsed.millisecond as i16).map_err(Error::InvalidDate);
     }
 
     Err(Error::InvalidCharacter)
@@ -78,6 +84,31 @@ pub fn parse_iso_8601_time(string: &str) -> Result<LocalTime, Error> {
 pub enum Error {
     InvalidCharacter,
     InvalidDate(local::Error),
+}
+
+use std::error;
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        "An invalid date was parsed!" // TODO elaborate
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        match *self {
+            Error::InvalidCharacter => Some(self),
+            Error::InvalidDate(ref err)=> Some(err),
+        }
+    }
+}
+
+
+use std::fmt;
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Error::InvalidCharacter=> write!(f, "An invalid Character was found."),
+            Error::InvalidDate(ref err) => err.fmt(f)
+        }
+    }
 }
 
 

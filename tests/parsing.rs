@@ -1,9 +1,6 @@
 extern crate datetime;
 use datetime::local::*;
-use datetime::parse::{parse_iso_8601, parse_iso_8601_date,parse_iso_8601_time};
-use datetime::parse;
 extern crate regex;
-use regex::Regex;
 
 extern crate rustc_serialize;
 use rustc_serialize::json::Json;
@@ -36,9 +33,9 @@ fn open_test_file() -> String {
 
 #[test]
 fn iso_formats(){
-    assert_eq!(parse_iso_8601("2001-02-03T04:05:06+07:00").unwrap(), parse_iso_8601( "20010203T040506+0700").unwrap());
-    assert_eq!(parse_iso_8601("2001-02-03T04:05:06+07:00").unwrap(), parse_iso_8601( "2001-W05-6T04:05:06+07:00").unwrap());
-    assert_eq!(parse_iso_8601("20010203T040506+0700").unwrap(), parse_iso_8601( "2001-W05-6T04:05:06+07:00").unwrap());
+    assert_eq!(LocalDateTime::from_str("2001-02-03T04:05:06+07:00").unwrap(), LocalDateTime::from_str( "20010203T040506+0700").unwrap());
+    assert_eq!(LocalDateTime::from_str("2001-02-03T04:05:06+07:00").unwrap(), LocalDateTime::from_str( "2001-W05-6T04:05:06+07:00").unwrap());
+    assert_eq!(LocalDateTime::from_str("20010203T040506+0700").unwrap(), LocalDateTime::from_str( "2001-W05-6T04:05:06+07:00").unwrap());
 }
 
 
@@ -60,9 +57,9 @@ fn date_fromweekday_vs_new_vs_parse() {
 
 
                 // instantiating 4 equivalent date in 5 different ways
-                let date_fwd_s = parse_iso_8601_date(&ex0).unwrap();
+                let date_fwd_s = LocalDate::from_str(&ex0).unwrap();
                 let date_fwd_t = LocalDate::from_weekday(wyear, week, wday).unwrap();
-                let date_new_s = parse_iso_8601_date(&ex2).unwrap();
+                let date_new_s = LocalDate::from_str(&ex2).unwrap();
                 let date_new_t = LocalDate::ymd(year, month, day as i8).unwrap();
                 let date_parse = LocalDate::from_str(&ex0).unwrap();
 
@@ -71,91 +68,6 @@ fn date_fromweekday_vs_new_vs_parse() {
                 assert_eq!(date_new_t, date_fwd_s);
                 assert_eq!(date_fwd_s, date_new_s);
                 assert_eq!(date_fwd_s, date_parse);
-            }
-        }
-    }
-}
-
-/// Splits Date String, Time String
-///
-/// for further parsing by `parse_iso_8601_date` and `parse_iso_8601_time`.
-/// TODO does not need to be `pub`
-fn split_iso_8601(string: &str) -> Result<(&str, &str), parse::Error> {
-    let split = Regex::new(r"^([^T]*)T?(.*)$").unwrap();
-
-    if split.is_match(&string) {
-        let caps = split.captures(&string).unwrap();
-        if caps.len() > 1 {
-            return Ok((caps.at(1).unwrap().into(), caps.at(2).unwrap().into()));
-        }
-    }
-
-    Err(parse::Error::InvalidCharacter)
-}
-
-#[test]
-fn time_parse_vs_new(){
-    let strings = [
-        // {{{
-        ("2001-02-03T04:05:06+07:00",    Some((2001,02,03, 04,05,06,00, 07,00))),
-        ("20010203T040506+0700",         Some((2001,02,03, 04,05,06,00, 07,00))),
-        ("2001-W05-6T04",                Some((2001,02,03, 04,00,00,00, 07,00))),
-        ("2002-W05-6T04",                Some((2002,02,02, 04,00,00,00, 07,00))),
-        ("2003-W05-6T04",                Some((2003,02,01, 04,00,00,00, 07,00))),
-        ("2001-W05-6T04:05",             Some((2001,02,03, 04,05,00,00, 07,00))),
-        ("2001-W05-6T04:05:06",          Some((2001,02,03, 04,05,06,00, 07,00))),
-      //("2001-W05-6T04:05:06.1",        None),
-      //("2001-W05-6T04:05:06.12",       None),
-        ("2001-W05-6T04:05:06.123",      Some((2001,02,03, 04,05,06,123,07,00))),
-      //("2001-W05-6T04:05:06.1234",     None),
-      //("2001-W05-6T04:05:06.12345",    None),
-        ("2001-W05-6T04:05:06.12345Z",   None),
-        ("2001-w05-6t04:05:06.123z",     None),
-        ("2001-W05-6T04:05:06.123Z",     Some((2001,02,03, 04,05,06,123,07,00))),
-        ("2001-W05-6T04:05:06+07",       Some((2001,02,03, 04,05,06,00, 07,00))),
-        ("2001-W05-6T04:05:06+07:00",    Some((2001,02,03, 04,05,06,00, 07,00))),
-        ("2001-W05-6T04:05:06-07:00",    Some((2001,02,03, 04,05,06,00, 07,00))),
-        ("2015-06-26TZ",                 None),
-        ("2015-06-26",                   Some((2015,06,26, 00,00,00,00, 07,00))),  // Date
-        ("2015-06-26T22:57:09+00:00",    Some((2015,06,26, 22,57,09,00, 07,00))),  // Combined date and time in UTC
-        ("2015-06-26T22:57:09Z+00:00",   None),
-        ("2015-06-26T22:57:09+Z00:00",   None),
-        ("2015-06-26T22:57:09Z00:00",    None),
-        ("2015-06-26T22:57:09Z",         Some((2015,06,26, 22,57,09,00, 07,00))),  //
-      //("2015-W26",                     Some((2015,))),  // Week
-        ("2015-W26-5",                   Some((2015,06,26, 00,00,00,00, 00,00))),  // Date with week number
-      //("2015-177",                     Some)   // Ordinal date
-        // }}}
-    ];
-
-    for tup in strings.iter() {
-        let string  = tup.0;
-
-        let known = match tup.1 {
-            Some(known) => Some((known.0, known.1, known.2, known.3, known.4, known.5, known.6)),
-            None        => None
-        };
-
-        //datetime
-        let parsed0 = parse_iso_8601(&string).map(|d| (
-                d.year(), d.month() as i32, d.day(),
-                d.hour(), d.minute(), d.second(), d.millisecond()));
-        assert_eq!(parsed0.ok(), known);
-
-        // date and time
-        if let Ok((dstring, tstring)) = split_iso_8601(string) {
-            let parsed0 = parse_iso_8601_date(&dstring);
-            let parsed1 = LocalDate::from_str(&dstring);
-            if let Some(known) = tup.1 {
-                assert_eq!(parsed0.ok(), LocalDate::ymd(known.0, Month::from_one(known.1 as i8), known.2).ok());
-                assert_eq!(parsed1.ok(), LocalDate::ymd(known.0, Month::from_one(known.1 as i8), known.2).ok());
-            }
-
-            let parsed0 = parse_iso_8601_time(&tstring).ok();
-            let parsed1 = LocalTime::from_str(&tstring).ok();
-            if let Some(known) = tup.1 {
-                assert_eq!(parsed0, LocalTime::hms_ms(known.3, known.4, known.5, known.6 as i16).ok());
-                assert_eq!(parsed1, LocalTime::hms_ms(known.3, known.4, known.5, known.6 as i16).ok());
             }
         }
     }
