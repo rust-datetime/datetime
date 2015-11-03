@@ -7,20 +7,19 @@
 //#![warn(missing_docs)]
 
 #![warn(trivial_casts, trivial_numeric_casts)]
-#![warn(unused_qualifications)]
-#![warn(unused_results)]
+//#![warn(unused_qualifications)]
+//#![warn(unused_results)]
 
 extern crate locale;
 extern crate libc;
 extern crate num;
 extern crate pad;
-extern crate regex;
+extern crate iso8601;
 
 #[macro_use]
 extern crate lazy_static;
 
 mod now;
-pub mod parse;
 pub mod zoned;
 pub mod local;
 pub mod instant;

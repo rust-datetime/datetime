@@ -16,9 +16,12 @@ name = "datetime"
 locale = "0.1"
 num = "*"
 pad = "0.1"
-regex = "0.1"
 libc = "0.1"
 lazy_static = "0.1.*"
 
+[dependencies.iso8601]
+git = "https://github.com/hoodie/iso8601.git"
+
 [dev-dependencies]
 rustc-serialize = "0.3"
+regex = "0.1"

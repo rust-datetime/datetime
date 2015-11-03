@@ -6,7 +6,7 @@ use std::ops::{Add, Sub};
 use std::str::FromStr;
 
 use now;
-use parse;
+use iso8601;
 use instant::Instant;
 use duration::Duration;
 use util::RangeExt;
@@ -258,6 +258,14 @@ impl Weekday {
     pub fn from_zero(weekday: i8) -> Result<Weekday, Error> {
         Ok(match weekday {
             0 => Sunday,     1 => Monday,    2 => Tuesday,
+            3 => Wednesday,  4 => Thursday,  5 => Friday,
+            6 => Saturday,   _ => return Err(Error::OutOfRange),
+        })
+    }
+
+    pub fn from_one(weekday: i8) -> Result<Weekday, Error> {
+        Ok(match weekday {
+            7 => Sunday,     1 => Monday,    2 => Tuesday,
             3 => Wednesday,  4 => Thursday,  5 => Friday,
             6 => Saturday,   _ => return Err(Error::OutOfRange),
         })
@@ -609,35 +617,17 @@ impl LocalDate {
 
     /// Creates a new local date instance by parsing the strings in the given
     /// set of fields.
-    pub fn from_fields(fields: parse::DateFields) -> Result<LocalDate, ParseError> {
-        if let parse::DateFields::YMD { year, month, day } = fields {
-            let y = try!(year.parse().map_err(ParseError::Number));
-            let m = try!(month.parse().map_err(ParseError::Number));
-            let d = try!(day.parse().map_err(ParseError::Number));
-
-            // Need to do a further try! here to convert the month number
-            // into the Month enum variant, which returns Err if outside the
-            // range (1..13).
-            let mv = try!(Month::from_one(m).map_err(ParseError::Date));
-
-            LocalDate::ymd(y, mv, d).map_err(ParseError::Date)
+    pub fn from_fields(fields: iso8601::Date) -> Result<LocalDate, ParseError> {
+        if let iso8601::Date::YMD { year, month, day } = fields {
+            let month_variant = try!(Month::from_one(month as i8).map_err(ParseError::Date));
+            LocalDate::ymd(year as i64, month_variant, day as i8).map_err(ParseError::Date)
         }
-        else if let parse::DateFields::YWD { year, week, weekday } = fields {
-            let y = try!(year.parse().map_err(ParseError::Number));
-            let w = try!(week.parse().map_err(ParseError::Number));
-            let d = try!(weekday.parse().map_err(ParseError::Number));
-
-            // As above, convert the weekday number into a Weekday enum
-            // variant, which Errs if outside the range (0..7).
-            let dv = try!(Weekday::from_zero(d).map_err(ParseError::Date));
-
-            LocalDate::ywd(y, w, dv).map_err(ParseError::Date)
+        else if let iso8601::Date::Week { year, ww, d } = fields {
+            let weekday_variant = try!(Weekday::from_one(d as i8).map_err(ParseError::Date));
+            LocalDate::ywd(year as i64, ww as i64, weekday_variant).map_err(ParseError::Date)
         }
-        else if let parse::DateFields::YD { year, yearday } = fields {
-            let y = try!(year.parse().map_err(ParseError::Number));
-            let d = try!(yearday.parse().map_err(ParseError::Number));
-
-            LocalDate::yd(y, d).map_err(ParseError::Date)
+        else if let iso8601::Date::Ordinal { year, ddd } = fields {
+            LocalDate::yd(year as i64, ddd as i64).map_err(ParseError::Date)
         }
         else {
             unreachable!()  // should be unnecessary??
@@ -657,7 +647,7 @@ impl FromStr for LocalDate {
     type Err = ParseError;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        match parse::parse_iso_8601_date(input) {
+        match iso8601::date(input) {
             Ok(fields)  => LocalDate::from_fields(fields),
             Err(e)      => Err(ParseError::Parse(e)),
         }
@@ -762,31 +752,13 @@ impl LocalTime {
 
     /// Creates a new local time instance by parsing the strings in the given
     /// set of fields.
-    pub fn from_fields(fields: parse::TimeFields) -> Result<Self, ParseError> {
-        if let parse::TimeFields::HM { hour, minute } = fields {
-            let h = try!(hour.parse().map_err(ParseError::Number));
-            let m = try!(minute.parse().map_err(ParseError::Number));
+    pub fn from_fields(fields: iso8601::Time) -> Result<Self, ParseError> {
+        let h  = fields.hour as i8;
+        let m  = fields.minute as i8;
+        let s  = fields.second as i8;
+        let ms = fields.millisecond as i16;
 
-            LocalTime::hm(h, m).map_err(ParseError::Date)
-        }
-        else if let parse::TimeFields::HMS { hour, minute, second } = fields {
-            let h = try!(hour.parse().map_err(ParseError::Number));
-            let m = try!(minute.parse().map_err(ParseError::Number));
-            let s = try!(second.parse().map_err(ParseError::Number));
-
-            LocalTime::hms(h, m, s).map_err(ParseError::Date)
-        }
-        else if let parse::TimeFields::HMSms { hour, minute, second, millisecond } = fields {
-            let h = try!(hour.parse().map_err(ParseError::Number));
-            let m = try!(minute.parse().map_err(ParseError::Number));
-            let s = try!(second.parse().map_err(ParseError::Number));
-            let ms = try!(millisecond.parse().map_err(ParseError::Number));
-
-            LocalTime::hms_ms(h, m, s, ms).map_err(ParseError::Date)
-        }
-        else {
-            unreachable!()  // should be unnecessary??
-        }
+        LocalTime::hms_ms(h, m, s, ms).map_err(ParseError::Date)
     }
 }
 
@@ -794,7 +766,7 @@ impl FromStr for LocalTime {
     type Err = ParseError;
 
     fn from_str(input: &str) -> Result<LocalTime, Self::Err> {
-        match parse::parse_iso_8601_time(input) {
+        match iso8601::time(input) {
             Ok(fields)  => LocalTime::from_fields(fields),
             Err(e)      => Err(ParseError::Parse(e)),
         }
@@ -877,9 +849,13 @@ impl FromStr for LocalDateTime {
     type Err = ParseError;
 
     fn from_str(input: &str) -> Result<LocalDateTime, Self::Err> {
-        let (date_fields, time_fields) = try!(parse::parse_iso_8601_date_time(input).map_err(ParseError::Parse));
-        let date = try!(LocalDate::from_fields(date_fields));
-        let time = try!(LocalTime::from_fields(time_fields));
+        let fields = match iso8601::datetime(input) {
+            Ok(fields)  => fields,
+            Err(e)      => return Err(ParseError::Parse(e)),
+        };
+
+        let date = try!(LocalDate::from_fields(fields.date));
+        let time = try!(LocalTime::from_fields(fields.time));
         Ok(LocalDateTime { date: date, time: time })
     }
 }
@@ -1065,7 +1041,7 @@ impl ErrorTrait for Error {
 pub enum ParseError {
     Date(Error),
     Number(ParseIntError),
-    Parse(parse::Error),
+    Parse(String),
 }
 
 impl fmt::Display for ParseError {
@@ -1073,7 +1049,7 @@ impl fmt::Display for ParseError {
         match *self {
             ParseError::Date(ref error)   => write!(f, "{}: {}", self.description(), error),
             ParseError::Number(ref error) => write!(f, "{}: {}", self.description(), error),
-            ParseError::Parse(ref error)  => write!(f, "{}: {}", self.description(), error),
+            ParseError::Parse(ref string) => write!(f, "{}: {}", self.description(), string),
         }
     }
 }
@@ -1091,10 +1067,11 @@ impl ErrorTrait for ParseError {
         match *self {
             ParseError::Date(ref error)   => Some(error),
             ParseError::Number(ref error) => Some(error),
-            ParseError::Parse(ref error)  => Some(error),
+            ParseError::Parse(_)          => None,
         }
     }
 }
+
 
 #[cfg(test)]
 mod test {

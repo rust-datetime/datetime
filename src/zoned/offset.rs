@@ -1,14 +1,13 @@
 //! Dates and times paired with a time zone, and time zone definitions.
 
-use local::{LocalDateTime, LocalDate, LocalTime, DatePiece, TimePiece, Month, Weekday};
-use local::ParseError as LocalParseError;
-use parse;
-use util::RangeExt;
-
-use std::num::ParseIntError;
 use std::str::FromStr;
 
+use iso8601;
+
 use duration::Duration;
+use local::{LocalDateTime, LocalDate, LocalTime, DatePiece, TimePiece, Month, Weekday};
+use local::ParseError as LocalParseError;
+use util::RangeExt;
 
 
 /// A **time zone** is used to calculate how much to adjust a UTC-based time
@@ -68,32 +67,6 @@ impl Offset {
             Offset::of_seconds(hours * 24 + minutes * 60)
         }
     }
-
-    pub fn from_fields(fields: parse::ZoneFields) -> Result<Offset, ParseError> {
-        let parse = |input: &str| input.parse().map_err(ParseError::Number);
-
-        let result = match fields {
-            parse::ZoneFields::Zulu => return Ok(Offset::UTC),
-            parse::ZoneFields::Offset { sign: "+", hours, minutes: None } => Offset::of_hours_and_minutes( try!(parse(hours)), 0),
-            parse::ZoneFields::Offset { sign: "-", hours, minutes: None } => Offset::of_hours_and_minutes(-try!(parse(hours)), 0),
-            parse::ZoneFields::Offset { sign: "+", hours, minutes: Some(mins) } => Offset::of_hours_and_minutes( try!(parse(hours)),  try!(parse(mins))),
-            parse::ZoneFields::Offset { sign: "-", hours, minutes: Some(mins) } => Offset::of_hours_and_minutes(-try!(parse(hours)), -try!(parse(mins))),
-            _ => unreachable!(),  // this definitely should be unreachable: the regex only checks for [Z+-].
-        };
-
-        result.map_err(ParseError::Zone)
-    }
-}
-
-impl FromStr for Offset {
-    type Err = ParseError;
-
-    fn from_str(input: &str) -> Result<Offset, Self::Err> {
-        match parse::parse_iso_8601_zone(input) {
-            Ok(fields)  => Offset::from_fields(fields),
-            Err(e)      => Err(ParseError::Parse(e)),
-        }
-    }
 }
 
 
@@ -106,68 +79,74 @@ pub enum Error {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseError {
     Zone(Error),
-    Date(LocalParseError),
-    Number(ParseIntError),
-    Parse(parse::Error),
+    Local(LocalParseError),
+    Parse(String),
 }
 
 
 #[derive(Debug, Clone)]
 pub struct OffsetDateTime {
     local: LocalDateTime,
-    time_zone: Offset,
+    offset: Offset,
 }
 
 impl FromStr for OffsetDateTime {
     type Err = ParseError;
 
     fn from_str(input: &str) -> Result<OffsetDateTime, Self::Err> {
-        let (date_fields, time_fields, zone_fields) = try!(parse::parse_iso_8601_date_time_zone(input).map_err(ParseError::Parse));
-        let date = try!(LocalDate::from_fields(date_fields).map_err(ParseError::Date));
-        let time = try!(LocalTime::from_fields(time_fields).map_err(ParseError::Date));
-        let zone = try!(Offset::from_fields(zone_fields));
-        Ok(OffsetDateTime { local: LocalDateTime::new(date, time), time_zone: zone })
+        let fields = match iso8601::datetime(input) {
+            Ok(fields)  => fields,
+            Err(e)      => return Err(ParseError::Parse(e)),
+        };
+
+        let date   = try!(LocalDate::from_fields(fields.date).map_err(ParseError::Local));
+        let time   = try!(LocalTime::from_fields(fields.time).map_err(ParseError::Local));
+        let offset = try!(Offset::of_hours_and_minutes(fields.time.tz_offset_hours as i8, fields.time.tz_offset_minutes as i8).map_err(ParseError::Zone));
+        Ok(OffsetDateTime {
+            local: LocalDateTime::new(date, time),
+            offset: offset,
+        })
     }
 }
 
 
 impl DatePiece for OffsetDateTime {
     fn year(&self) -> i64 {
-        self.time_zone.adjust(self.local).year()
+        self.offset.adjust(self.local).year()
     }
 
     fn month(&self) -> Month {
-        self.time_zone.adjust(self.local).month()
+        self.offset.adjust(self.local).month()
     }
 
     fn day(&self) -> i8 {
-        self.time_zone.adjust(self.local).day()
+        self.offset.adjust(self.local).day()
     }
 
     fn yearday(&self) -> i16 {
-        self.time_zone.adjust(self.local).yearday()
+        self.offset.adjust(self.local).yearday()
     }
 
     fn weekday(&self) -> Weekday {
-        self.time_zone.adjust(self.local).weekday()
+        self.offset.adjust(self.local).weekday()
     }
 }
 
 impl TimePiece for OffsetDateTime {
     fn hour(&self) -> i8 {
-        self.time_zone.adjust(self.local).hour()
+        self.offset.adjust(self.local).hour()
     }
 
     fn minute(&self) -> i8 {
-        self.time_zone.adjust(self.local).minute()
+        self.offset.adjust(self.local).minute()
     }
 
     fn second(&self) -> i8 {
-        self.time_zone.adjust(self.local).second()
+        self.offset.adjust(self.local).second()
     }
 
     fn millisecond(&self) -> i16 {
-        self.time_zone.adjust(self.local).millisecond()
+        self.offset.adjust(self.local).millisecond()
     }
 }
 
