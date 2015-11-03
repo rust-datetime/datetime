@@ -18,9 +18,8 @@ num = "*"
 pad = "0.1"
 libc = "0.1"
 lazy_static = "0.1.*"
+iso8601 = "0.1.0"
 
-[dependencies.iso8601]
-git = "https://github.com/hoodie/iso8601.git"
 
 [dev-dependencies]
 rustc-serialize = "0.3"
