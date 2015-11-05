@@ -17,9 +17,7 @@ locale = "0.1"
 num = "*"
 pad = "0.1"
 libc = "0.1"
-lazy_static = "0.1.*"
 iso8601 = "0.1.0"
-
 
 [dev-dependencies]
 rustc-serialize = "0.3"
