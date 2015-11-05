@@ -7,17 +7,28 @@ pub struct Zone<'a> {
     /// This zone's name in the zoneinfo database, such as "America/New_York".
     pub name: &'a str,
 
-    /// A static slice of all the timespans that pertain to this zone.
-    /// These should be in order of when they end, up until the
-    /// currently-applying timespan.
-    pub transitions: &'a [Transition<'a>],
+    pub transitions: ZoneSet<'a>,
 }
 
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct Transition<'name> {
-    pub occurs_at:  Option<i64>,
-    pub offset:     i64,
-    pub name:       &'name str,
+#[derive(PartialEq, Debug, Clone)]
+pub struct ZoneSet<'a> {
+    pub first: ZoneDetails<'a>,
+    pub rest:  &'a [ (i64, ZoneDetails<'a>) ],
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct ZoneDetails<'a> {
+    pub offset:  i64,
+    pub name:    &'a str,
+}
+
+impl<'a> ZoneSet<'a> {
+    pub fn find(&self, time: i64) -> &ZoneDetails<'a> {
+        match self.rest.iter().rev().find(|t| t.0 < time) {
+            None     => &self.first,
+            Some(zd) => &zd.1,
+        }
+    }
 }
 
 /// The "type" of time that a time is.
@@ -44,22 +55,16 @@ pub enum TimeType {
 impl<'a> TimeZone for Zone<'a> {
     fn offset(&self, datetime: LocalDateTime) -> i64 {
         let unix_timestamp = datetime.to_instant().seconds();
-        match self.transitions.iter().rev().find(|t| t.occurs_at.unwrap_or(0) < unix_timestamp) {
-            None     => 0,
-            Some(t)  => t.offset,
-        }
+        self.transitions.find(unix_timestamp).offset
     }
 
     fn name(&self, datetime: LocalDateTime) -> &str {
         let unix_timestamp = datetime.to_instant().seconds();
-        match self.transitions.iter().rev().find(|t| t.occurs_at.unwrap_or(0) < unix_timestamp) {
-            None     => "??",
-            Some(t)  => t.name,
-        }
+        self.transitions.find(unix_timestamp).name
     }
 
     fn is_fixed(&self) -> bool {
-        unimplemented!()
+        self.transitions.rest.is_empty()
     }
 
     fn from_local(&self, local: LocalDateTime) -> LocalTimes {
