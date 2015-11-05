@@ -16,9 +16,6 @@ extern crate num;
 extern crate pad;
 extern crate iso8601;
 
-#[macro_use]
-extern crate lazy_static;
-
 mod now;
 pub mod zoned;
 pub mod local;
