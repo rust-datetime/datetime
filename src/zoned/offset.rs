@@ -10,46 +10,32 @@ use local::ParseError as LocalParseError;
 use util::RangeExt;
 
 
-/// A **time zone** is used to calculate how much to adjust a UTC-based time
-/// based on its geographical location.
-#[derive(Clone, Debug)]
-pub enum Offset {
-    UTC,
-    FixedOffset { offset: i32 },
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub struct Offset {
+    offset_seconds: Option<i32>,
 }
 
-/// A **time zone** is used to calculate how much to adjust a UTC-based time
-/// based on its geographical location.
 impl Offset {
     fn adjust(&self, local: LocalDateTime) -> LocalDateTime {
-        match *self {
-            Offset::UTC                    => local,
-            Offset::FixedOffset { offset } => local + Duration::of(offset as i64)
+        match self.offset_seconds {
+            Some(s) => local + Duration::of(s as i64),
+            None    => local,
         }
     }
 
-    /// Create a new fixed-offset timezone with the given number of seconds.
-    ///
-    /// Returns an error if the number of seconds is greater than one day's
-    /// worth of seconds (86400) in either direction.
+    pub fn utc() -> Offset {
+        Offset { offset_seconds: None }
+    }
+
     pub fn of_seconds(seconds: i32) -> Result<Offset, Error> {
         if seconds.is_within(-86400..86401) {
-            Ok(Offset::FixedOffset { offset: seconds })
+            Ok(Offset { offset_seconds: Some(seconds) })
         }
         else {
             Err(Error::OutOfRange)
         }
     }
 
-    /// Create a new fixed-offset timezone with the given number of hours and
-    /// minutes.
-    ///
-    /// The values should either be both positive or both negative.
-    ///
-    /// Returns an error if the numbers are greater than their unit allows
-    /// (more than 23 hours or 59 minutes) in either direction, or if the
-    /// values differ in sign (such as a positive number of hours with a
-    /// negative number of minutes).
     pub fn of_hours_and_minutes(hours: i8, minutes: i8) -> Result<Offset, Error> {
         if (hours.is_positive() && minutes.is_negative())
         || (hours.is_negative() && minutes.is_positive()) {
@@ -84,7 +70,7 @@ pub enum ParseError {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub struct OffsetDateTime {
     local: LocalDateTime,
     offset: Offset,
