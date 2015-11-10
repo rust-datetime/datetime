@@ -1,31 +1,32 @@
-use local::LocalDateTime;
+use duration::Duration;
+use instant::Instant;
+use local::{LocalDateTime, DatePiece, TimePiece, Month, Weekday};
 use util::RangeExt;
-use zoned::{TimeZone, LocalTimes, ZonedDateTime};
 
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct Zone<'a> {
+pub struct TimeZone<'a> {
 
     /// This zone's name in the zoneinfo database, such as "America/New_York".
     pub name: &'a str,
 
-    pub transitions: ZoneSet<'a>,
+    pub transitions: FixedTimespanSet<'a>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct ZoneSet<'a> {
-    pub first: ZoneDetails<'a>,
-    pub rest:  &'a [ (i64, ZoneDetails<'a>) ],
+pub struct FixedTimespanSet<'a> {
+    pub first: FixedTimespan<'a>,
+    pub rest:  &'a [ (i64, FixedTimespan<'a>) ],
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct ZoneDetails<'a> {
+pub struct FixedTimespan<'a> {
     pub offset:  i64,
     pub name:    &'a str,
 }
 
-impl<'a> ZoneSet<'a> {
-    pub fn find(&self, time: i64) -> &ZoneDetails {
+impl<'a> FixedTimespanSet<'a> {
+    pub fn find(&self, time: i64) -> &FixedTimespan {
         match self.rest.iter().take_while(|t| t.0 < time).last() {
             None     => &self.first,
             Some(zd) => &zd.1,
@@ -64,9 +65,9 @@ impl<'a> ZoneSet<'a> {
 
 #[derive(PartialEq, Debug)]
 struct Surroundings<'a> {
-    previous:  Option<(&'a ZoneDetails<'a>, i64)>,
-    current:   &'a ZoneDetails<'a>,
-    next:      Option<&'a (i64, ZoneDetails<'a>)>,
+    previous:  Option<(&'a FixedTimespan<'a>, i64)>,
+    current:   &'a FixedTimespan<'a>,
+    next:      Option<&'a (i64, FixedTimespan<'a>)>,
 }
 
 /// The "type" of time that a time is.
@@ -90,28 +91,28 @@ pub enum TimeType {
     UTC,
 }
 
-impl<'a> TimeZone<'a> for Zone<'a> {
-    fn offset(&self, datetime: LocalDateTime) -> i64 {
+impl<'a> TimeZone<'a> {
+    pub fn offset(&self, datetime: LocalDateTime) -> i64 {
         let unix_timestamp = datetime.to_instant().seconds();
         self.transitions.find(unix_timestamp).offset
     }
 
-    fn name(&self, datetime: LocalDateTime) -> &str {
+    pub fn name(&self, datetime: LocalDateTime) -> &str {
         let unix_timestamp = datetime.to_instant().seconds();
         self.transitions.find(unix_timestamp).name
     }
 
-    fn is_fixed(&self) -> bool {
+    pub fn is_fixed(&self) -> bool {
         self.transitions.rest.is_empty()
     }
 
-    fn convert_local(&self, local: LocalDateTime) -> LocalTimes {
+    pub fn convert_local(&self, local: LocalDateTime) -> LocalTimes {
         let unix_timestamp = local.to_instant().seconds();
 
         let zonify = |offset| ZonedDateTime {
             adjusted: local,
             current_offset: offset,
-            time_zone: Box::new(self.clone()) /*as Box<TimeZone + 'a>*/,
+            time_zone: self.clone(),
         };
 
         let timespans = self.transitions.find_with_surroundings(unix_timestamp);
@@ -169,6 +170,71 @@ impl<'a> TimeZone<'a> for Zone<'a> {
 
         LocalTimes::Precise(zonify(timespans.current.offset))
     }
+
+    pub fn to_zoned(&self, datetime: LocalDateTime) -> LocalDateTime {
+        datetime + Duration::of(self.offset(datetime))
+    }
+}
+
+#[derive(Debug)]
+pub enum LocalTimes<'a> {
+    Impossible,
+
+    Precise(ZonedDateTime<'a>),
+
+    Ambiguous { earlier: ZonedDateTime<'a>, later: ZonedDateTime<'a> },
+}
+
+impl<'a> LocalTimes<'a> {
+    pub fn unwrap_precise(self) -> ZonedDateTime<'a> {
+        match self {
+            LocalTimes::Precise(p)        => p,
+            LocalTimes::Impossible        => panic!("called `LocalTimes::unwrap()` on an `Impossible` value"),
+            LocalTimes::Ambiguous { .. }  => panic!("called `LocalTimes::unwrap()` on an `Ambiguous` value: {:?}", self),
+        }
+    }
+
+    pub fn is_impossible(&self) -> bool {
+        match *self {
+            LocalTimes::Impossible => true,
+            _                      => false,
+        }
+    }
+
+    pub fn is_ambiguous(&self) -> bool {
+        match *self {
+            LocalTimes::Ambiguous { .. } => true,
+            _                            => false,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ZonedDateTime<'a> {
+    adjusted: LocalDateTime,
+    current_offset: i64,
+    time_zone: TimeZone<'a>,
+}
+
+impl<'a> ZonedDateTime<'a> {
+    pub fn to_instant(&self) -> Instant {
+        (self.adjusted - Duration::of(self.current_offset)).to_instant()
+    }
+}
+
+impl<'a> DatePiece for ZonedDateTime<'a> {
+    fn year(&self) -> i64 { self.adjusted.year() }
+    fn month(&self) -> Month { self.adjusted.month() }
+    fn day(&self) -> i8 { self.adjusted.day() }
+    fn yearday(&self) -> i16 { self.adjusted.yearday() }
+    fn weekday(&self) -> Weekday { self.adjusted.weekday() }
+}
+
+impl<'a> TimePiece for ZonedDateTime<'a> {
+    fn hour(&self) -> i8 { self.adjusted.hour() }
+    fn minute(&self) -> i8 { self.adjusted.minute() }
+    fn second(&self) -> i8 { self.adjusted.second() }
+    fn millisecond(&self) -> i16 { self.adjusted.millisecond() }
 }
 
 
@@ -176,15 +242,14 @@ impl<'a> TimeZone<'a> for Zone<'a> {
 mod test {
     pub use super::*;
     pub use local::*;
-    pub use zoned::{TimeZone, LocalTimes};
 
     mod zoneset {
         use super::*;
-        use zoned::zoneinfo::Surroundings;
+        use super::super::Surroundings;
 
-        const NONE: ZoneSet<'static> = ZoneSet {
-            first: ZoneDetails {
-                offset: 0,  // UTC offset 1500, DST offset 0
+        const NONE: FixedTimespanSet<'static> = FixedTimespanSet {
+            first: FixedTimespan {
+                offset: 0,
                 name: "ZONE_A",
             },
             rest: &[],
@@ -194,7 +259,7 @@ mod test {
         fn empty() {
             assert_eq!(NONE.find_with_surroundings(1184000000), Surroundings {
                 previous: None,
-                current: &ZoneDetails {
+                current: &FixedTimespan {
                     offset: 0,
                     name: "ZONE_A",
                 },
@@ -202,13 +267,13 @@ mod test {
             })
         }
 
-        const ONE: ZoneSet<'static> = ZoneSet {
-            first: ZoneDetails {
+        const ONE: FixedTimespanSet<'static> = FixedTimespanSet {
+            first: FixedTimespan {
                 offset: 0,
                 name: "ZONE_A",
             },
             rest: &[
-                (1174784400, ZoneDetails {
+                (1174784400, FixedTimespan {
                     offset: 3600,
                     name: "ZONE_B",
                 }),
@@ -219,13 +284,13 @@ mod test {
         fn just_one_first() {
             assert_eq!(ONE.find_with_surroundings(1184000000), Surroundings {
                 previous: Some((
-                    &ZoneDetails {
+                    &FixedTimespan {
                         offset: 0,
                         name: "ZONE_A",
                     },
                     1174784400,
                 )),
-                current: &ZoneDetails {
+                current: &FixedTimespan {
                     offset: 3600,
                     name: "ZONE_B",
                 },
@@ -237,13 +302,13 @@ mod test {
         fn just_one_other() {
             assert_eq!(ONE.find_with_surroundings(1174000000), Surroundings {
                 previous: None,
-                current: &ZoneDetails {
+                current: &FixedTimespan {
                     offset: 0,
                     name: "ZONE_A",
                 },
                 next: Some(&(
                     1174784400,
-                    ZoneDetails {
+                    FixedTimespan {
                         offset: 3600,
                         name: "ZONE_B",
                     },
@@ -251,17 +316,17 @@ mod test {
             })
         }
 
-        const MANY: ZoneSet<'static> = ZoneSet {
-            first: ZoneDetails {
+        const MANY: FixedTimespanSet<'static> = FixedTimespanSet {
+            first: FixedTimespan {
                 offset: 0,
                 name: "ZONE_A",
             },
             rest: &[
-                (1174784400, ZoneDetails {
+                (1174784400, FixedTimespan {
                     offset: 3600,
                     name: "ZONE_B",
                 }),
-                (1193533200, ZoneDetails {
+                (1193533200, FixedTimespan {
                     offset: 0,
                     name: "ZONE_C",
                 }),
@@ -272,19 +337,19 @@ mod test {
         fn multiple_second() {
             assert_eq!(MANY.find_with_surroundings(1184000000), Surroundings {
                 previous: Some((
-                    &ZoneDetails {
+                    &FixedTimespan {
                         offset: 0,
                         name: "ZONE_A",
                     },
                     1174784400,
                 )),
-                current: &ZoneDetails {
+                current: &FixedTimespan {
                     offset: 3600,
                     name: "ZONE_B",
                 },
                 next: Some(&(
                     1193533200,
-                    ZoneDetails {
+                    FixedTimespan {
                         offset: 0,
                         name: "ZONE_C",
                     }
@@ -296,13 +361,13 @@ mod test {
         fn multiple_last() {
             assert_eq!(MANY.find_with_surroundings(1200000000), Surroundings {
                 previous: Some((
-                    &ZoneDetails {
+                    &FixedTimespan {
                         offset: 3600,
                         name: "ZONE_B",
                     },
                     1193533200,
                 )),
-                current: &ZoneDetails {
+                current: &FixedTimespan {
                     offset: 0,
                     name: "ZONE_C",
                 },
@@ -311,35 +376,35 @@ mod test {
         }
     }
 
-    const TEST_ZONESET: Zone<'static> = Zone {
+    const TEST_ZONESET: TimeZone<'static> = TimeZone {
         name: "Test Zoneset",
-        transitions: ZoneSet {
-            first: ZoneDetails {
+        transitions: FixedTimespanSet {
+            first: FixedTimespan {
                 offset: 0,
                 name: "ZONE_A",
             },
             rest: &[
-                (1206838800, ZoneDetails {
+                (1206838800, FixedTimespan {
                     offset: 3600,
                     name: "ZONE_B",
                 }),
-                (1224982800, ZoneDetails {
+                (1224982800, FixedTimespan {
                     offset: 0,
                     name: "ZONE_A",
                 }),
-                (1238288400, ZoneDetails {
+                (1238288400, FixedTimespan {
                     offset: 3600,
                     name: "ZONE_B",
                 }),
-                (1256432400, ZoneDetails {
+                (1256432400, FixedTimespan {
                     offset: 0,
                     name: "ZONE_A",
                 }),
-                (1269738000, ZoneDetails {
+                (1269738000, FixedTimespan {
                     offset: 3600,
                     name: "ZONE_B",
                 }),
-                (1288486800, ZoneDetails {
+                (1288486800, FixedTimespan {
                     offset: 0,
                     name: "ZONE_A",
                 }),
