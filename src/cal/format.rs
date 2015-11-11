@@ -5,7 +5,7 @@ use std::io;
 use std::io::Write;
 use std::str::CharIndices;
 
-use local::{DatePiece, TimePiece};
+use cal::{DatePiece, TimePiece};
 
 use locale;
 use pad::{PadStr, Alignment};

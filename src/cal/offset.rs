@@ -5,8 +5,8 @@ use std::str::FromStr;
 use iso8601;
 
 use duration::Duration;
-use local::{LocalDateTime, LocalDate, LocalTime, DatePiece, TimePiece, Month, Weekday};
-use local::ParseError as LocalParseError;
+use cal::{LocalDateTime, LocalDate, LocalTime, DatePiece, TimePiece, Month, Weekday};
+use cal::datetime::ParseError as LocalParseError;
 use util::RangeExt;
 
 

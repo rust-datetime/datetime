@@ -16,10 +16,24 @@ extern crate num;
 extern crate pad;
 extern crate iso8601;
 
+
+mod cal;
+pub use cal::{DatePiece, TimePiece};
+pub use cal::datetime::{LocalDate, LocalTime, LocalDateTime, Month, Weekday};
+pub use cal::format as format;
+pub use cal::iter as iter;
+pub use cal::offset::{Offset, OffsetDateTime};
+pub use cal::zone::{TimeZone, ZonedDateTime};
+pub use cal::zone as zone;
+pub use cal::zonefinder::current_timezone;
+
+mod duration;
+pub use duration::Duration;
+
+mod instant;
+pub use instant::Instant;
+
 mod now;
-pub mod zoned;
-pub mod local;
-pub mod instant;
-pub mod duration;
-pub mod format;
+pub use now::now;
+
 mod util;

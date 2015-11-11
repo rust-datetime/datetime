@@ -1,15 +1,16 @@
 use std::cmp::{Ordering, PartialOrd};
 use std::error::Error as ErrorTrait;
 use std::fmt;
-use std::num::ParseIntError;
 use std::ops::{Add, Sub};
 use std::str::FromStr;
 
-use now;
 use iso8601;
-use instant::Instant;
+
 use duration::Duration;
+use instant::Instant;
+use now;
 use util::RangeExt;
+use cal::{DatePiece, TimePiece};
 
 use self::Month::*;
 use self::Weekday::*;
@@ -76,258 +77,6 @@ const TIME_TRIANGLE: &'static [i64; 11] =
       31]; // March
 
 
-/// The **date piece** trait is used for date and time values that have
-/// date components of years, months, and days.
-pub trait DatePiece {
-
-    /// The year, in absolute terms.
-    /// This is in human-readable format, so the year 2014 actually has a
-    /// year value of 2014, rather than 14 or 114 or anything like that.
-    fn year(&self) -> i64;
-
-    /// The month of the year.
-    fn month(&self) -> Month;
-
-    /// The day of the month, from 1 to 31.
-    fn day(&self) -> i8;
-
-    /// The day of the year, from 1 to 366.
-    fn yearday(&self) -> i16;
-
-    /// The day of the week.
-    fn weekday(&self) -> Weekday;
-
-    /// The number of years into the century.
-    /// This is the same as the last two digits of the year.
-    fn year_of_century(&self) -> i64 { self.year() % 100 }
-
-    /// The year number, relative to the year 2000.
-    /// Internally, many routines use years relative the year 2000,
-    /// rather than the year 0 (well, 1 BCE).
-    fn years_from_2000(&self) -> i64 { self.year() - 2000 }
-
-    // I'd ideally like to include 'century' here, but there's some
-    // discrepancy over what the result should be: the Gregorian
-    // calendar calls the span from 2000 to 2099 the '21st Century', but
-    // the ISO-8601 calendar calls it Century 20. I think the only way
-    // for people to safely know which one they're going to get is to
-    // just get the year value and do the calculation themselves, which
-    // is simple enough because it's just a division.
-}
-
-
-/// The **time piece** trait is used for date and time values that have
-/// time components of hours, minutes, and seconds.
-pub trait TimePiece {
-
-    /// The hour of the day.
-    fn hour(&self) -> i8;
-
-    /// The minute of the hour.
-    fn minute(&self) -> i8;
-
-    /// The second of the minute.
-    fn second(&self) -> i8;
-
-    /// The millisecond of the second.
-    fn millisecond(&self) -> i16;
-}
-
-
-/// A month of the year, starting with January, and ending with December.
-///
-/// This is stored as an enum instead of just a number to prevent
-/// off-by-one errors: is month 2 February (1-indexed) or March (0-indexed)?
-/// In this case, it's 1-indexed, to have January become 1 when you use
-/// `as i32` in code.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
-pub enum Month {
-    January =  1, February =  2, March     =  3,
-    April   =  4, May      =  5, June      =  6,
-    July    =  7, August   =  8, September =  9,
-    October = 10, November = 11, December  = 12,
-}
-
-impl Month {
-
-    /// The number of days in this month, depending on whether it's a
-    /// leap year or not.
-    fn days_in_month(&self, leap_year: bool) -> i8 {
-        match *self {
-            January   => 31, February  => if leap_year { 29 } else { 28 },
-            March     => 31, April     => 30,
-            May       => 31, June      => 30,
-            July      => 31, August    => 31,
-            September => 30, October   => 31,
-            November  => 30, December  => 31,
-        }
-    }
-
-    /// The number of days that have elapsed in a year *before* this
-    /// month begins, with no leap year check.
-    fn days_before_start(&self) -> i16 {
-        match *self {
-            January =>   0, February =>  31, March     =>  59,
-            April   =>  90, May      => 120, June      => 151,
-            July    => 181, August   => 212, September => 243,
-            October => 273, November => 304, December  => 334,
-        }
-    }
-
-    pub fn months_from_january(&self) -> usize {
-        match *self {
-            January =>   0, February =>   1, March     =>  2,
-            April   =>   3, May      =>   4, June      =>  5,
-            July    =>   6, August   =>   7, September =>  8,
-            October =>   9, November =>  10, December  => 11,
-        }
-    }
-
-    /// Return the month based on a number, with January as Month 1, February
-    /// as Month 2, and so on.
-    ///
-    /// ```rust
-    /// use datetime::local::Month;
-    /// assert_eq!(Month::from_one(5), Ok(Month::May));
-    /// assert!(Month::from_one(0).is_err());
-    /// ```
-    pub fn from_one(month: i8) -> Result<Month, Error> {
-        Ok(match month {
-             1 => January,   2 => February,   3 => March,
-             4 => April,     5 => May,        6 => June,
-             7 => July,      8 => August,     9 => September,
-            10 => October,  11 => November,  12 => December,
-             _ => return Err(Error::OutOfRange),
-        })
-    }
-
-    /// Return the month based on a number, with January as Month 0, February
-    /// as Month 1, and so on.
-    ///
-    /// ```rust
-    /// use datetime::local::Month;
-    /// assert_eq!(Month::from_zero(5), Ok(Month::June));
-    /// assert!(Month::from_zero(12).is_err());
-    /// ```
-    pub fn from_zero(month: i8) -> Result<Month, Error> {
-        Ok(match month {
-            0 => January,   1 => February,   2 => March,
-            3 => April,     4 => May,        5 => June,
-            6 => July,      7 => August,     8 => September,
-            9 => October,  10 => November,  11 => December,
-            _ => return Err(Error::OutOfRange),
-        })
-    }
-}
-
-
-/// A named day of the week, starting with Sunday, and ending with Saturday.
-///
-/// Sunday is Day 0. This seems to be a North American thing? It's pretty
-/// much an arbitrary choice, and as you can't use the from_zero method,
-/// it won't affect you at all. If you want to change it, the only thing
-/// that should be affected is LocalDate::days_to_weekday.
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
-pub enum Weekday {
-    Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday,
-}
-
-// I'm not going to give weekdays an Ord instance because there's no
-// real standard as to whether Sunday should come before Monday, or the
-// other way around. Luckily, they don't need one, as the field is
-// ignored when comparing LocalDates.
-
-impl Weekday {
-    fn days_from_monday_as_one(&self) -> i8 {
-        match *self {
-            Sunday => 7,   Monday => 1,
-            Tuesday => 2,  Wednesday => 3,
-            Thursday => 4, Friday => 5,
-            Saturday => 6,
-        }
-    }
-
-    /// Return the weekday based on a number, with Sunday as Day 0, Monday as
-    /// Day 1, and so on.
-    ///
-    /// ```rust
-    /// use datetime::local::Weekday;
-    /// assert_eq!(Weekday::from_zero(4), Ok(Weekday::Thursday));
-    /// assert!(Weekday::from_zero(7).is_err());
-    /// ```
-    pub fn from_zero(weekday: i8) -> Result<Weekday, Error> {
-        Ok(match weekday {
-            0 => Sunday,     1 => Monday,    2 => Tuesday,
-            3 => Wednesday,  4 => Thursday,  5 => Friday,
-            6 => Saturday,   _ => return Err(Error::OutOfRange),
-        })
-    }
-
-    pub fn from_one(weekday: i8) -> Result<Weekday, Error> {
-        Ok(match weekday {
-            7 => Sunday,     1 => Monday,    2 => Tuesday,
-            3 => Wednesday,  4 => Thursday,  5 => Friday,
-            6 => Saturday,   _ => return Err(Error::OutOfRange),
-        })
-    }
-}
-
-/// TODO: Make the YMD constructor able to use this
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct Year(pub i64);
-
-impl Year {
-    pub fn is_leap_year(&self) -> bool {
-        YMD { year: self.0, month: January, day: 1 }
-            .leap_year_calculations()
-            .1
-    }
-
-    pub fn days_for_month(&self, month: Month) -> DaysForMonth {
-        DaysForMonth {
-            year: self,
-            month: month,
-            day: 1,
-            max: month.days_in_month(self.is_leap_year()),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug)]
-pub struct DaysForMonth<'year> {
-    year: &'year Year,
-    month: Month,
-    day: i8,
-    max: i8,
-}
-
-impl<'year> Iterator for DaysForMonth<'year> {
-    type Item = LocalDate;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.day <= self.max {
-            let date = LocalDate::ymd(self.year.0, self.month, self.day).unwrap();  // Can this ever be invalid?
-            self.day += 1;
-            Some(date)
-        }
-        else {
-            None
-        }
-    }
-}
-
-impl<'year> DoubleEndedIterator for DaysForMonth<'year> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        if self.day <= self.max {
-            let date = LocalDate::ymd(self.year.0, self.month, self.max).unwrap();  // ditto
-            self.max -= 1;
-            Some(date)
-        }
-        else {
-            None
-        }
-    }
-}
 
 /// A **local date** is a day-long span on the timeline, *without a time
 /// zone*.
@@ -371,7 +120,7 @@ impl LocalDate {
     /// week-of-year, and weekday.
     ///
     /// ```rust
-    /// use datetime::local::{LocalDate, Month, DatePiece};
+    /// use datetime::{LocalDate, Month, DatePiece};
     ///
     /// let date = LocalDate::ymd(1969, Month::July, 20).unwrap();
     /// assert_eq!(date.year(), 1969);
@@ -398,7 +147,7 @@ impl LocalDate {
     /// and day-of-year.
     ///
     /// ```rust
-    /// use datetime::local::{LocalDate, Weekday, Month, DatePiece};
+    /// use datetime::{LocalDate, Weekday, Month, DatePiece};
     ///
     /// let date = LocalDate::yd(2015, 0x100).unwrap();
     /// assert_eq!(date.year(), 2015);
@@ -428,7 +177,7 @@ impl LocalDate {
     /// week-of-year, and weekday.
     ///
     /// ```rust
-    /// use datetime::local::{LocalDate, Weekday, Month, DatePiece};
+    /// use datetime::{LocalDate, Weekday, Month, DatePiece};
     ///
     /// let date = LocalDate::ywd(2015, 37, Weekday::Friday).unwrap();
     /// assert_eq!(date.year(), 2015);
@@ -441,7 +190,7 @@ impl LocalDate {
     /// when working with dates early in week 1, or late in week 53:
     ///
     /// ```rust
-    /// use datetime::local::{LocalDate, Weekday, Month, DatePiece};
+    /// use datetime::{LocalDate, Weekday, Month, DatePiece};
     ///
     /// let date = LocalDate::ywd(2009, 1, Weekday::Monday).unwrap();
     /// assert_eq!(date.year(), 2008);
@@ -488,7 +237,7 @@ impl LocalDate {
     /// Instantiate the 25th of September 2015 given its day-of-year (268).
     ///
     /// ```rust
-    /// use datetime::local::{LocalDate, Month, DatePiece};
+    /// use datetime::{LocalDate, Month, DatePiece};
     ///
     /// let date = LocalDate::yd(2015, 268).unwrap();
     /// assert_eq!(date.year(), 2015);
@@ -499,7 +248,7 @@ impl LocalDate {
     /// Remember that on leap years, the number of days in a year changes:
     ///
     /// ```rust
-    /// use datetime::local::{LocalDate, Month, DatePiece};
+    /// use datetime::{LocalDate, Month, DatePiece};
     ///
     /// let date = LocalDate::yd(2016, 268).unwrap();
     /// assert_eq!(date.year(), 2016);
@@ -920,10 +669,10 @@ impl Sub<Duration> for LocalDateTime {
 /// free to create such an instance of YMD. For this reason, it is not
 /// exposed to implementors of this library.
 #[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Debug, Copy)]
-struct YMD {
-    year:    i64,
-    month:   Month,
-    day:     i8,
+pub struct YMD {
+    pub year:    i64,
+    pub month:   Month,
+    pub day:     i8,
 }
 
 impl YMD {
@@ -935,7 +684,7 @@ impl YMD {
     /// This method returns a Result instead of exposing is_valid to
     /// the user, because the leap year calculations are used in both
     /// functions, so it makes more sense to only do them once.
-    fn to_days_since_epoch(&self) -> Result<i64, Error> {
+    pub fn to_days_since_epoch(&self) -> Result<i64, Error> {
         let years = self.year - 2000;
         let (leap_days_elapsed, is_leap_year) = self.leap_year_calculations();
 
@@ -976,7 +725,7 @@ impl YMD {
     /// Whether the current year is a leap year should already have been
     /// calculated at this point, so the value is passed in rather than
     /// calculating it afresh.
-    fn is_valid(&self, is_leap_year: bool) -> bool {
+    pub fn is_valid(&self, is_leap_year: bool) -> bool {
         self.day >= 1 && self.day <= self.month.days_in_month(is_leap_year)
     }
 
@@ -985,7 +734,7 @@ impl YMD {
     ///
     /// 1. The number of leap years that have elapsed prior to this date;
     /// 2. Whether the current year is a leap year or not.
-    fn leap_year_calculations(&self) -> (i64, bool) {
+    pub fn leap_year_calculations(&self) -> (i64, bool) {
         let year = self.year - 2000;
 
         // This calculation is the reverse of LocalDate::from_days_since_epoch.
@@ -1058,7 +807,6 @@ impl ErrorTrait for Error {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseError {
     Date(Error),
-    Number(ParseIntError),
     Parse(String),
 }
 
@@ -1066,7 +814,6 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match *self {
             ParseError::Date(ref error)   => write!(f, "{}: {}", self.description(), error),
-            ParseError::Number(ref error) => write!(f, "{}: {}", self.description(), error),
             ParseError::Parse(ref string) => write!(f, "{}: {}", self.description(), string),
         }
     }
@@ -1076,7 +823,6 @@ impl ErrorTrait for ParseError {
     fn description(&self) -> &str {
         match *self {
             ParseError::Date(_)     => "parsing resulted in an invalid date",
-            ParseError::Number(_)   => "parsing a number failed",
             ParseError::Parse(_)    => "parse error",
         }
     }
@@ -1084,16 +830,154 @@ impl ErrorTrait for ParseError {
     fn cause(&self) -> Option<&ErrorTrait> {
         match *self {
             ParseError::Date(ref error)   => Some(error),
-            ParseError::Number(ref error) => Some(error),
             ParseError::Parse(_)          => None,
         }
     }
 }
 
+/// A month of the year, starting with January, and ending with December.
+///
+/// This is stored as an enum instead of just a number to prevent
+/// off-by-one errors: is month 2 February (1-indexed) or March (0-indexed)?
+/// In this case, it's 1-indexed, to have January become 1 when you use
+/// `as i32` in code.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
+pub enum Month {
+    January =  1, February =  2, March     =  3,
+    April   =  4, May      =  5, June      =  6,
+    July    =  7, August   =  8, September =  9,
+    October = 10, November = 11, December  = 12,
+}
+
+impl Month {
+
+    /// The number of days in this month, depending on whether it's a
+    /// leap year or not.
+    pub fn days_in_month(&self, leap_year: bool) -> i8 {
+        match *self {
+            January   => 31, February  => if leap_year { 29 } else { 28 },
+            March     => 31, April     => 30,
+            May       => 31, June      => 30,
+            July      => 31, August    => 31,
+            September => 30, October   => 31,
+            November  => 30, December  => 31,
+        }
+    }
+
+    /// The number of days that have elapsed in a year *before* this
+    /// month begins, with no leap year check.
+    fn days_before_start(&self) -> i16 {
+        match *self {
+            January =>   0, February =>  31, March     =>  59,
+            April   =>  90, May      => 120, June      => 151,
+            July    => 181, August   => 212, September => 243,
+            October => 273, November => 304, December  => 334,
+        }
+    }
+
+    pub fn months_from_january(&self) -> usize {
+        match *self {
+            January =>   0, February =>   1, March     =>  2,
+            April   =>   3, May      =>   4, June      =>  5,
+            July    =>   6, August   =>   7, September =>  8,
+            October =>   9, November =>  10, December  => 11,
+        }
+    }
+
+    /// Return the month based on a number, with January as Month 1, February
+    /// as Month 2, and so on.
+    ///
+    /// ```rust
+    /// use datetime::Month;
+    /// assert_eq!(Month::from_one(5), Ok(Month::May));
+    /// assert!(Month::from_one(0).is_err());
+    /// ```
+    pub fn from_one(month: i8) -> Result<Month, Error> {
+        Ok(match month {
+             1 => January,   2 => February,   3 => March,
+             4 => April,     5 => May,        6 => June,
+             7 => July,      8 => August,     9 => September,
+            10 => October,  11 => November,  12 => December,
+             _ => return Err(Error::OutOfRange),
+        })
+    }
+
+    /// Return the month based on a number, with January as Month 0, February
+    /// as Month 1, and so on.
+    ///
+    /// ```rust
+    /// use datetime::Month;
+    /// assert_eq!(Month::from_zero(5), Ok(Month::June));
+    /// assert!(Month::from_zero(12).is_err());
+    /// ```
+    pub fn from_zero(month: i8) -> Result<Month, Error> {
+        Ok(match month {
+            0 => January,   1 => February,   2 => March,
+            3 => April,     4 => May,        5 => June,
+            6 => July,      7 => August,     8 => September,
+            9 => October,  10 => November,  11 => December,
+            _ => return Err(Error::OutOfRange),
+        })
+    }
+}
+
+
+/// A named day of the week, starting with Sunday, and ending with Saturday.
+///
+/// Sunday is Day 0. This seems to be a North American thing? It's pretty
+/// much an arbitrary choice, and as you can't use the from_zero method,
+/// it won't affect you at all. If you want to change it, the only thing
+/// that should be affected is LocalDate::days_to_weekday.
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub enum Weekday {
+    Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday,
+}
+
+// I'm not going to give weekdays an Ord instance because there's no
+// real standard as to whether Sunday should come before Monday, or the
+// other way around. Luckily, they don't need one, as the field is
+// ignored when comparing LocalDates.
+
+impl Weekday {
+    fn days_from_monday_as_one(&self) -> i8 {
+        match *self {
+            Sunday => 7,   Monday => 1,
+            Tuesday => 2,  Wednesday => 3,
+            Thursday => 4, Friday => 5,
+            Saturday => 6,
+        }
+    }
+
+    /// Return the weekday based on a number, with Sunday as Day 0, Monday as
+    /// Day 1, and so on.
+    ///
+    /// ```rust
+    /// use datetime::Weekday;
+    /// assert_eq!(Weekday::from_zero(4), Ok(Weekday::Thursday));
+    /// assert!(Weekday::from_zero(7).is_err());
+    /// ```
+    pub fn from_zero(weekday: i8) -> Result<Weekday, Error> {
+        Ok(match weekday {
+            0 => Sunday,     1 => Monday,    2 => Tuesday,
+            3 => Wednesday,  4 => Thursday,  5 => Friday,
+            6 => Saturday,   _ => return Err(Error::OutOfRange),
+        })
+    }
+
+    pub fn from_one(weekday: i8) -> Result<Weekday, Error> {
+        Ok(match weekday {
+            7 => Sunday,     1 => Monday,    2 => Tuesday,
+            3 => Wednesday,  4 => Thursday,  5 => Friday,
+            6 => Saturday,   _ => return Err(Error::OutOfRange),
+        })
+    }
+}
 
 #[cfg(test)]
 mod test {
-    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, DatePiece, Year};
+    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday};
+    pub use cal::iter::Year;
+    pub use cal::DatePiece;
     pub use std::str::FromStr;
     use super::YMD;
 
