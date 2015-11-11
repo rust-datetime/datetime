@@ -6,11 +6,11 @@ use std::str::FromStr;
 
 use iso8601;
 
+use cal::{DatePiece, TimePiece};
 use duration::Duration;
 use instant::Instant;
-use now;
+use system::sys_time;
 use util::RangeExt;
-use cal::{DatePiece, TimePiece};
 
 use self::Month::*;
 use self::Weekday::*;
@@ -592,7 +592,7 @@ impl LocalDateTime {
 
     /// Creates a new date-time stamp set to the current time.
     pub fn now() -> LocalDateTime {
-        let (s, ms) = unsafe { now::now() };
+        let (s, ms) = unsafe { sys_time() };
         LocalDateTime::at_ms(s, ms)
     }
 

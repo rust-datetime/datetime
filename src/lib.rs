@@ -25,7 +25,6 @@ pub use cal::iter as iter;
 pub use cal::offset::{Offset, OffsetDateTime};
 pub use cal::zone::{TimeZone, ZonedDateTime};
 pub use cal::zone as zone;
-pub use cal::zonefinder::current_timezone;
 
 mod duration;
 pub use duration::Duration;
@@ -33,7 +32,7 @@ pub use duration::Duration;
 mod instant;
 pub use instant::Instant;
 
-mod now;
-pub use now::now;
+mod system;
+pub use system::sys_timezone;
 
 mod util;

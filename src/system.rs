@@ -1,8 +1,38 @@
 use std::ffi::OsStr;
 use std::path::Path;
 
+extern crate libc;
 
-pub fn current_timezone() -> Option<String> {
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+extern {
+    fn gettimeofday(tp: *mut libc::timeval, tzp: *mut libc::timezone) -> libc::c_int;
+}
+
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios")))]
+extern {
+    fn clock_gettime(clk_id: libc::c_int, tp: *mut libc::timespec) -> libc::c_int;
+}
+
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub unsafe fn sys_time() -> (i64, i16) {
+    use std::ptr::null_mut;
+
+    let mut tv = libc::timeval { tv_sec: 0, tv_usec: 0 };
+    let _ = gettimeofday(&mut tv, null_mut());
+    (tv.tv_sec, (tv.tv_usec / 1000) as i16)
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
+pub unsafe fn sys_time() -> (i64, i16) {
+    let mut tv = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    clock_gettime(libc::CLOCK_REALTIME, &mut tv);
+    (tv.tv_sec, (tv.tv_nsec / 1000) as i16)
+}
+
+
+pub fn sys_timezone() -> Option<String> {
     use std::fs::read_link;
 
     let link = match read_link("/etc/localtime") {
@@ -33,7 +63,6 @@ fn extract_timezone(path: &Path) -> Option<String> {
 }
 
 fn is_tz_component(component: &OsStr) -> bool {
-
     if let Some(component_str) = component.to_str() {
         let first_char = component_str.chars().next().unwrap();
         first_char.is_uppercase()
@@ -46,8 +75,12 @@ fn is_tz_component(component: &OsStr) -> bool {
 
 #[cfg(test)]
 mod test {
-    use super::extract_timezone;
-    use std::path::Path;
+    use super::*;
+
+    #[test]
+    fn sanity_check() {
+        assert!((0, 0) != unsafe { system_time() })
+    }
 
     #[test]
     fn two() {

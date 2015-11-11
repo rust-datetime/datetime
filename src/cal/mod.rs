@@ -3,7 +3,6 @@ pub mod format;
 pub mod iter;
 pub mod offset;
 pub mod zone;
-pub mod zonefinder;
 
 pub use self::datetime::{LocalDate, LocalTime, LocalDateTime, Weekday, Month};
 
