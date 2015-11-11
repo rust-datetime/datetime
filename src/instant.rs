@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::{Add, Sub};
 
-use now;
+use system::sys_time;
 use duration::Duration;
 
 
@@ -34,7 +34,7 @@ impl Instant {
 
     /// Creates a new Instant set to the computer's current time.
     pub fn now() -> Instant {
-        let (s, ms) = unsafe { now::now() };
+        let (s, ms) = unsafe { sys_time() };
         Instant { seconds: s, milliseconds: ms }
     }
 

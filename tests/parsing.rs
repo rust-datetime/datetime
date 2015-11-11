@@ -1,5 +1,5 @@
 extern crate datetime;
-use datetime::local::*;
+use datetime::{LocalDateTime, Weekday, Month, LocalDate};
 extern crate regex;
 
 extern crate rustc_serialize;

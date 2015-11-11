@@ -1,6 +1,6 @@
 use duration::Duration;
 use instant::Instant;
-use local::{LocalDateTime, DatePiece, TimePiece, Month, Weekday};
+use cal::{LocalDateTime, DatePiece, TimePiece, Month, Weekday};
 use util::RangeExt;
 
 

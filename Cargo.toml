@@ -14,9 +14,9 @@ name = "datetime"
 
 [dependencies]
 locale = "0.1"
-num = "*"
+num = "0.1"
 pad = "0.1"
-libc = "0.1"
+libc = "0.2"
 iso8601 = "0.1.0"
 
 [dev-dependencies]
