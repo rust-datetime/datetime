@@ -10,7 +10,7 @@ pub struct TimeZone<'a> {
     /// This zone's name in the zoneinfo database, such as "America/New_York".
     pub name: &'a str,
 
-    pub transitions: FixedTimespanSet<'a>,
+    pub fixed_timespans: FixedTimespanSet<'a>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -22,6 +22,7 @@ pub struct FixedTimespanSet<'a> {
 #[derive(PartialEq, Debug, Clone)]
 pub struct FixedTimespan<'a> {
     pub offset:  i64,
+    pub is_dst:  bool,
     pub name:    &'a str,
 }
 
@@ -94,16 +95,16 @@ pub enum TimeType {
 impl<'a> TimeZone<'a> {
     pub fn offset(&self, datetime: LocalDateTime) -> i64 {
         let unix_timestamp = datetime.to_instant().seconds();
-        self.transitions.find(unix_timestamp).offset
+        self.fixed_timespans.find(unix_timestamp).offset
     }
 
     pub fn name(&self, datetime: LocalDateTime) -> &str {
         let unix_timestamp = datetime.to_instant().seconds();
-        self.transitions.find(unix_timestamp).name
+        self.fixed_timespans.find(unix_timestamp).name
     }
 
     pub fn is_fixed(&self) -> bool {
-        self.transitions.rest.is_empty()
+        self.fixed_timespans.rest.is_empty()
     }
 
     pub fn convert_local(&self, local: LocalDateTime) -> LocalTimes {
@@ -115,7 +116,7 @@ impl<'a> TimeZone<'a> {
             time_zone: self.clone(),
         };
 
-        let timespans = self.transitions.find_with_surroundings(unix_timestamp);
+        let timespans = self.fixed_timespans.find_with_surroundings(unix_timestamp);
 
         if let Some((previous_zone, previous_transition_time)) = timespans.previous {
 
@@ -250,6 +251,7 @@ mod test {
         const NONE: FixedTimespanSet<'static> = FixedTimespanSet {
             first: FixedTimespan {
                 offset: 0,
+                is_dst: false,
                 name: "ZONE_A",
             },
             rest: &[],
@@ -261,6 +263,7 @@ mod test {
                 previous: None,
                 current: &FixedTimespan {
                     offset: 0,
+                    is_dst: false,
                     name: "ZONE_A",
                 },
                 next: None,
@@ -270,11 +273,13 @@ mod test {
         const ONE: FixedTimespanSet<'static> = FixedTimespanSet {
             first: FixedTimespan {
                 offset: 0,
+                is_dst: false,
                 name: "ZONE_A",
             },
             rest: &[
                 (1174784400, FixedTimespan {
                     offset: 3600,
+                    is_dst: false,
                     name: "ZONE_B",
                 }),
             ],
@@ -286,12 +291,14 @@ mod test {
                 previous: Some((
                     &FixedTimespan {
                         offset: 0,
+                        is_dst: false,
                         name: "ZONE_A",
                     },
                     1174784400,
                 )),
                 current: &FixedTimespan {
                     offset: 3600,
+                    is_dst: false,
                     name: "ZONE_B",
                 },
                 next: None,
@@ -304,12 +311,14 @@ mod test {
                 previous: None,
                 current: &FixedTimespan {
                     offset: 0,
+                    is_dst: false,
                     name: "ZONE_A",
                 },
                 next: Some(&(
                     1174784400,
                     FixedTimespan {
                         offset: 3600,
+                        is_dst: false,
                         name: "ZONE_B",
                     },
                 )),
@@ -319,15 +328,18 @@ mod test {
         const MANY: FixedTimespanSet<'static> = FixedTimespanSet {
             first: FixedTimespan {
                 offset: 0,
+                is_dst: false,
                 name: "ZONE_A",
             },
             rest: &[
                 (1174784400, FixedTimespan {
                     offset: 3600,
+                    is_dst: false,
                     name: "ZONE_B",
                 }),
                 (1193533200, FixedTimespan {
                     offset: 0,
+                    is_dst: false,
                     name: "ZONE_C",
                 }),
             ],
@@ -339,18 +351,21 @@ mod test {
                 previous: Some((
                     &FixedTimespan {
                         offset: 0,
+                        is_dst: false,
                         name: "ZONE_A",
                     },
                     1174784400,
                 )),
                 current: &FixedTimespan {
                     offset: 3600,
+                    is_dst: false,
                     name: "ZONE_B",
                 },
                 next: Some(&(
                     1193533200,
                     FixedTimespan {
                         offset: 0,
+                        is_dst: false,
                         name: "ZONE_C",
                     }
                 )),
@@ -363,12 +378,14 @@ mod test {
                 previous: Some((
                     &FixedTimespan {
                         offset: 3600,
+                        is_dst: false,
                         name: "ZONE_B",
                     },
                     1193533200,
                 )),
                 current: &FixedTimespan {
                     offset: 0,
+                    is_dst: false,
                     name: "ZONE_C",
                 },
                 next: None,
@@ -378,34 +395,41 @@ mod test {
 
     const TEST_ZONESET: TimeZone<'static> = TimeZone {
         name: "Test Zoneset",
-        transitions: FixedTimespanSet {
+        fixed_timespans: FixedTimespanSet {
             first: FixedTimespan {
                 offset: 0,
+                is_dst: false,
                 name: "ZONE_A",
             },
             rest: &[
                 (1206838800, FixedTimespan {
                     offset: 3600,
+                    is_dst: false,
                     name: "ZONE_B",
                 }),
                 (1224982800, FixedTimespan {
                     offset: 0,
+                    is_dst: false,
                     name: "ZONE_A",
                 }),
                 (1238288400, FixedTimespan {
                     offset: 3600,
+                    is_dst: false,
                     name: "ZONE_B",
                 }),
                 (1256432400, FixedTimespan {
                     offset: 0,
+                    is_dst: false,
                     name: "ZONE_A",
                 }),
                 (1269738000, FixedTimespan {
                     offset: 3600,
+                    is_dst: false,
                     name: "ZONE_B",
                 }),
                 (1288486800, FixedTimespan {
                     offset: 0,
+                    is_dst: false,
                     name: "ZONE_A",
                 }),
             ]
