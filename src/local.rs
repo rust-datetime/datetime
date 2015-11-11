@@ -331,7 +331,7 @@ impl<'year> DoubleEndedIterator for DaysForMonth<'year> {
 
 /// A **local date** is a day-long span on the timeline, *without a time
 /// zone*.
-#[derive(Eq, Debug, Clone, Copy)]
+#[derive(Eq, Clone, Copy)]
 pub struct LocalDate {
     ymd:     YMD,
     yearday: i16,
@@ -340,7 +340,7 @@ pub struct LocalDate {
 
 /// A **local time** is a time on the timeline that recurs once a day,
 /// *without a time zone*.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct LocalTime {
     hour:   i8,
     minute: i8,
@@ -350,7 +350,7 @@ pub struct LocalTime {
 
 /// A **local date-time** is an exact instant on the timeline, *without a
 /// time zone*.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct LocalDateTime {
     date: LocalDate,
     time: LocalTime,
@@ -635,6 +635,12 @@ impl LocalDate {
     }
 }
 
+impl fmt::Debug for LocalDate {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{:04}-{:02}-{:02}", self.year(), self.month().months_from_january(), self.day())
+    }
+}
+
 impl DatePiece for LocalDate {
     fn year(&self) -> i64 { self.ymd.year }
     fn month(&self) -> Month { self.ymd.month }
@@ -773,6 +779,12 @@ impl FromStr for LocalTime {
     }
 }
 
+impl fmt::Debug for LocalTime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{:01}-{:02}-{:02}", self.hour(), self.minute(), self.second())
+    }
+}
+
 impl TimePiece for LocalTime {
     fn hour(&self) -> i8 { self.hour }
     fn minute(&self) -> i8 { self.minute }
@@ -857,6 +869,12 @@ impl FromStr for LocalDateTime {
         let date = try!(LocalDate::from_fields(fields.date));
         let time = try!(LocalTime::from_fields(fields.time));
         Ok(LocalDateTime { date: date, time: time })
+    }
+}
+
+impl fmt::Debug for LocalDateTime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{:?}T{:?}", self.date, self.time)
     }
 }
 
