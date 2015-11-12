@@ -90,11 +90,12 @@ fn is_tz_component(component: &OsStr) -> bool {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use super::{sys_time, extract_timezone};
+    use std::path::Path;
 
     #[test]
     fn sanity_check() {
-        assert!((0, 0) != unsafe { system_time() })
+        assert!((0, 0) != unsafe { sys_time() })
     }
 
     #[test]

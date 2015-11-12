@@ -312,7 +312,7 @@ impl<'a> TimePiece for ZonedDateTime<'a> {
 #[cfg(test)]
 mod test {
     pub use super::*;
-    pub use local::*;
+    pub use cal::*;
 
     mod zoneset {
         use super::*;
