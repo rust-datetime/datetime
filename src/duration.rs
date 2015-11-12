@@ -1,7 +1,10 @@
+//! Lengths of time on the timeline.
+
 use std::ops::{Add, Sub, Mul};
 
-/// A **Duration** is a length of time on the timeline, irrespective of
-/// time zone or calendar format, with millisecond precision,
+
+/// A **duration** is a length of time on the timeline, irrespective of
+/// time zone or calendar format, with millisecond precision.
 #[derive(Clone, PartialEq, Eq, Debug, Copy)]
 pub struct Duration {
     seconds: i64,
@@ -9,20 +12,21 @@ pub struct Duration {
 }
 
 impl Duration {
+
     /// Create a new zero-length duration.
     pub fn zero() -> Duration {
         Duration { seconds: 0, milliseconds: 0 }
     }
 
-    /// Create a new duration that's the given number of seconds long.
+    /// Create a new duration that’s the given number of seconds long.
     pub fn of(seconds: i64) -> Duration {
         Duration { seconds: seconds, milliseconds: 0 }
     }
 
-    /// Create a new duration that's the given number of seconds and
+    /// Create a new duration that’s the given number of seconds and
     /// milliseconds long.
     pub fn of_ms(seconds: i64, milliseconds: i16) -> Duration {
-        assert!(milliseconds >= 0 && milliseconds <= 999);
+        assert!(milliseconds >= 0 && milliseconds <= 999);  // TODO: replace assert with returning Result
         Duration { seconds: seconds, milliseconds: milliseconds }
     }
 
@@ -32,11 +36,11 @@ impl Duration {
         (self.seconds, self.milliseconds)
     }
 
-    // I've done it like this instead of having separate seconds() and
-    // milliseconds() functions, because I think there's a danger that
+    // I’ve done it like this instead of having separate seconds() and
+    // milliseconds() functions, because I think there’s a danger that
     // people will think that milliseconds() returns the *total* length
     // in milliseconds, rather than just this particular portion. This
-    // way, it's clear that there are two separate values being returned.
+    // way, it’s clear that there are two separate values being returned.
 }
 
 impl Add<Duration> for Duration {

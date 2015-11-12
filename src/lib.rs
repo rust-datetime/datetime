@@ -7,8 +7,8 @@
 //#![warn(missing_docs)]
 
 #![warn(trivial_casts, trivial_numeric_casts)]
-//#![warn(unused_qualifications)]
-//#![warn(unused_results)]
+#![warn(unused_qualifications)]
+#![warn(unused_results)]
 
 extern crate locale;
 extern crate libc;

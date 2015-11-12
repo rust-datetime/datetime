@@ -1,3 +1,5 @@
+//! Dates, times, datetimes, months, and weekdays.
+
 use std::cmp::{Ordering, PartialOrd};
 use std::error::Error as ErrorTrait;
 use std::fmt;
@@ -39,7 +41,7 @@ const SECONDS_IN_DAY: i64 = 86400;
 /// simpler!
 ///
 /// The Gregorian calendar operates on a 400-year cycle, so the combination
-/// of having it on a year that's a multiple of 400, and having the leap
+/// of having it on a year that’s a multiple of 400, and having the leap
 /// day at the very end of one of these cycles, means that the calculations
 /// are reduced to simple division (of course, with a bit of date-shifting
 /// to base a date around this reference point).
@@ -51,7 +53,7 @@ const SECONDS_IN_DAY: i64 = 86400;
 ///
 /// The only problem is that many people assume the Unix epoch to be
 /// midnight on the 1st January 1970, so this value (and any functions that
-/// depend on it) aren't exposed to users of this library.
+/// depend on it) aren’t exposed to users of this library.
 ///
 /// [^win32]: http://blogs.msdn.com/b/oldnewthing/archive/2009/03/06/9461176.aspx
 ///
@@ -279,12 +281,12 @@ impl LocalDate {
 
         // Leap year calculation goes thusly:
         //
-        // 1. If the year is a multiple of 400, it's a leap year.
-        // 2. Else, if the year is a multiple of 100, it's *not* a leap year.
-        // 3. Else, if the year is a multiple of 4, it's a leap year again!
+        // 1. If the year is a multiple of 400, it’s a leap year.
+        // 2. Else, if the year is a multiple of 100, it’s *not* a leap year.
+        // 3. Else, if the year is a multiple of 4, it’s a leap year again!
         //
         // We already have the values for the numbers of multiples at this
-        // point, and it's safe to re-use them.
+        // point, and it’s safe to re-use them.
         let days_this_year =
             if years == 0 && !(num_4y_cycles == 0 && num_100y_cycles != 0) { 366 }
                                                                       else { 365 };
@@ -305,14 +307,14 @@ impl LocalDate {
         // Work out the month and number of days into the month by scanning
         // the time triangle, finding the month that has the correct number
         // of days elapsed at the end of it.
-        // (it's "11 - index" below because the triangle goes backwards)
+        // (it’s “11 - index” below because the triangle goes backwards)
         let result = TIME_TRIANGLE.iter()
                                   .enumerate()
                                   .find(|&(_, days)| *days <= remainder);
 
         let (mut month, month_days) = match result {
             Some((index, days)) => (11 - index, remainder - *days),
-            None => (0, remainder),  // No month found? Then it's February.
+            None => (0, remainder),  // No month found? Then it’s February.
         };
 
         // Need to add 2 to the month in order to compensate for the EPOCH
@@ -346,7 +348,7 @@ impl LocalDate {
     /// weekday, and yearday fields.
     ///
     /// This function is unsafe because **the values are not checked for
-    /// validity!** It's possible to pass the wrong values in, such as having
+    /// validity!** It’s possible to pass the wrong values in, such as having
     /// a wrong day value for a month, or having the yearday value out of
     /// step. Before using it, check that the values are all correct - or just
     /// use the `date!()` macro, which does this for you at compile-time.
@@ -361,8 +363,8 @@ impl LocalDate {
         }
     }
 
-    // I'm not 100% convinced on using `unsafe` for something that doesn't
-    // technically *need* to be unsafe, but I'll stick with it for now.
+    // I’m not 100% convinced on using `unsafe` for something that doesn’t
+    // technically *need* to be unsafe, but I’ll stick with it for now.
 
     /// Creates a new local date instance by parsing the strings in the given
     /// set of fields.
@@ -446,12 +448,12 @@ impl LocalTime {
         }
     }
 
-    /// The time at midnight, with all fields initialised to 0.
+    /// Returns the time at midnight, with all fields initialised to 0.
     pub fn midnight() -> LocalTime {
         LocalTime { hour: 0, minute: 0, second: 0, millisecond: 0 }
     }
 
-    /// Create a new timestamp instance with the given hour and minute
+    /// Creates a new timestamp instance with the given hour and minute
     /// fields. The second and millisecond fields are set to 0.
     ///
     /// The values are checked for validity before instantiation, and
@@ -466,7 +468,7 @@ impl LocalTime {
         }
     }
 
-    /// Create a new timestamp instance with the given hour, minute, and
+    /// Creates a new timestamp instance with the given hour, minute, and
     /// second fields. The millisecond field is set to 0.
     ///
     /// The values are checked for validity before instantiation, and
@@ -481,7 +483,7 @@ impl LocalTime {
         }
     }
 
-    /// Create a new timestamp instance with the given hour, minute,
+    /// Creates a new timestamp instance with the given hour, minute,
     /// second, and millisecond fields.
     ///
     /// The values are checked for validity before instantiation, and
@@ -580,12 +582,12 @@ impl LocalDateTime {
         }
     }
 
-    /// The date portion of this date-time stamp.
+    /// Returns the date portion of this date-time stamp.
     pub fn date(&self) -> LocalDate {
         self.date
     }
 
-    /// The time portion of this date-time stamp.
+    /// Returns the time portion of this date-time stamp.
     pub fn time(&self) -> LocalTime {
         self.time
     }
@@ -665,7 +667,7 @@ impl Sub<Duration> for LocalDateTime {
 /// The main difference is that while all LocalDates get checked for
 /// validity before they are used, there is no such check for YMD. The
 /// interface to LocalDate ensures that it should be impossible to
-/// create an instance of the 74th of March, for example, but you're
+/// create an instance of the 74th of March, for example, but you’re
 /// free to create such an instance of YMD. For this reason, it is not
 /// exposed to implementors of this library.
 #[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Debug, Copy)]
@@ -761,17 +763,17 @@ fn days_to_weekday(days: i64) -> Weekday {
     // March 1st, 2000 was a Wednesday, so add 3 to the number of days.
     let weekday = (days + 3) % 7;
 
-    // We can unwrap since we've already done the bounds checking.
+    // We can unwrap since we’ve already done the bounds checking.
     Weekday::from_zero(if weekday < 0 { weekday + 7 } else { weekday } as i8).unwrap()
 }
 
 /// Split a number of years into a number of year-cycles, and the number
-/// of years left over that don't fit into a cycle. This is also used
+/// of years left over that don’t fit into a cycle. This is also used
 /// for day-cycles.
 ///
 /// This is essentially a division operation with the result and the
-/// remainder, with the difference that a negative value gets 'wrapped
-/// around' to be a positive value, owing to the way the modulo operator
+/// remainder, with the difference that a negative value gets ‘wrapped
+/// around’ to be a positive value, owing to the way the modulo operator
 /// works for negative values.
 fn split_cycles(number_of_periods: i64, cycle_length: i64) -> (i64, i64) {
     let mut cycles    = number_of_periods / cycle_length;
@@ -839,7 +841,7 @@ impl ErrorTrait for ParseError {
 ///
 /// This is stored as an enum instead of just a number to prevent
 /// off-by-one errors: is month 2 February (1-indexed) or March (0-indexed)?
-/// In this case, it's 1-indexed, to have January become 1 when you use
+/// In this case, it’s 1-indexed, to have January become 1 when you use
 /// `as i32` in code.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub enum Month {
@@ -851,8 +853,8 @@ pub enum Month {
 
 impl Month {
 
-    /// The number of days in this month, depending on whether it's a
-    /// leap year or not.
+    /// Returns the number of days in this month, depending on whether it’s
+    /// a leap year or not.
     pub fn days_in_month(&self, leap_year: bool) -> i8 {
         match *self {
             January   => 31, February  => if leap_year { 29 } else { 28 },
@@ -864,7 +866,7 @@ impl Month {
         }
     }
 
-    /// The number of days that have elapsed in a year *before* this
+    /// Returns the number of days that have elapsed in a year *before* this
     /// month begins, with no leap year check.
     fn days_before_start(&self) -> i16 {
         match *self {
@@ -884,8 +886,8 @@ impl Month {
         }
     }
 
-    /// Return the month based on a number, with January as Month 1, February
-    /// as Month 2, and so on.
+    /// Returns the month based on a number, with January as **Month 1**,
+    /// February as **Month 2**, and so on.
     ///
     /// ```rust
     /// use datetime::Month;
@@ -902,8 +904,8 @@ impl Month {
         })
     }
 
-    /// Return the month based on a number, with January as Month 0, February
-    /// as Month 1, and so on.
+    /// Returns the month based on a number, with January as **Month 0**,
+    /// February as **Month 1**, and so on.
     ///
     /// ```rust
     /// use datetime::Month;
@@ -922,20 +924,20 @@ impl Month {
 }
 
 
-/// A named day of the week, starting with Sunday, and ending with Saturday.
+/// A named day of the week.
 ///
-/// Sunday is Day 0. This seems to be a North American thing? It's pretty
-/// much an arbitrary choice, and as you can't use the from_zero method,
-/// it won't affect you at all. If you want to change it, the only thing
+/// Sunday is Day 0. This seems to be a North American thing? It’s pretty
+/// much an arbitrary choice, and as you can’t use the from_zero method,
+/// it won’t affect you at all. If you want to change it, the only thing
 /// that should be affected is LocalDate::days_to_weekday.
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum Weekday {
     Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday,
 }
 
-// I'm not going to give weekdays an Ord instance because there's no
+// I’m not going to give weekdays an Ord instance because there’s no
 // real standard as to whether Sunday should come before Monday, or the
-// other way around. Luckily, they don't need one, as the field is
+// other way around. Luckily, they don’t need one, as the field is
 // ignored when comparing LocalDates.
 
 impl Weekday {

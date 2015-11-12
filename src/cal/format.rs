@@ -1,3 +1,5 @@
+//! Datetime-to-string routines.
+
 use num::Integer;
 
 use std::fmt::Display;

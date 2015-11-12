@@ -1,3 +1,6 @@
+//! ISO-8601 date and time calculations, which use years, months, days,
+//! hours, minutes, and seconds.
+
 pub mod datetime;
 pub mod format;
 pub mod iter;
@@ -36,13 +39,13 @@ pub trait DatePiece {
     /// rather than the year 0 (well, 1 BCE).
     fn years_from_2000(&self) -> i64 { self.year() - 2000 }
 
-    // I'd ideally like to include 'century' here, but there's some
+    // I’d ideally like to include “century” here, but there’s some
     // discrepancy over what the result should be: the Gregorian
-    // calendar calls the span from 2000 to 2099 the '21st Century', but
+    // calendar calls the span from 2000 to 2099 the “21st Century”, but
     // the ISO-8601 calendar calls it Century 20. I think the only way
-    // for people to safely know which one they're going to get is to
+    // for people to safely know which one they’re going to get is to
     // just get the year value and do the calculation themselves, which
-    // is simple enough because it's just a division.
+    // is simple enough because it’s just a division.
 }
 
 

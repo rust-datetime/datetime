@@ -1,3 +1,5 @@
+//! Exact points on a timeline.
+
 use std::fmt;
 use std::ops::{Add, Sub};
 
@@ -5,13 +7,13 @@ use system::sys_time;
 use duration::Duration;
 
 
-/// An **Instant** is an exact point on the timeline, irrespective of time
+/// An **instant** is an exact point on the timeline, irrespective of time
 /// zone or calendar format, with millisecond precision.
 ///
 /// Internally, this is represented by a 64-bit integer of seconds, and a
 /// 16-bit integer of milliseconds. This means that it will overflow (and thus
 /// be unsuitable for) instants past GMT 15:30:08, Sunday 4th December,
-/// 292,277,026,596 (yes, that's a year)
+/// 292,277,026,596 (yes, that’s a year)
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Instant {
     seconds: i64,
@@ -19,6 +21,7 @@ pub struct Instant {
 }
 
 impl Instant {
+
     /// Creates a new Instant set to the number of seconds since the Unix
     /// epoch, and zero milliseconds.
     pub fn at(seconds: i64) -> Instant {
@@ -32,7 +35,7 @@ impl Instant {
         Instant { seconds: seconds, milliseconds: milliseconds }
     }
 
-    /// Creates a new Instant set to the computer's current time.
+    /// Creates a new Instant set to the computer’s current time.
     pub fn now() -> Instant {
         let (s, ms) = unsafe { sys_time() };
         Instant { seconds: s, milliseconds: ms }
@@ -124,6 +127,5 @@ mod test {
         fn subtraction() {
             assert_eq!(Instant::at(20), Instant::at(50) - Duration::of(30))
         }
-
     }
 }

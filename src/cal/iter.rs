@@ -1,4 +1,7 @@
+//! Iterators through multiple datetimes.
+
 use cal::datetime::{LocalDate, Month, YMD};
+
 
 /// TODO: Make the YMD constructor able to use this
 #[derive(PartialEq, Debug, Copy, Clone)]

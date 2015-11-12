@@ -1,3 +1,6 @@
+//! System-dependent functions, or anything that this library is unable to
+//! do without help from the OS.
+
 use std::ffi::OsStr;
 use std::path::Path;
 
@@ -15,6 +18,8 @@ extern {
 }
 
 
+/// Returns the system’s current time, as a tuple of seconds elapsed since
+/// the Unix epoch, and the millisecond of the second.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 pub unsafe fn sys_time() -> (i64, i16) {
     use std::ptr::null_mut;
@@ -24,6 +29,8 @@ pub unsafe fn sys_time() -> (i64, i16) {
     (tv.tv_sec, (tv.tv_usec / 1000) as i16)
 }
 
+/// Returns the system’s current time, as a tuple of seconds elapsed since
+/// the Unix epoch, and the millisecond of the second.
 #[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
 pub unsafe fn sys_time() -> (i64, i16) {
     let mut tv = libc::timespec { tv_sec: 0, tv_nsec: 0 };
@@ -32,6 +39,9 @@ pub unsafe fn sys_time() -> (i64, i16) {
 }
 
 
+/// Attempts to determine the system’s current time zone. There’s no
+/// guaranteed way to do this, so this function returns `None` if no
+/// timezone could be found.
 pub fn sys_timezone() -> Option<String> {
     use std::fs::read_link;
 
@@ -49,6 +59,8 @@ pub fn sys_timezone() -> Option<String> {
     None
 }
 
+/// Given a path, returns whether a valid zoneinfo timezone name can be
+/// detected at the end of that path.
 fn extract_timezone(path: &Path) -> Option<String> {
     let mut bits = Vec::new();
 
@@ -62,6 +74,9 @@ fn extract_timezone(path: &Path) -> Option<String> {
     Some(bits.join("/"))
 }
 
+/// Returns whether the input string could be used as a component of a
+/// zoneinfo timezone name, which in this case is whether its first
+/// character is a capital letter.
 fn is_tz_component(component: &OsStr) -> bool {
     if let Some(component_str) = component.to_str() {
         let first_char = component_str.chars().next().unwrap();

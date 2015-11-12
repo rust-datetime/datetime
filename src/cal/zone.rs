@@ -1,33 +1,62 @@
+//! Datetimes with a variable UTC offset, and time zone calculations.
+
 use duration::Duration;
 use instant::Instant;
 use cal::{LocalDateTime, DatePiece, TimePiece, Month, Weekday};
 use util::RangeExt;
 
 
+/// A **time zone**, which here is a list of timespans, each containing a
+/// fixed offset for the current location’s time from UTC.
 #[derive(PartialEq, Debug, Clone)]
 pub struct TimeZone<'a> {
 
-    /// This zone's name in the zoneinfo database, such as "America/New_York".
+    /// This zone’s name in the zoneinfo database, such as “America/New_York”.
     pub name: &'a str,
 
+    /// The set of timespans used in this time zone.
     pub fixed_timespans: FixedTimespanSet<'a>,
 }
 
+/// A set of timespans, separated by the instances at which the timespans
+/// change over. There will always be one more timespan than transitions.
 #[derive(PartialEq, Debug, Clone)]
 pub struct FixedTimespanSet<'a> {
+
+    /// The first timespan, which is assumed to have been in effect up until
+    /// the initial transition instant (if any). Each set has to have at
+    /// least one timespan.
     pub first: FixedTimespan<'a>,
-    pub rest:  &'a [ (i64, FixedTimespan<'a>) ],
+
+    /// The rest of the timespans, as a slice of tuples, each containing:
+    ///
+    /// 1. A transition instant at which the previous timespan ends and the
+    /// next one begins, stored as a Unix timestamp;
+    /// 2. The actual timespan to transition into.
+    pub rest: &'a [ (i64, FixedTimespan<'a>) ],
 }
 
+/// An individual timespan with a fixed offset.
 #[derive(PartialEq, Debug, Clone)]
 pub struct FixedTimespan<'a> {
-    pub offset:  i64,
-    pub is_dst:  bool,
-    pub name:    &'a str,
+
+    /// The *total* offset in effect during this timespan, in seconds. This
+    /// is the sum of the standard offset from UTC (the zone’s standard
+    /// time), and any extra daylight-saving offset.
+    pub offset: i64,
+
+    /// Whether there was any daylight-saving offset in effect during this
+    /// timespan.
+    pub is_dst: bool,
+
+    /// The abbreviation in use during this timespan, such as “GMT” or
+    /// “PDT”. Abbreviations are notoriously vague, and should only be used
+    /// for referring to a known timezone.
+    pub name: &'a str,
 }
 
 impl<'a> FixedTimespanSet<'a> {
-    pub fn find(&self, time: i64) -> &FixedTimespan {
+    fn find(&self, time: i64) -> &FixedTimespan {
         match self.rest.iter().take_while(|t| t.0 < time).last() {
             None     => &self.first,
             Some(zd) => &zd.1,
@@ -36,7 +65,7 @@ impl<'a> FixedTimespanSet<'a> {
 
     fn find_with_surroundings(&self, time: i64) -> Surroundings {
         if let Some((position, _)) = self.rest.iter().enumerate().take_while(|&(_, t)| t.0 < time).last() {
-            // There's a matching time in the 'rest' list, so return that
+            // There’s a matching time in the ‘rest’ list, so return that
             // time along with the two sets of details around it.
 
             let previous_details = if position == 0 {
@@ -53,8 +82,8 @@ impl<'a> FixedTimespanSet<'a> {
             }
         }
         else {
-            // If there's no matching time in the 'rest' list, it must be
-            // the 'first' one.
+            // If there’s no matching time in the ‘rest’ list, it must be
+            // the ‘first’ one.
             Surroundings {
                 previous: None,
                 current:  &self.first,
@@ -71,42 +100,75 @@ struct Surroundings<'a> {
     next:      Option<&'a (i64, FixedTimespan<'a>)>,
 }
 
-/// The "type" of time that a time is.
-///
-/// A time may be followed with a letter, signifying what 'type'
-/// of time the timestamp is:
-///
-/// - **w** for "wall clock" time (the default),
-/// - **s** for local standard time,
-/// - **u** or **g** or **z** for universal time.
+/// The “type” of time that a transition is specified in.
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum TimeType {
 
-    /// Wall-clock time.
+    /// Wall-clock time: a transition specified when the current time in
+    /// that zone, including any daylight-saving matches, matches the
+    /// transition’s time spec.
     Wall,
 
-    /// Standard Time.
+    /// Standard Time: a transition specified when the *standard* time in
+    /// that zone, which excludes any daylight-saving offset, matches the
+    /// transition’s time spec.
     Standard,
 
-    /// Universal Co-ordinated Time.
+    /// UTC: a transition specified when the time in UTC matches the
+    /// transition’s time spec.
     UTC,
 }
 
 impl<'a> TimeZone<'a> {
+
+    /// Returns the total offset from UTC, in seconds, that this time zone
+    /// has at the given datetime.
     pub fn offset(&self, datetime: LocalDateTime) -> i64 {
         let unix_timestamp = datetime.to_instant().seconds();
         self.fixed_timespans.find(unix_timestamp).offset
     }
 
+    /// Returns the time zone abbreviation that this time zone has at the
+    /// given datetime. As always, abbreviations are notoriously vague, and
+    /// should only be used when referring to a known timezone.
     pub fn name(&self, datetime: LocalDateTime) -> &str {
         let unix_timestamp = datetime.to_instant().seconds();
         self.fixed_timespans.find(unix_timestamp).name
     }
 
+    /// Whether this time zone is “fixed”: a fixed time zone has no
+    /// transitions, meaning it will always be at the same offset from UTC.
+    ///
+    /// There are relatively few of these, namely the European timezones
+    /// WET, CET, MET, and EET, and the North American timezones EST5EDT,
+    /// CST6CDT, MST7MDT, and PST8PDT, none of which actually corresponds to
+    /// a geographical location.
     pub fn is_fixed(&self) -> bool {
         self.fixed_timespans.rest.is_empty()
     }
 
+    /// Converts a local datetime in UTC to a zoned datetime that uses this
+    /// time zone.
+    pub fn to_zoned(&self, datetime: LocalDateTime) -> LocalDateTime {
+        datetime + Duration::of(self.offset(datetime))
+    }
+
+    /// Converts a local datetime that is *already* informally in this time
+    /// zone into a zoned datetime that actually uses this time zone.
+    ///
+    /// For example, say you have the current time for a time zone, but you
+    /// *don’t* know what the current offset from UTC is. This method
+    /// computes the offset, then *subtracts* rather than adds it, resulting
+    /// in a value that gets displayed as the current time. In other words,
+    /// calling `hour()` or `year()` or any of the other view methods on one
+    /// of the resulting values will *always* return the same as the
+    /// datetime initially passed in, no matter what the current offset is.
+    ///
+    /// This method can return 0, 1, or 2 values, depending on whether the
+    /// datetime passed in falls between two timespans (an impossible time)
+    /// or overlaps two separate timespans (an ambiguous time). The result
+    /// will *almost* always be precise, but there are edge cases you need
+    /// to watch out for.
     pub fn convert_local(&self, local: LocalDateTime) -> LocalTimes {
         let unix_timestamp = local.to_instant().seconds();
 
@@ -171,10 +233,6 @@ impl<'a> TimeZone<'a> {
 
         LocalTimes::Precise(zonify(timespans.current.offset))
     }
-
-    pub fn to_zoned(&self, datetime: LocalDateTime) -> LocalDateTime {
-        datetime + Duration::of(self.offset(datetime))
-    }
 }
 
 #[derive(Debug)]
@@ -187,6 +245,12 @@ pub enum LocalTimes<'a> {
 }
 
 impl<'a> LocalTimes<'a> {
+
+    /// Extracts the *precise* zoned date time, if present; **panics otherwise**.
+    ///
+    /// It is almost always preferable to use pattern matching on a
+    /// `LocalTimes` value and handle the impossible/ambiguous cases
+    /// explicitly, rather than risking a panic.
     pub fn unwrap_precise(self) -> ZonedDateTime<'a> {
         match self {
             LocalTimes::Precise(p)        => p,
@@ -195,6 +259,9 @@ impl<'a> LocalTimes<'a> {
         }
     }
 
+    /// Returns whether this local times result is impossible (when a time
+    /// occurs between two timespans, which should never be shown on a wall
+    /// clock).
     pub fn is_impossible(&self) -> bool {
         match *self {
             LocalTimes::Impossible => true,
@@ -202,6 +269,9 @@ impl<'a> LocalTimes<'a> {
         }
     }
 
+    /// Returns whether this local times result is ambiguous (when a time
+    /// overlaps two timespans, which happens twice on a wall clock rather
+    /// than once).
     pub fn is_ambiguous(&self) -> bool {
         match *self {
             LocalTimes::Ambiguous { .. } => true,

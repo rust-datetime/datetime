@@ -1,4 +1,4 @@
-//! Dates and times paired with a time zone, and time zone definitions.
+//! Datetimes with a fixed UTC offset.
 
 use std::str::FromStr;
 
