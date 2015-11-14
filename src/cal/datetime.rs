@@ -4,9 +4,6 @@ use std::cmp::{Ordering, PartialOrd};
 use std::error::Error as ErrorTrait;
 use std::fmt;
 use std::ops::{Add, Sub};
-use std::str::FromStr;
-
-use iso8601;
 
 use cal::{DatePiece, TimePiece};
 use duration::Duration;
@@ -365,25 +362,6 @@ impl LocalDate {
 
     // I’m not 100% convinced on using `unsafe` for something that doesn’t
     // technically *need* to be unsafe, but I’ll stick with it for now.
-
-    /// Creates a new local date instance by parsing the strings in the given
-    /// set of fields.
-    pub fn from_fields(fields: iso8601::Date) -> Result<LocalDate, ParseError> {
-        if let iso8601::Date::YMD { year, month, day } = fields {
-            let month_variant = try!(Month::from_one(month as i8).map_err(ParseError::Date));
-            LocalDate::ymd(year as i64, month_variant, day as i8).map_err(ParseError::Date)
-        }
-        else if let iso8601::Date::Week { year, ww, d } = fields {
-            let weekday_variant = try!(Weekday::from_one(d as i8).map_err(ParseError::Date));
-            LocalDate::ywd(year as i64, ww as i64, weekday_variant).map_err(ParseError::Date)
-        }
-        else if let iso8601::Date::Ordinal { year, ddd } = fields {
-            LocalDate::yd(year as i64, ddd as i64).map_err(ParseError::Date)
-        }
-        else {
-            unreachable!()  // should be unnecessary??
-        }
-    }
 }
 
 impl fmt::Debug for LocalDate {
@@ -398,17 +376,6 @@ impl DatePiece for LocalDate {
     fn day(&self) -> i8 { self.ymd.day }
     fn yearday(&self) -> i16 { self.yearday }
     fn weekday(&self) -> Weekday { self.weekday }
-}
-
-impl FromStr for LocalDate {
-    type Err = ParseError;
-
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        match iso8601::date(input) {
-            Ok(fields)  => LocalDate::from_fields(fields),
-            Err(e)      => Err(ParseError::Parse(e)),
-        }
-    }
 }
 
 impl PartialEq for LocalDate {
@@ -506,28 +473,6 @@ impl LocalTime {
             + self.minute as i64 * 60
             + self.second as i64
     }
-
-    /// Creates a new local time instance by parsing the strings in the given
-    /// set of fields.
-    pub fn from_fields(fields: iso8601::Time) -> Result<Self, ParseError> {
-        let h  = fields.hour as i8;
-        let m  = fields.minute as i8;
-        let s  = fields.second as i8;
-        let ms = fields.millisecond as i16;
-
-        LocalTime::hms_ms(h, m, s, ms).map_err(ParseError::Date)
-    }
-}
-
-impl FromStr for LocalTime {
-    type Err = ParseError;
-
-    fn from_str(input: &str) -> Result<LocalTime, Self::Err> {
-        match iso8601::time(input) {
-            Ok(fields)  => LocalTime::from_fields(fields),
-            Err(e)      => Err(ParseError::Parse(e)),
-        }
-    }
 }
 
 impl fmt::Debug for LocalTime {
@@ -605,21 +550,6 @@ impl LocalDateTime {
 
     pub fn add_seconds(&self, seconds: i64) -> LocalDateTime {
         Self::from_instant(self.to_instant() + Duration::of(seconds))
-    }
-}
-
-impl FromStr for LocalDateTime {
-    type Err = ParseError;
-
-    fn from_str(input: &str) -> Result<LocalDateTime, Self::Err> {
-        let fields = match iso8601::datetime(input) {
-            Ok(fields)  => fields,
-            Err(e)      => return Err(ParseError::Parse(e)),
-        };
-
-        let date = try!(LocalDate::from_fields(fields.date));
-        let time = try!(LocalTime::from_fields(fields.time));
-        Ok(LocalDateTime { date: date, time: time })
     }
 }
 
@@ -805,37 +735,6 @@ impl ErrorTrait for Error {
     }
 }
 
-
-#[derive(PartialEq, Debug, Clone)]
-pub enum ParseError {
-    Date(Error),
-    Parse(String),
-}
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match *self {
-            ParseError::Date(ref error)   => write!(f, "{}: {}", self.description(), error),
-            ParseError::Parse(ref string) => write!(f, "{}: {}", self.description(), string),
-        }
-    }
-}
-
-impl ErrorTrait for ParseError {
-    fn description(&self) -> &str {
-        match *self {
-            ParseError::Date(_)     => "parsing resulted in an invalid date",
-            ParseError::Parse(_)    => "parse error",
-        }
-    }
-
-    fn cause(&self) -> Option<&ErrorTrait> {
-        match *self {
-            ParseError::Date(ref error)   => Some(error),
-            ParseError::Parse(_)          => None,
-        }
-    }
-}
 
 /// A month of the year, starting with January, and ending with December.
 ///

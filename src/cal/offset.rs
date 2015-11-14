@@ -1,12 +1,11 @@
 //! Datetimes with a fixed UTC offset.
 
-use std::str::FromStr;
-
-use iso8601;
+use std::error::Error as ErrorTrait;
+use std::fmt;
 
 use duration::Duration;
-use cal::{LocalDateTime, LocalDate, LocalTime, DatePiece, TimePiece, Month, Weekday};
-use cal::datetime::ParseError as LocalParseError;
+use cal::{DatePiece, TimePiece};
+use cal::datetime::{LocalDateTime, Month, Weekday, Error as DateTimeError};
 use util::RangeExt;
 
 
@@ -53,6 +52,13 @@ impl Offset {
             Offset::of_seconds(hours * 24 + minutes * 60)
         }
     }
+
+    pub fn transform_date(&self, local: LocalDateTime) -> OffsetDateTime {
+        OffsetDateTime {
+            local: local,
+            offset: self.clone(),
+        }
+    }
 }
 
 
@@ -60,13 +66,32 @@ impl Offset {
 pub enum Error {
     OutOfRange,
     SignMismatch,
+    Date(DateTimeError),
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub enum ParseError {
-    Zone(Error),
-    Local(LocalParseError),
-    Parse(String),
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.description())
+    }
+}
+
+impl ErrorTrait for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::OutOfRange    => "offset field out of range",
+            Error::SignMismatch  => "sign mismatch",
+            Error::Date(_)       => "datetime field out of range",
+        }
+    }
+
+    fn cause(&self) -> Option<&ErrorTrait> {
+        if let Error::Date(ref e) = *self {
+            Some(e)
+        }
+        else {
+            None
+        }
+    }
 }
 
 
@@ -75,26 +100,6 @@ pub struct OffsetDateTime {
     local: LocalDateTime,
     offset: Offset,
 }
-
-impl FromStr for OffsetDateTime {
-    type Err = ParseError;
-
-    fn from_str(input: &str) -> Result<OffsetDateTime, Self::Err> {
-        let fields = match iso8601::datetime(input) {
-            Ok(fields)  => fields,
-            Err(e)      => return Err(ParseError::Parse(e)),
-        };
-
-        let date   = try!(LocalDate::from_fields(fields.date).map_err(ParseError::Local));
-        let time   = try!(LocalTime::from_fields(fields.time).map_err(ParseError::Local));
-        let offset = try!(Offset::of_hours_and_minutes(fields.time.tz_offset_hours as i8, fields.time.tz_offset_minutes as i8).map_err(ParseError::Zone));
-        Ok(OffsetDateTime {
-            local: LocalDateTime::new(date, time),
-            offset: offset,
-        })
-    }
-}
-
 
 impl DatePiece for OffsetDateTime {
     fn year(&self) -> i64 {
