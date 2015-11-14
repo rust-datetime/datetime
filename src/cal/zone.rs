@@ -18,107 +18,6 @@ pub struct TimeZone<'a> {
     pub fixed_timespans: FixedTimespanSet<'a>,
 }
 
-/// A set of timespans, separated by the instances at which the timespans
-/// change over. There will always be one more timespan than transitions.
-#[derive(PartialEq, Debug, Clone)]
-pub struct FixedTimespanSet<'a> {
-
-    /// The first timespan, which is assumed to have been in effect up until
-    /// the initial transition instant (if any). Each set has to have at
-    /// least one timespan.
-    pub first: FixedTimespan<'a>,
-
-    /// The rest of the timespans, as a slice of tuples, each containing:
-    ///
-    /// 1. A transition instant at which the previous timespan ends and the
-    /// next one begins, stored as a Unix timestamp;
-    /// 2. The actual timespan to transition into.
-    pub rest: &'a [ (i64, FixedTimespan<'a>) ],
-}
-
-/// An individual timespan with a fixed offset.
-#[derive(PartialEq, Debug, Clone)]
-pub struct FixedTimespan<'a> {
-
-    /// The *total* offset in effect during this timespan, in seconds. This
-    /// is the sum of the standard offset from UTC (the zone’s standard
-    /// time), and any extra daylight-saving offset.
-    pub offset: i64,
-
-    /// Whether there was any daylight-saving offset in effect during this
-    /// timespan.
-    pub is_dst: bool,
-
-    /// The abbreviation in use during this timespan, such as “GMT” or
-    /// “PDT”. Abbreviations are notoriously vague, and should only be used
-    /// for referring to a known timezone.
-    pub name: &'a str,
-}
-
-impl<'a> FixedTimespanSet<'a> {
-    fn find(&self, time: i64) -> &FixedTimespan {
-        match self.rest.iter().take_while(|t| t.0 < time).last() {
-            None     => &self.first,
-            Some(zd) => &zd.1,
-        }
-    }
-
-    fn find_with_surroundings(&self, time: i64) -> Surroundings {
-        if let Some((position, _)) = self.rest.iter().enumerate().take_while(|&(_, t)| t.0 < time).last() {
-            // There’s a matching time in the ‘rest’ list, so return that
-            // time along with the two sets of details around it.
-
-            let previous_details = if position == 0 {
-                &self.first
-            }
-            else {
-                &self.rest[position - 1].1
-            };
-
-            Surroundings {
-                previous:  Some((previous_details, self.rest[position].0)),
-                current:   &self.rest[position].1,
-                next:      self.rest.get(position + 1),
-            }
-        }
-        else {
-            // If there’s no matching time in the ‘rest’ list, it must be
-            // the ‘first’ one.
-            Surroundings {
-                previous: None,
-                current:  &self.first,
-                next:     self.rest.get(0),
-            }
-        }
-    }
-}
-
-#[derive(PartialEq, Debug)]
-struct Surroundings<'a> {
-    previous:  Option<(&'a FixedTimespan<'a>, i64)>,
-    current:   &'a FixedTimespan<'a>,
-    next:      Option<&'a (i64, FixedTimespan<'a>)>,
-}
-
-/// The “type” of time that a transition is specified in.
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub enum TimeType {
-
-    /// Wall-clock time: a transition specified when the current time in
-    /// that zone, including any daylight-saving matches, matches the
-    /// transition’s time spec.
-    Wall,
-
-    /// Standard Time: a transition specified when the *standard* time in
-    /// that zone, which excludes any daylight-saving offset, matches the
-    /// transition’s time spec.
-    Standard,
-
-    /// UTC: a transition specified when the time in UTC matches the
-    /// transition’s time spec.
-    UTC,
-}
-
 impl<'a> TimeZone<'a> {
 
     /// Returns the total offset from UTC, in seconds, that this time zone
@@ -235,12 +134,105 @@ impl<'a> TimeZone<'a> {
     }
 }
 
+
+/// A set of timespans, separated by the instances at which the timespans
+/// change over. There will always be one more timespan than transitions.
+#[derive(PartialEq, Debug, Clone)]
+pub struct FixedTimespanSet<'a> {
+
+    /// The first timespan, which is assumed to have been in effect up until
+    /// the initial transition instant (if any). Each set has to have at
+    /// least one timespan.
+    pub first: FixedTimespan<'a>,
+
+    /// The rest of the timespans, as a slice of tuples, each containing:
+    ///
+    /// 1. A transition instant at which the previous timespan ends and the
+    ///    next one begins, stored as a Unix timestamp;
+    /// 2. The actual timespan to transition into.
+    pub rest: &'a [ (i64, FixedTimespan<'a>) ],
+}
+
+/// An individual timespan with a fixed offset.
+#[derive(PartialEq, Debug, Clone)]
+pub struct FixedTimespan<'a> {
+
+    /// The *total* offset in effect during this timespan, in seconds. This
+    /// is the sum of the standard offset from UTC (the zone’s standard
+    /// time), and any extra daylight-saving offset.
+    pub offset: i64,
+
+    /// Whether there was any daylight-saving offset in effect during this
+    /// timespan.
+    pub is_dst: bool,
+
+    /// The abbreviation in use during this timespan, such as “GMT” or
+    /// “PDT”. Abbreviations are notoriously vague, and should only be used
+    /// for referring to a known timezone.
+    pub name: &'a str,
+}
+
+impl<'a> FixedTimespanSet<'a> {
+    fn find(&self, time: i64) -> &FixedTimespan {
+        match self.rest.iter().take_while(|t| t.0 < time).last() {
+            None     => &self.first,
+            Some(zd) => &zd.1,
+        }
+    }
+
+    fn find_with_surroundings(&self, time: i64) -> Surroundings {
+        if let Some((position, _)) = self.rest.iter().enumerate().take_while(|&(_, t)| t.0 < time).last() {
+            // There’s a matching time in the ‘rest’ list, so return that
+            // time along with the two sets of details around it.
+
+            let previous_details = if position == 0 {
+                &self.first
+            }
+            else {
+                &self.rest[position - 1].1
+            };
+
+            Surroundings {
+                previous:  Some((previous_details, self.rest[position].0)),
+                current:   &self.rest[position].1,
+                next:      self.rest.get(position + 1),
+            }
+        }
+        else {
+            // If there’s no matching time in the ‘rest’ list, it must be
+            // the ‘first’ one.
+            Surroundings {
+                previous: None,
+                current:  &self.first,
+                next:     self.rest.get(0),
+            }
+        }
+    }
+}
+
+
+#[derive(PartialEq, Debug)]
+struct Surroundings<'a> {
+    previous:  Option<(&'a FixedTimespan<'a>, i64)>,
+    current:   &'a FixedTimespan<'a>,
+    next:      Option<&'a (i64, FixedTimespan<'a>)>,
+}
+
+
+/// The result of converting a *local* time to a *zoned* time with the same
+/// time components. See `TimeZone::convert_local` for more information.
 #[derive(Debug)]
 pub enum LocalTimes<'a> {
+
+    /// This local time is impossible (when a time occurs between two
+    /// timespans, which should never be shown on a wall clock).
     Impossible,
 
+    /// This local time can be defined unambiguously.
     Precise(ZonedDateTime<'a>),
 
+    /// This local time is ambiguous (when a time overlaps two timespans,
+    /// which happens twice on a wall clock rather than once).
     Ambiguous { earlier: ZonedDateTime<'a>, later: ZonedDateTime<'a> },
 }
 
@@ -280,6 +272,7 @@ impl<'a> LocalTimes<'a> {
     }
 }
 
+
 #[derive(Debug)]
 pub struct ZonedDateTime<'a> {
     adjusted: LocalDateTime,
@@ -306,6 +299,26 @@ impl<'a> TimePiece for ZonedDateTime<'a> {
     fn minute(&self) -> i8 { self.adjusted.minute() }
     fn second(&self) -> i8 { self.adjusted.second() }
     fn millisecond(&self) -> i16 { self.adjusted.millisecond() }
+}
+
+
+/// The “type” of time that a transition is specified in.
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum TimeType {
+
+    /// Wall-clock time: a transition specified when the current time in
+    /// that zone, including any daylight-saving matches, matches the
+    /// transition’s time spec.
+    Wall,
+
+    /// Standard Time: a transition specified when the *standard* time in
+    /// that zone, which excludes any daylight-saving offset, matches the
+    /// transition’s time spec.
+    Standard,
+
+    /// UTC: a transition specified when the time in UTC matches the
+    /// transition’s time spec.
+    UTC,
 }
 
 
