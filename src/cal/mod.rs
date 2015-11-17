@@ -7,6 +7,7 @@ pub mod iter;
 pub mod offset;
 pub mod parse;
 pub mod zone;
+pub mod convenience;
 
 pub use self::datetime::{LocalDate, LocalTime, LocalDateTime, Weekday, Month};
 
