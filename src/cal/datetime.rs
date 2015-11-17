@@ -1241,41 +1241,4 @@ mod test {
             assert_eq!(LocalDateTime::at(99999999), date - Duration::of(1))
         }
     }
-
-    mod spans {
-        use super::*;
-
-        #[test]
-        fn iterator() {
-            let year = Year(2016);
-            let mut days = year.days_for_month(Month::February);
-
-            for i in 1..30 {
-                assert_eq!(days.next().unwrap(), LocalDate::ymd(2016, Month::February, i).unwrap());
-            }
-
-            assert!(days.next().is_none());
-        }
-
-        #[test]
-        fn iterator_back() {
-            let year = Year(2014);
-            let mut days = year.days_for_month(Month::February).rev();
-
-            for i in (1..29).rev() {
-                assert_eq!(days.next().unwrap(), LocalDate::ymd(2014, Month::February, i).unwrap());
-            }
-
-            assert!(days.next().is_none());
-        }
-
-        #[test]
-        fn double() {
-            let year = Year(2012);
-
-            let mut days = year.days_for_month(Month::February);
-            assert_eq!(days.next().unwrap(), LocalDate::ymd(2012, Month::February, 1).unwrap());
-            assert_eq!(days.next_back().unwrap(), LocalDate::ymd(2012, Month::February, 29).unwrap());
-        }
-    }
 }
