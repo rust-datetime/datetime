@@ -11,31 +11,68 @@ use cal::datetime::Error as DateTimeError;
 pub struct Year(pub i64);
 
 impl Year {
+
+    /// Returns whether this year is a leap year.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use datetime::iter::Year;
+    ///
+    /// assert_eq!(Year(2000).is_leap_year(), true);
+    /// assert_eq!(Year(1900).is_leap_year(), false);
+    /// ```
     pub fn is_leap_year(&self) -> bool {
         YMD { year: self.0, month: Month::January, day: 1 }
             .leap_year_calculations()
             .1
     }
 
+    /// Returns an iterator over a continuous span of months in this year,
+    /// returning year-month pairs.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use datetime::iter::Year;
+    /// use datetime::Month::{April, June};
+    ///
+    /// let year = Year(1999);
+    /// assert_eq!(year.months(..).count(), 12);
+    /// assert_eq!(year.months(April ..).count(), 9);
+    /// assert_eq!(year.months(April .. June).count(), 2);
+    /// assert_eq!(year.months(.. June).count(), 5);
+    /// ```
     pub fn months<S: MonthSpan>(&self, span: S) -> YearMonths {
         YearMonths {
-            year: self.clone(),
+            year: *self,
             iter: span.get_slice().iter(),
         }
     }
 
+    /// Returns a year-month, pairing this year with the given month.
     pub fn month(&self, month: Month) -> YearMonth {
         YearMonth {
-            year: self.clone(),
+            year: *self,
             month: month,
         }
     }
 }
 
 
+/// A span of months, which gets used to construct a `YearMonths` iterator.
 pub trait MonthSpan {
+
+    /// Returns a static slice of `Month` values contained by this span.
     fn get_slice(&self) -> &'static [Month];
 }
+
+static MONTHS: &'static [Month] = &[
+    Month::January,  Month::February,  Month::March,
+    Month::April,    Month::May,       Month::June,
+    Month::July,     Month::August,    Month::September,
+    Month::October,  Month::November,  Month::December,
+];
 
 impl MonthSpan for RangeFull {
     fn get_slice(&self) -> &'static [Month] {
@@ -61,14 +98,10 @@ impl MonthSpan for Range<Month> {
     }
 }
 
-static MONTHS: &'static [Month] = &[
-    Month::January,  Month::February,  Month::March,
-    Month::April,    Month::May,       Month::June,
-    Month::July,     Month::August,    Month::September,
-    Month::October,  Month::November,  Month::December,
-];
 
-
+/// An iterator over a continuous span of months in a year.
+///
+/// Use the `months` method on `Year` to create instances of this iterator.
 pub struct YearMonths {
     year: Year,
     iter: SliceIter<'static, Month>,
@@ -94,6 +127,8 @@ impl DoubleEndedIterator for YearMonths {
     }
 }
 
+
+/// A month-year pair.
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct YearMonth {
     year: Year,
@@ -101,23 +136,59 @@ pub struct YearMonth {
 }
 
 impl YearMonth {
+
+    /// Returns the number of days in this month. This can be definitely
+    /// known, as the paired year determines whether it’s a leap year, so
+    /// there’s no chance of being caught out by February.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use datetime::iter::Year;
+    /// use datetime::Month::February;
+    ///
+    /// assert_eq!(Year(2000).month(February).day_count(), 29);
+    /// assert_eq!(Year(1900).month(February).day_count(), 28);
+    /// ```
     pub fn day_count(&self) -> i8 {
         self.month.days_in_month(self.year.is_leap_year())
     }
 
+    /// Returns an iterator over a continuous span of days in this month,
+    /// returning `LocalDate` values.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use datetime::iter::Year;
+    /// use datetime::Month::September;
+    ///
+    /// let ym = Year(1999).month(September);
+    /// assert_eq!(ym.days(..).count(), 30);
+    /// assert_eq!(ym.days(10 ..).count(), 21);
+    /// assert_eq!(ym.days(10 .. 20).count(), 10);
+    /// assert_eq!(ym.days(.. 20).count(), 19);
+    /// ```
     pub fn days<S: DaySpan>(&self, span: S) -> MonthDays {
         MonthDays {
-            ym: self,
+            ym: *self,
             range: span.get_range(self)
         }
     }
 
+    /// Returns a `LocalDate` based on the day of this month.
+    ///
+    /// This is just a short-cut for the `LocalDate::ymd` constructor.
     pub fn day(&self, day: i8) -> Result<LocalDate, DateTimeError> {
         LocalDate::ymd(self.year.0, self.month, day)
     }
 }
 
+
+/// A span of days, which gets used to construct a `MonthDays` iterator.
 pub trait DaySpan {
+
+    /// Returns a `Range` of the day numbers specified for the given year-month pair.
     fn get_range(&self, ym: &YearMonth) -> Range<i8>;
 }
 
@@ -146,15 +217,16 @@ impl DaySpan for Range<i8> {
 }
 
 
-
-
+/// An iterator over a continuous span of days in a month.
+///
+/// Use the `days` method on `YearMonth` to create instances of this iterator.
 #[derive(PartialEq, Debug)]
-pub struct MonthDays<'ym> {
-    ym: &'ym YearMonth,
+pub struct MonthDays {
+    ym: YearMonth,
     range: Range<i8>,
 }
 
-impl<'ym> Iterator for MonthDays<'ym> {
+impl Iterator for MonthDays {
     type Item = LocalDate;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -162,11 +234,12 @@ impl<'ym> Iterator for MonthDays<'ym> {
     }
 }
 
-impl<'ym> DoubleEndedIterator for MonthDays<'ym> {
+impl DoubleEndedIterator for MonthDays {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.range.next_back().and_then(|d| LocalDate::ymd(self.ym.year.0, self.ym.month, d).ok())
     }
 }
+
 
 #[cfg(test)]
 mod test {
@@ -284,5 +357,23 @@ mod test {
             let day = Year(1066).month(October).day(14);
             assert_eq!(day, LocalDate::ymd(1066, October, 14));
         }
+    }
+
+    #[test]
+    fn entire_year() {
+        let count = Year(1999).months(..)
+                              .flat_map(|m| m.days(..))
+                              .count();
+
+        assert_eq!(count, 365);
+    }
+
+    #[test]
+    fn entire_leap_year() {
+        let count = Year(2000).months(..)
+                              .flat_map(|m| m.days(..))
+                              .count();
+
+        assert_eq!(count, 366);
     }
 }
