@@ -1,5 +1,8 @@
 //! Datetimes with a variable UTC offset, and time zone calculations.
 
+use std::borrow::Cow;
+use std::sync::Arc;
+
 use duration::Duration;
 use instant::Instant;
 use cal::{LocalDateTime, DatePiece, TimePiece, Month, Weekday};
@@ -8,8 +11,16 @@ use util::RangeExt;
 
 /// A **time zone**, which here is a list of timespans, each containing a
 /// fixed offset for the current location’s time from UTC.
-#[derive(PartialEq, Debug, Clone)]
-pub struct TimeZone<'a> {
+pub struct TimeZone(pub TimeZoneSource<'static>);
+
+#[derive(Debug, Clone)]
+pub enum TimeZoneSource<'a> {
+    Static(&'a StaticTimeZone<'a>),
+    Runtime(Arc<runtime::OwnedTimeZone>),
+}
+
+#[derive(PartialEq, Debug)]
+pub struct StaticTimeZone<'a> {
 
     /// This zone’s name in the zoneinfo database, such as “America/New_York”.
     pub name: &'a str,
@@ -18,21 +29,32 @@ pub struct TimeZone<'a> {
     pub fixed_timespans: FixedTimespanSet<'a>,
 }
 
-impl<'a> TimeZone<'a> {
+impl TimeZone {
+
+    pub fn zone_name(&self) -> Option<&str> {
+        match self.0 {
+            TimeZoneSource::Static(ref tz)   => Some(tz.name),
+            TimeZoneSource::Runtime(ref arc) => arc.name.as_ref().map(|x| &**x),
+        }
+    }
 
     /// Returns the total offset from UTC, in seconds, that this time zone
     /// has at the given datetime.
     pub fn offset(&self, datetime: LocalDateTime) -> i64 {
-        let unix_timestamp = datetime.to_instant().seconds();
-        self.fixed_timespans.find(unix_timestamp).offset
+        match self.0 {
+            TimeZoneSource::Static(ref tz)   => tz.fixed_timespans.offset(datetime),
+            TimeZoneSource::Runtime(ref arc) => arc.fixed_timespans.borrow().offset(datetime),
+        }
     }
 
     /// Returns the time zone abbreviation that this time zone has at the
     /// given datetime. As always, abbreviations are notoriously vague, and
     /// should only be used when referring to a known timezone.
-    pub fn name(&self, datetime: LocalDateTime) -> &str {
-        let unix_timestamp = datetime.to_instant().seconds();
-        self.fixed_timespans.find(unix_timestamp).name
+    pub fn name(&self, datetime: LocalDateTime) -> String {
+        match self.0 {
+            TimeZoneSource::Static(ref tz)   => tz.fixed_timespans.name(datetime),
+            TimeZoneSource::Runtime(ref arc) => arc.fixed_timespans.borrow().name(datetime),
+        }
     }
 
     /// Whether this time zone is “fixed”: a fixed time zone has no
@@ -43,7 +65,10 @@ impl<'a> TimeZone<'a> {
     /// CST6CDT, MST7MDT, and PST8PDT, none of which actually corresponds to
     /// a geographical location.
     pub fn is_fixed(&self) -> bool {
-        self.fixed_timespans.rest.is_empty()
+        match self.0 {
+            TimeZoneSource::Static(ref tz)   => tz.fixed_timespans.is_fixed(),
+            TimeZoneSource::Runtime(ref arc) => arc.fixed_timespans.borrow().is_fixed(),
+        }
     }
 
     /// Converts a local datetime in UTC to a zoned datetime that uses this
@@ -69,15 +94,83 @@ impl<'a> TimeZone<'a> {
     /// will *almost* always be precise, but there are edge cases you need
     /// to watch out for.
     pub fn convert_local(&self, local: LocalDateTime) -> LocalTimes {
+        match self.0 {
+            TimeZoneSource::Static(ref tz)   => tz.fixed_timespans.convert_local(local, self.0.clone()),
+            TimeZoneSource::Runtime(ref arc) => arc.fixed_timespans.borrow().convert_local(local, self.0.clone()),
+        }
+    }
+}
+
+
+/// A set of timespans, separated by the instances at which the timespans
+/// change over. There will always be one more timespan than transitions.
+#[derive(PartialEq, Debug, Clone)]
+pub struct FixedTimespanSet<'a> {
+
+    /// The first timespan, which is assumed to have been in effect up until
+    /// the initial transition instant (if any). Each set has to have at
+    /// least one timespan.
+    pub first: FixedTimespan<'a>,
+
+    /// The rest of the timespans, as a slice of tuples, each containing:
+    ///
+    /// 1. A transition instant at which the previous timespan ends and the
+    ///    next one begins, stored as a Unix timestamp;
+    /// 2. The actual timespan to transition into.
+    pub rest: &'a [ (i64, FixedTimespan<'a>) ],
+}
+
+/// An individual timespan with a fixed offset.
+#[derive(PartialEq, Debug, Clone)]
+pub struct FixedTimespan<'a> {
+
+    /// The *total* offset in effect during this timespan, in seconds. This
+    /// is the sum of the standard offset from UTC (the zone’s standard
+    /// time), and any extra daylight-saving offset.
+    pub offset: i64,
+
+    /// Whether there was any daylight-saving offset in effect during this
+    /// timespan.
+    pub is_dst: bool,
+
+    /// The abbreviation in use during this timespan, such as “GMT” or
+    /// “PDT”. Abbreviations are notoriously vague, and should only be used
+    /// for referring to a known timezone.
+    pub name: Cow<'a, str>,
+}
+
+impl<'a> FixedTimespanSet<'a> {
+    fn find(&self, time: i64) -> &FixedTimespan {
+        match self.rest.iter().take_while(|t| t.0 < time).last() {
+            None     => &self.first,
+            Some(zd) => &zd.1,
+        }
+    }
+
+    fn offset(&self, datetime: LocalDateTime) -> i64 {
+        let unix_timestamp = datetime.to_instant().seconds();
+        self.find(unix_timestamp).offset
+    }
+
+    fn name(&self, datetime: LocalDateTime) -> String {
+        let unix_timestamp = datetime.to_instant().seconds();
+        self.find(unix_timestamp).name.to_string()
+    }
+
+    fn is_fixed(&self) -> bool {
+        self.rest.is_empty()
+    }
+
+    fn convert_local(&self, local: LocalDateTime, source: TimeZoneSource<'a>) -> LocalTimes<'a> {
         let unix_timestamp = local.to_instant().seconds();
 
         let zonify = |offset| ZonedDateTime {
             adjusted: local,
             current_offset: offset,
-            time_zone: self.clone(),
+            time_zone: source.clone(),
         };
 
-        let timespans = self.fixed_timespans.find_with_surroundings(unix_timestamp);
+        let timespans = self.find_with_surroundings(unix_timestamp);
 
         if let Some((previous_zone, previous_transition_time)) = timespans.previous {
 
@@ -131,53 +224,6 @@ impl<'a> TimeZone<'a> {
         }
 
         LocalTimes::Precise(zonify(timespans.current.offset))
-    }
-}
-
-
-/// A set of timespans, separated by the instances at which the timespans
-/// change over. There will always be one more timespan than transitions.
-#[derive(PartialEq, Debug, Clone)]
-pub struct FixedTimespanSet<'a> {
-
-    /// The first timespan, which is assumed to have been in effect up until
-    /// the initial transition instant (if any). Each set has to have at
-    /// least one timespan.
-    pub first: FixedTimespan<'a>,
-
-    /// The rest of the timespans, as a slice of tuples, each containing:
-    ///
-    /// 1. A transition instant at which the previous timespan ends and the
-    ///    next one begins, stored as a Unix timestamp;
-    /// 2. The actual timespan to transition into.
-    pub rest: &'a [ (i64, FixedTimespan<'a>) ],
-}
-
-/// An individual timespan with a fixed offset.
-#[derive(PartialEq, Debug, Clone)]
-pub struct FixedTimespan<'a> {
-
-    /// The *total* offset in effect during this timespan, in seconds. This
-    /// is the sum of the standard offset from UTC (the zone’s standard
-    /// time), and any extra daylight-saving offset.
-    pub offset: i64,
-
-    /// Whether there was any daylight-saving offset in effect during this
-    /// timespan.
-    pub is_dst: bool,
-
-    /// The abbreviation in use during this timespan, such as “GMT” or
-    /// “PDT”. Abbreviations are notoriously vague, and should only be used
-    /// for referring to a known timezone.
-    pub name: &'a str,
-}
-
-impl<'a> FixedTimespanSet<'a> {
-    fn find(&self, time: i64) -> &FixedTimespan {
-        match self.rest.iter().take_while(|t| t.0 < time).last() {
-            None     => &self.first,
-            Some(zd) => &zd.1,
-        }
     }
 
     fn find_with_surroundings(&self, time: i64) -> Surroundings {
@@ -277,7 +323,7 @@ impl<'a> LocalTimes<'a> {
 pub struct ZonedDateTime<'a> {
     adjusted: LocalDateTime,
     current_offset: i64,
-    time_zone: TimeZone<'a>,
+    time_zone: TimeZoneSource<'a>,
 }
 
 impl<'a> ZonedDateTime<'a> {
@@ -321,11 +367,37 @@ pub enum TimeType {
     UTC,
 }
 
+pub mod runtime {
+    use super::{FixedTimespan, FixedTimespanSet};
+
+    #[derive(PartialEq, Debug)]
+    pub struct OwnedTimeZone {
+        pub name: Option<String>,
+        pub fixed_timespans: OwnedFixedTimespanSet,
+    }
+
+    #[derive(PartialEq, Debug)]
+    pub struct OwnedFixedTimespanSet {
+        pub first: FixedTimespan<'static>,
+        pub rest: Vec<(i64, FixedTimespan<'static>)>,
+    }
+
+    impl OwnedFixedTimespanSet {
+        pub fn borrow(&self) -> FixedTimespanSet {
+            FixedTimespanSet {
+                first: self.first.clone(),
+                rest: &*self.rest,
+            }
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod test {
     pub use super::*;
     pub use cal::*;
+    pub use std::borrow::Cow;
 
     mod zoneset {
         use super::*;
@@ -335,7 +407,7 @@ mod test {
             first: FixedTimespan {
                 offset: 0,
                 is_dst: false,
-                name: "ZONE_A",
+                name: Cow::Borrowed("ZONE_A"),
             },
             rest: &[],
         };
@@ -347,7 +419,7 @@ mod test {
                 current: &FixedTimespan {
                     offset: 0,
                     is_dst: false,
-                    name: "ZONE_A",
+                    name: Cow::Borrowed("ZONE_A"),
                 },
                 next: None,
             })
@@ -357,13 +429,13 @@ mod test {
             first: FixedTimespan {
                 offset: 0,
                 is_dst: false,
-                name: "ZONE_A",
+                name: Cow::Borrowed("ZONE_A"),
             },
             rest: &[
                 (1174784400, FixedTimespan {
                     offset: 3600,
                     is_dst: false,
-                    name: "ZONE_B",
+                    name: Cow::Borrowed("ZONE_B"),
                 }),
             ],
         };
@@ -375,14 +447,14 @@ mod test {
                     &FixedTimespan {
                         offset: 0,
                         is_dst: false,
-                        name: "ZONE_A",
+                        name: Cow::Borrowed("ZONE_A"),
                     },
                     1174784400,
                 )),
                 current: &FixedTimespan {
                     offset: 3600,
                     is_dst: false,
-                    name: "ZONE_B",
+                    name: Cow::Borrowed("ZONE_B"),
                 },
                 next: None,
             });
@@ -395,14 +467,14 @@ mod test {
                 current: &FixedTimespan {
                     offset: 0,
                     is_dst: false,
-                    name: "ZONE_A",
+                    name: Cow::Borrowed("ZONE_A"),
                 },
                 next: Some(&(
                     1174784400,
                     FixedTimespan {
                         offset: 3600,
                         is_dst: false,
-                        name: "ZONE_B",
+                        name: Cow::Borrowed("ZONE_B"),
                     },
                 )),
             })
@@ -412,18 +484,18 @@ mod test {
             first: FixedTimespan {
                 offset: 0,
                 is_dst: false,
-                name: "ZONE_A",
+                name: Cow::Borrowed("ZONE_A"),
             },
             rest: &[
                 (1174784400, FixedTimespan {
                     offset: 3600,
                     is_dst: false,
-                    name: "ZONE_B",
+                    name: Cow::Borrowed("ZONE_B"),
                 }),
                 (1193533200, FixedTimespan {
                     offset: 0,
                     is_dst: false,
-                    name: "ZONE_C",
+                    name: Cow::Borrowed("ZONE_C"),
                 }),
             ],
         };
@@ -435,21 +507,21 @@ mod test {
                     &FixedTimespan {
                         offset: 0,
                         is_dst: false,
-                        name: "ZONE_A",
+                        name: Cow::Borrowed("ZONE_A"),
                     },
                     1174784400,
                 )),
                 current: &FixedTimespan {
                     offset: 3600,
                     is_dst: false,
-                    name: "ZONE_B",
+                    name: Cow::Borrowed("ZONE_B"),
                 },
                 next: Some(&(
                     1193533200,
                     FixedTimespan {
                         offset: 0,
                         is_dst: false,
-                        name: "ZONE_C",
+                        name: Cow::Borrowed("ZONE_C"),
                     }
                 )),
             });
@@ -462,58 +534,58 @@ mod test {
                     &FixedTimespan {
                         offset: 3600,
                         is_dst: false,
-                        name: "ZONE_B",
+                        name: Cow::Borrowed("ZONE_B"),
                     },
                     1193533200,
                 )),
                 current: &FixedTimespan {
                     offset: 0,
                     is_dst: false,
-                    name: "ZONE_C",
+                    name: Cow::Borrowed("ZONE_C"),
                 },
                 next: None,
             });
         }
     }
 
-    const TEST_ZONESET: TimeZone<'static> = TimeZone {
+    const TEST_ZONESET: &'static StaticTimeZone<'static> = &StaticTimeZone {
         name: "Test Zoneset",
         fixed_timespans: FixedTimespanSet {
             first: FixedTimespan {
                 offset: 0,
                 is_dst: false,
-                name: "ZONE_A",
+                name: Cow::Borrowed("ZONE_A"),
             },
             rest: &[
                 (1206838800, FixedTimespan {
                     offset: 3600,
                     is_dst: false,
-                    name: "ZONE_B",
+                    name: Cow::Borrowed("ZONE_B"),
                 }),
                 (1224982800, FixedTimespan {
                     offset: 0,
                     is_dst: false,
-                    name: "ZONE_A",
+                    name: Cow::Borrowed("ZONE_A"),
                 }),
                 (1238288400, FixedTimespan {
                     offset: 3600,
                     is_dst: false,
-                    name: "ZONE_B",
+                    name: Cow::Borrowed("ZONE_B"),
                 }),
                 (1256432400, FixedTimespan {
                     offset: 0,
                     is_dst: false,
-                    name: "ZONE_A",
+                    name: Cow::Borrowed("ZONE_A"),
                 }),
                 (1269738000, FixedTimespan {
                     offset: 3600,
                     is_dst: false,
-                    name: "ZONE_B",
+                    name: Cow::Borrowed("ZONE_B"),
                 }),
                 (1288486800, FixedTimespan {
                     offset: 0,
                     is_dst: false,
-                    name: "ZONE_A",
+                    name: Cow::Borrowed("ZONE_A"),
                 }),
             ]
         }
@@ -526,7 +598,7 @@ mod test {
             LocalTime::hms(15, 15, 0).unwrap(),
         );
 
-        let zone = TEST_ZONESET;
+        let zone = TimeZone(TimeZoneSource::Static(TEST_ZONESET));
         assert_eq!(zone.offset(test_date), 3600);
 
         let zoned_date = zone.convert_local(test_date).unwrap_precise();
@@ -548,7 +620,7 @@ mod test {
             LocalTime::hms(1, 15, 0).unwrap(),
         );
 
-        let zone = TEST_ZONESET;
+        let zone = TimeZone(TimeZoneSource::Static(TEST_ZONESET));
         let converted = zone.convert_local(test_date);
         assert!(converted.is_ambiguous(),
             "Local time {:?} should be ambiguous", converted);
@@ -561,7 +633,7 @@ mod test {
             LocalTime::hms(1, 15, 0).unwrap(),
         );
 
-        let zone = TEST_ZONESET;
+        let zone = TimeZone(TimeZoneSource::Static(TEST_ZONESET));
         let converted = zone.convert_local(test_date);
         assert!(converted.is_impossible(),
             "Local time {:?} should be impossible", converted);
