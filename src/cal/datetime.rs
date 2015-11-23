@@ -483,7 +483,7 @@ impl LocalTime {
 
 impl fmt::Debug for LocalTime {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:01}-{:02}-{:02}", self.hour(), self.minute(), self.second())
+        write!(f, "LocalTime({:02}:{:02}:{:02}.{:03})", self.hour(), self.minute(), self.second(), self.millisecond())
     }
 }
 
@@ -1256,6 +1256,14 @@ mod test {
             let debugged = format!("{:?}", date);
 
             assert_eq!(debugged, "LocalDate(+10601-01-31)");
+        }
+
+        #[test]
+        fn midday() {
+            let time = LocalTime::hms(12, 0, 0).unwrap();
+            let debugged = format!("{:?}", time);
+
+            assert_eq!(debugged, "LocalTime(12:00:00.000)");
         }
     }
 
