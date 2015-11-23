@@ -366,7 +366,13 @@ impl LocalDate {
 
 impl fmt::Debug for LocalDate {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:04}-{:02}-{:02}", self.year(), self.month().months_from_january(), self.day())
+        let year = self.year();
+        if year.is_within(0 .. 9999) {
+            write!(f, "LocalDate({:04}-{:02}-{:02})", year, self.month() as usize, self.day())
+        }
+        else {
+            write!(f, "LocalDate({:+05}-{:02}-{:02})", year, self.month() as usize, self.day())
+        }
     }
 }
 
@@ -1222,6 +1228,34 @@ mod test {
             let res = date.to_instant().seconds();
 
             assert_eq!(-54321234567890, res)
+        }
+    }
+
+    mod fmt {
+        use super::*;
+
+        #[test]
+        fn recently() {
+            let date = LocalDate::ymd(1600, Month::February, 28).unwrap();
+            let debugged = format!("{:?}", date);
+
+            assert_eq!(debugged, "LocalDate(1600-02-28)");
+        }
+
+        #[test]
+        fn just_then() {
+            let date = LocalDate::ymd(-753, Month::December, 1).unwrap();
+            let debugged = format!("{:?}", date);
+
+            assert_eq!(debugged, "LocalDate(-0753-12-01)");
+        }
+
+        #[test]
+        fn far_far_future() {
+            let date = LocalDate::ymd(10601, Month::January, 31).unwrap();
+            let debugged = format!("{:?}", date);
+
+            assert_eq!(debugged, "LocalDate(+10601-01-31)");
         }
     }
 
