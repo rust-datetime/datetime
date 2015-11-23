@@ -2,7 +2,7 @@
 //! hours, minutes, and seconds.
 
 pub mod datetime;
-pub mod format;
+pub mod fmt;
 pub mod iter;
 pub mod offset;
 pub mod parse;

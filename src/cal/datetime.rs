@@ -364,18 +364,6 @@ impl LocalDate {
     // technically *need* to be unsafe, but I’ll stick with it for now.
 }
 
-impl fmt::Debug for LocalDate {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let year = self.year();
-        if year.is_within(0 .. 9999) {
-            write!(f, "LocalDate({:04}-{:02}-{:02})", year, self.month() as usize, self.day())
-        }
-        else {
-            write!(f, "LocalDate({:+05}-{:02}-{:02})", year, self.month() as usize, self.day())
-        }
-    }
-}
-
 impl DatePiece for LocalDate {
     fn year(&self) -> i64 { self.ymd.year }
     fn month(&self) -> Month { self.ymd.month }
@@ -481,12 +469,6 @@ impl LocalTime {
     }
 }
 
-impl fmt::Debug for LocalTime {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "LocalTime({:02}:{:02}:{:02}.{:03})", self.hour(), self.minute(), self.second(), self.millisecond())
-    }
-}
-
 impl TimePiece for LocalTime {
     fn hour(&self) -> i8 { self.hour }
     fn minute(&self) -> i8 { self.minute }
@@ -556,12 +538,6 @@ impl LocalDateTime {
 
     pub fn add_seconds(&self, seconds: i64) -> LocalDateTime {
         Self::from_instant(self.to_instant() + Duration::of(seconds))
-    }
-}
-
-impl fmt::Debug for LocalDateTime {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}T{:?}", self.date, self.time)
     }
 }
 
