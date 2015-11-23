@@ -96,7 +96,7 @@ pub enum Error<E: ErrorTrait> {
 }
 
 impl<E: ErrorTrait> fmt::Display for Error<E> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::Date(ref error)   => write!(f, "{}: {}", self.description(), error),
             Error::Parse(ref string) => write!(f, "{}: {}", self.description(), string),

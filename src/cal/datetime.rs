@@ -365,7 +365,7 @@ impl LocalDate {
 }
 
 impl fmt::Debug for LocalDate {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:04}-{:02}-{:02}", self.year(), self.month().months_from_january(), self.day())
     }
 }
@@ -476,7 +476,7 @@ impl LocalTime {
 }
 
 impl fmt::Debug for LocalTime {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:01}-{:02}-{:02}", self.hour(), self.minute(), self.second())
     }
 }
@@ -554,7 +554,7 @@ impl LocalDateTime {
 }
 
 impl fmt::Debug for LocalDateTime {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}T{:?}", self.date, self.time)
     }
 }
@@ -724,7 +724,7 @@ pub enum Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.description())
     }
 }
