@@ -26,6 +26,8 @@ pub use cal::offset::{Offset, OffsetDateTime};
 pub use cal::zone::{TimeZone, ZonedDateTime};
 pub use cal::zone as zone;
 
+pub use cal::convenience;
+
 mod duration;
 pub use duration::Duration;
 
