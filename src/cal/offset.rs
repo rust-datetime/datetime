@@ -6,10 +6,11 @@ use std::fmt;
 use duration::Duration;
 use cal::{DatePiece, TimePiece};
 use cal::datetime::{LocalDateTime, Month, Weekday, Error as DateTimeError};
+use cal::fmt::ISO;
 use util::RangeExt;
 
 
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone)]
 pub struct Offset {
     offset_seconds: Option<i32>,
 }
@@ -49,7 +50,7 @@ impl Offset {
         else {
             let hours = hours as i32;
             let minutes = minutes as i32;
-            Offset::of_seconds(hours * 24 + minutes * 60)
+            Offset::of_seconds(hours * (60 * 60) + minutes * 60)
         }
     }
 
@@ -59,8 +60,42 @@ impl Offset {
             offset: self.clone(),
         }
     }
+
+    pub fn is_utc(&self) -> bool {
+        self.offset_seconds.is_none()
+    }
+
+    pub fn is_negative(&self) -> bool {
+        self.hours().is_negative() || self.minutes().is_negative() || self.seconds().is_negative()
+    }
+
+    pub fn hours(&self) -> i8 {
+        match self.offset_seconds {
+            Some(s) => (s / 60 / 60) as i8,
+            None => 0,
+        }
+    }
+
+    pub fn minutes(&self) -> i8 {
+        match self.offset_seconds {
+            Some(s) => (s / 60 % 60) as i8,
+            None => 0,
+        }
+    }
+
+    pub fn seconds(&self) -> i8 {
+        match self.offset_seconds {
+            Some(s) => (s % 60) as i8,
+            None => 0,
+        }
+    }
 }
 
+impl fmt::Debug for Offset {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Offset({})", self.iso())
+    }
+}
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Error {
@@ -70,7 +105,7 @@ pub enum Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.description())
     }
 }
@@ -95,10 +130,10 @@ impl ErrorTrait for Error {
 }
 
 
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone)]
 pub struct OffsetDateTime {
-    local: LocalDateTime,
-    offset: Offset,
+    pub local: LocalDateTime,
+    pub offset: Offset,
 }
 
 impl DatePiece for OffsetDateTime {
@@ -141,6 +176,11 @@ impl TimePiece for OffsetDateTime {
     }
 }
 
+impl fmt::Debug for OffsetDateTime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "OffsetDateTime({})", self.iso())
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -179,5 +219,33 @@ mod test {
     #[test]
     fn fixed_hm_signs_zero() {
         assert!(Offset::of_hours_and_minutes(4, 0).is_ok());
+    }
+
+    #[test]
+    fn debug_zulu() {
+        let offset = Offset::utc();
+        let debugged = format!("{:?}", offset);
+        assert_eq!(debugged, "Offset(Z)");
+    }
+
+    #[test]
+    fn debug_offset() {
+        let offset = Offset::of_seconds(-25 * 60 - 21).unwrap();
+        let debugged = format!("{:?}", offset);
+        assert_eq!(debugged, "Offset(-00:25:21)");
+    }
+
+    #[test]
+    fn debug_offset_date_time() {
+        use cal::{LocalDate, LocalTime, LocalDateTime, Month};
+
+        let offset = Offset::of_seconds(25 * 60 + 21).unwrap();
+
+        let then = LocalDateTime::new(
+                    LocalDate::ymd(2009, Month::February, 13).unwrap(),
+                    LocalTime::hms(23, 31, 30).unwrap());
+
+        let debugged = format!("{:?}", offset.transform_date(then));
+        assert_eq!(debugged, "OffsetDateTime(2009-02-13T23:31:30.000+00:25:21)");
     }
 }

@@ -20,7 +20,7 @@ extern crate iso8601;
 mod cal;
 pub use cal::{DatePiece, TimePiece};
 pub use cal::datetime::{LocalDate, LocalTime, LocalDateTime, Month, Weekday};
-pub use cal::format as format;
+pub use cal::fmt::custom as fmt;
 pub use cal::iter as iter;
 pub use cal::offset::{Offset, OffsetDateTime};
 pub use cal::zone::{TimeZone, ZonedDateTime};

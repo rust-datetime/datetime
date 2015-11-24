@@ -6,6 +6,7 @@ use std::fmt;
 use std::ops::{Add, Sub};
 
 use cal::{DatePiece, TimePiece};
+use cal::fmt::ISO;
 use duration::Duration;
 use instant::Instant;
 use system::sys_time;
@@ -364,18 +365,18 @@ impl LocalDate {
     // technically *need* to be unsafe, but I’ll stick with it for now.
 }
 
-impl fmt::Debug for LocalDate {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{:04}-{:02}-{:02}", self.year(), self.month().months_from_january(), self.day())
-    }
-}
-
 impl DatePiece for LocalDate {
     fn year(&self) -> i64 { self.ymd.year }
     fn month(&self) -> Month { self.ymd.month }
     fn day(&self) -> i8 { self.ymd.day }
     fn yearday(&self) -> i16 { self.yearday }
     fn weekday(&self) -> Weekday { self.weekday }
+}
+
+impl fmt::Debug for LocalDate {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "LocalDate({})", self.iso())
+    }
 }
 
 impl PartialEq for LocalDate {
@@ -475,17 +476,17 @@ impl LocalTime {
     }
 }
 
-impl fmt::Debug for LocalTime {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{:01}-{:02}-{:02}", self.hour(), self.minute(), self.second())
-    }
-}
-
 impl TimePiece for LocalTime {
     fn hour(&self) -> i8 { self.hour }
     fn minute(&self) -> i8 { self.minute }
     fn second(&self) -> i8 { self.second }
     fn millisecond(&self) -> i16 { self.millisecond }
+}
+
+impl fmt::Debug for LocalTime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "LocalTime({})", self.iso())
+    }
 }
 
 
@@ -553,12 +554,6 @@ impl LocalDateTime {
     }
 }
 
-impl fmt::Debug for LocalDateTime {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{:?}T{:?}", self.date, self.time)
-    }
-}
-
 impl DatePiece for LocalDateTime {
     fn year(&self) -> i64 { self.date.ymd.year }
     fn month(&self) -> Month { self.date.ymd.month }
@@ -572,6 +567,12 @@ impl TimePiece for LocalDateTime {
     fn minute(&self) -> i8 { self.time.minute }
     fn second(&self) -> i8 { self.time.second }
     fn millisecond(&self) -> i16 { self.time.millisecond }
+}
+
+impl fmt::Debug for LocalDateTime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "LocalDateTime({})", self.iso())
+    }
 }
 
 impl Add<Duration> for LocalDateTime {
@@ -724,7 +725,7 @@ pub enum Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.description())
     }
 }
@@ -1222,6 +1223,52 @@ mod test {
             let res = date.to_instant().seconds();
 
             assert_eq!(-54321234567890, res)
+        }
+    }
+
+    mod debug {
+        use super::*;
+
+        #[test]
+        fn recently() {
+            let date = LocalDate::ymd(1600, Month::February, 28).unwrap();
+            let debugged = format!("{:?}", date);
+
+            assert_eq!(debugged, "LocalDate(1600-02-28)");
+        }
+
+        #[test]
+        fn just_then() {
+            let date = LocalDate::ymd(-753, Month::December, 1).unwrap();
+            let debugged = format!("{:?}", date);
+
+            assert_eq!(debugged, "LocalDate(-0753-12-01)");
+        }
+
+        #[test]
+        fn far_far_future() {
+            let date = LocalDate::ymd(10601, Month::January, 31).unwrap();
+            let debugged = format!("{:?}", date);
+
+            assert_eq!(debugged, "LocalDate(+10601-01-31)");
+        }
+
+        #[test]
+        fn midday() {
+            let time = LocalTime::hms(12, 0, 0).unwrap();
+            let debugged = format!("{:?}", time);
+
+            assert_eq!(debugged, "LocalTime(12:00:00.000)");
+        }
+
+        #[test]
+        fn ascending() {
+            let then = LocalDateTime::new(
+                        LocalDate::ymd(2009, Month::February, 13).unwrap(),
+                        LocalTime::hms(23, 31, 30).unwrap());
+            let debugged = format!("{:?}", then);
+
+            assert_eq!(debugged, "LocalDateTime(2009-02-13T23:31:30.000)");
         }
     }
 

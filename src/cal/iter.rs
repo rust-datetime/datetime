@@ -1,5 +1,6 @@
 //! Iterators through multiple datetimes.
 
+use std::fmt;
 use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
 use std::slice::Iter as SliceIter;
 
@@ -127,6 +128,11 @@ impl DoubleEndedIterator for YearMonths {
     }
 }
 
+impl fmt::Debug for YearMonths {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "YearMonths({}, {:?})", self.year.0, self.iter.as_slice())
+    }
+}
 
 /// A month-year pair.
 #[derive(PartialEq, Debug, Copy, Clone)]
