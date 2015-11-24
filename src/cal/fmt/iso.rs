@@ -64,6 +64,12 @@ impl ISO for Offset {
     }
 }
 
+impl ISO for OffsetDateTime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}{}", self.local.iso(), self.offset.iso())
+    }
+}
+
 
 #[cfg(test)]
 mod test {
@@ -148,6 +154,20 @@ mod test {
             let offset = Offset::of_seconds(-25 * 60 - 21).unwrap();
             let debugged = offset.iso().to_string();
             assert_eq!(debugged, "-00:25:21");
+        }
+
+        #[test]
+        fn offset_date_time() {
+            use cal::{LocalDate, LocalTime, LocalDateTime, Month};
+
+            let offset = Offset::of_seconds(25 * 60 + 21).unwrap();
+
+            let then = LocalDateTime::new(
+                        LocalDate::ymd(2009, Month::February, 13).unwrap(),
+                        LocalTime::hms(23, 31, 30).unwrap());
+
+            let debugged = offset.transform_date(then).iso().to_string();
+            assert_eq!(debugged, "2009-02-13T23:31:30.000+00:25:21");
         }
     }
 }
