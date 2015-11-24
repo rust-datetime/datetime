@@ -6,6 +6,7 @@ use std::fmt;
 use std::ops::{Add, Sub};
 
 use cal::{DatePiece, TimePiece};
+use cal::fmt::ISO;
 use duration::Duration;
 use instant::Instant;
 use system::sys_time;
@@ -372,6 +373,12 @@ impl DatePiece for LocalDate {
     fn weekday(&self) -> Weekday { self.weekday }
 }
 
+impl fmt::Debug for LocalDate {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "LocalDate({})", self.iso())
+    }
+}
+
 impl PartialEq for LocalDate {
     fn eq(&self, other: &LocalDate) -> bool {
         self.ymd == other.ymd
@@ -476,6 +483,12 @@ impl TimePiece for LocalTime {
     fn millisecond(&self) -> i16 { self.millisecond }
 }
 
+impl fmt::Debug for LocalTime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "LocalTime({})", self.iso())
+    }
+}
+
 
 impl LocalDateTime {
 
@@ -554,6 +567,12 @@ impl TimePiece for LocalDateTime {
     fn minute(&self) -> i8 { self.time.minute }
     fn second(&self) -> i8 { self.time.second }
     fn millisecond(&self) -> i16 { self.time.millisecond }
+}
+
+impl fmt::Debug for LocalDateTime {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "LocalDateTime({})", self.iso())
+    }
 }
 
 impl Add<Duration> for LocalDateTime {
@@ -1207,7 +1226,7 @@ mod test {
         }
     }
 
-    mod fmt {
+    mod debug {
         use super::*;
 
         #[test]
@@ -1240,6 +1259,16 @@ mod test {
             let debugged = format!("{:?}", time);
 
             assert_eq!(debugged, "LocalTime(12:00:00.000)");
+        }
+
+        #[test]
+        fn ascending() {
+            let then = LocalDateTime::new(
+                        LocalDate::ymd(2009, Month::February, 13).unwrap(),
+                        LocalTime::hms(23, 31, 30).unwrap());
+            let debugged = format!("{:?}", then);
+
+            assert_eq!(debugged, "LocalDateTime(2009-02-13T23:31:30.000)");
         }
     }
 
