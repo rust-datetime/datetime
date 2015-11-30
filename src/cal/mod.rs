@@ -3,13 +3,13 @@
 
 pub mod datetime;
 pub mod fmt;
-pub mod iter;
 pub mod offset;
 pub mod parse;
 pub mod zone;
 pub mod convenience;
 
 pub use self::datetime::{LocalDate, LocalTime, LocalDateTime, Weekday, Month};
+pub use self::datetime::{YearMonth, Year};
 pub use self::offset::{Offset, OffsetDateTime};
 
 /// The **date piece** trait is used for date and time values that have
