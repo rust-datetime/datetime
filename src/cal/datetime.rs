@@ -18,6 +18,9 @@ use self::Month::*;
 use self::Weekday::*;
 
 
+/// A single year.
+///
+/// This is just a wrapper around `i64` that performs year-related tests.
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Year(pub i64);
 
@@ -40,6 +43,19 @@ impl Year {
     /// Returns an iterator over a continuous span of months in this year,
     /// returning year-month pairs.
     ///
+    /// This method takes one argument that can be of four different types,
+    /// depending on the months you wish to iterate over:
+    ///
+    /// - The `RangeFull` type (such as `..`), which iterates over every
+    ///   month;
+    /// - The `RangeFrom` type (such as `April ..`), which iterates over
+    ///   the months starting from the month given;
+    /// - The `RangeTo` type (such as `.. June`), which iterates over the
+    ///   months stopping at *but not including* the month given;
+    /// - The `Range` type (such as `April .. June`), which iterates over
+    ///   the months starting from the left one and stopping at *but not
+    ///   including* the right one.
+    ///
     /// ### Examples
     ///
     /// ```
@@ -60,6 +76,16 @@ impl Year {
     }
 
     /// Returns a year-month, pairing this year with the given month.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use datetime::{Year, Month};
+    ///
+    /// let expiry_date = Year(2017).month(Month::February);
+    /// assert_eq!(expiry_date.year, Year(2017));
+    /// assert_eq!(expiry_date.month, Month::February);
+    /// ```
     pub fn month(&self, month: Month) -> YearMonth {
         YearMonth {
             year: *self,
@@ -95,6 +121,8 @@ impl Year {
 
 
 /// A span of months, which gets used to construct a `YearMonths` iterator.
+///
+/// See the `months` method of `Year` for more information.
 pub trait MonthSpan {
 
     /// Returns a static slice of `Month` values contained by this span.
@@ -170,8 +198,8 @@ impl fmt::Debug for YearMonths {
 /// A month-year pair.
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct YearMonth {
-    year: Year,
-    month: Month,
+    pub year: Year,
+    pub month: Month,
 }
 
 impl YearMonth {
