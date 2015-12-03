@@ -1116,179 +1116,14 @@ impl Weekday {
     }
 }
 
+
+/// Misc tests that don’t seem to fit anywhere.
 #[cfg(test)]
 mod test {
     pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, Year};
     pub use cal::DatePiece;
     pub use std::str::FromStr;
     use super::YMD;
-
-    mod seconds_to_datetimes {
-        pub use super::*;
-        use super::super::YMD;
-
-        #[test]
-        fn before_time() {
-            let date = LocalDateTime::at(-1_000_000_000_i64);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 1938, month: Month::April, day: 24, },
-                    weekday: Weekday::Sunday, yearday: 114,
-                },
-                time: LocalTime {
-                    hour: 22, minute: 13, second: 20, millisecond: 0,
-                },
-            };
-
-            assert_eq!(date, res)
-        }
-
-        #[test]
-        fn start_of_magic() {
-            let date = LocalDateTime::at(0_i64);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 1970, month: Month::January, day: 1, },
-                    weekday: Weekday::Thursday, yearday: 1,
-                },
-                time: LocalTime::midnight(),
-            };
-
-            assert_eq!(date, res)
-        }
-
-        #[test]
-        fn billennium() {
-            let date = LocalDateTime::at(1_000_000_000_i64);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 2001, month: Month::September, day: 9, },
-                    weekday: Weekday::Sunday, yearday: 252,
-                },
-                time: LocalTime {
-                    hour: 1, minute: 46, second: 40, millisecond: 0,
-                },
-            };
-
-            assert_eq!(date, res)
-        }
-
-        #[test]
-        fn numbers() {
-            let date = LocalDateTime::at(1_234_567_890_i64);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 2009, month: Month::February, day: 13, },
-                    weekday: Weekday::Friday, yearday: 44,
-                },
-                time: LocalTime {
-                    hour: 23, minute: 31, second: 30, millisecond: 0,
-                },
-            };
-
-            assert_eq!(date, res)
-        }
-
-        #[test]
-        fn year_2038_problem() {
-            let date = LocalDateTime::at(0x7FFF_FFFF_i64);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 2038, month: Month::January, day: 19, },
-                    weekday: Weekday::Tuesday, yearday: 19,
-                },
-                time: LocalTime {
-                    hour: 3, minute: 14, second: 7, millisecond: 0,
-                },
-            };
-
-            assert_eq!(date, res)
-        }
-
-        #[test]
-        fn the_end_of_time() {
-            let date = LocalDateTime::at(0x7FFF_FFFF_FFFF_FFFF_i64);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 292_277_026_596, month: Month::December, day: 4, },
-                    weekday: Weekday::Sunday, yearday: 339,
-                },
-                time: LocalTime {
-                    hour: 15, minute: 30, second: 7, millisecond: 0,
-                },
-            };
-
-            assert_eq!(date, res)
-        }
-
-        #[test]
-        fn just_another_date() {
-            let date = LocalDateTime::at(146096 * 86400);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 2369, month: Month::December, day: 31, },
-                    weekday: Weekday::Wednesday, yearday: 365,
-                },
-                time: LocalTime::midnight(),
-            };
-
-            assert_eq!(date, res)
-        }
-    }
-
-    mod ymd_to_datetimes {
-        use super::*;
-
-        #[test]
-        fn the_distant_past() {
-            let date = LocalDate::ymd(7, Month::April, 1).unwrap();
-            assert_eq!(7, date.year());
-            assert_eq!(Month::April, date.month());
-            assert_eq!(1, date.day());
-        }
-
-        #[test]
-        fn the_distant_present() {
-            let date = LocalDate::ymd(2015, Month::January, 16).unwrap();
-            assert_eq!(2015, date.year());
-            assert_eq!(Month::January, date.month());
-            assert_eq!(16, date.day());
-        }
-
-        #[test]
-        fn the_distant_future() {
-            let date = LocalDate::ymd(1048576, Month::October, 13).unwrap();
-            assert_eq!(1048576, date.year());
-            assert_eq!(Month::October, date.month());
-            assert_eq!(13, date.day());
-        }
-    }
-
-    #[test]
-    fn start_of_year_day() {
-        let date = LocalDate::ymd(2015, Month::January, 1).unwrap();
-        assert_eq!(date.yearday(), 1);
-    }
-
-    #[test]
-    fn end_of_year_day() {
-        let date = LocalDate::ymd(2015, Month::December, 31).unwrap();
-        assert_eq!(date.yearday(), 365);
-    }
-
-    #[test]
-    fn end_of_leap_year_day() {
-        let date = LocalDate::ymd(2016, Month::December, 31).unwrap();
-        assert_eq!(date.yearday(), 366);
-    }
-
-    #[test]
-    fn day_start_of_year() {
-        let date = LocalDate::yd(2015, 1).unwrap();
-        assert_eq!(2015, date.year());
-        assert_eq!(Month::January, date.month());
-        assert_eq!(1, date.day());
-    }
 
 
     #[test]
@@ -1312,17 +1147,6 @@ mod test {
         assert!(LocalDate::ymd(1600,Month::February,29).is_ok());
         assert!(LocalDate::ymd(1601,Month::February,29).is_err());
         assert!(LocalDate::ymd(1602,Month::February,29).is_err());
-    }
-
-
-    #[test]
-    fn parse_iso_ymd() {
-        let date_option = LocalDate::from_str("2015-06-26");
-        assert!(date_option.is_ok());
-        let date = date_option.unwrap();
-        assert!(date.year() == 2015);
-        assert!(date.month() == Month::June);
-        assert!(date.day() == 26);
     }
 
     #[test]
@@ -1355,115 +1179,11 @@ mod test {
         }
     }
 
-    #[test]
-    fn from_yearday() {
-        for date in vec![
-            //LocalDate::ymd(1970, 01 , 01).unwrap(),
-            LocalDate::ymd(1971, Month::from_one(01).unwrap(), 01).unwrap(),
-            LocalDate::ymd(1973, Month::from_one(01).unwrap(), 01).unwrap(),
-            LocalDate::ymd(1977, Month::from_one(01).unwrap(), 01).unwrap(),
-            LocalDate::ymd(1989, Month::from_one(11).unwrap(), 10).unwrap(),
-            LocalDate::ymd(1990, Month::from_one( 7).unwrap(),  8).unwrap(),
-            LocalDate::ymd(2014, Month::from_one( 7).unwrap(), 13).unwrap(),
-            LocalDate::ymd(2001, Month::from_one( 2).unwrap(), 03).unwrap(),
-        ]{
-            let new_date = LocalDate::yd(date.year(), date.yearday() as i64).unwrap();
-            assert_eq!(new_date, date);
-            assert!(LocalDate::yd(2002, 1).is_ok());
-
-            assert_eq!(new_date.yearday(), date.yearday());
-        }
-    }
-
-    #[test]
-    fn yearday() {
-        for year in 1..2058 {
-            assert_eq!( LocalDate::ymd(year, Month::from_one(01).unwrap(), 31).unwrap().yearday() + 1,
-                        LocalDate::ymd(year, Month::from_one(02).unwrap(), 01).unwrap().yearday());
-            assert_eq!( LocalDate::ymd(year, Month::from_one(03).unwrap(), 31).unwrap().yearday() + 1,
-                        LocalDate::ymd(year, Month::from_one(04).unwrap(), 01).unwrap().yearday());
-            assert_eq!( LocalDate::ymd(year, Month::from_one(04).unwrap(), 30).unwrap().yearday() + 1,
-                        LocalDate::ymd(year, Month::from_one(05).unwrap(), 01).unwrap().yearday());
-            assert!(    LocalDate::ymd(year, Month::from_one(12).unwrap(), 31).unwrap().yearday() > 0);
-        }
-        assert_eq!( LocalDate::ymd(1600, Month::from_one(02).unwrap(), 29).unwrap().yearday() + 1, // leap year
-                    LocalDate::ymd(1600, Month::from_one(03).unwrap(), 01).unwrap().yearday());
-        assert_eq!( LocalDate::ymd(1601, Month::from_one(02).unwrap(), 28).unwrap().yearday() + 1, // no leap year
-                    LocalDate::ymd(1601, Month::from_one(03).unwrap(), 01).unwrap().yearday());
-
-    }
-
-    #[test]
-    fn parse_month() {
-        assert_eq!( LocalDate::from_str("2015-01-26").unwrap().month(), Month::January);
-        assert_eq!( LocalDate::from_str("1970-01-26").unwrap().month(), Month::January);
-        assert_eq!( LocalDate::from_str("1969-01-26").unwrap().month(), Month::January);
-    }
 
     #[test]
     fn leap_year_2000() {
         let date = YMD { year: 2000, month: Month::January, day: 1 };
         assert!(date.leap_year_calculations().1 == true)
-    }
-
-    mod datetimes_to_seconds {
-        pub use super::*;
-
-        #[test]
-        fn test_1970() {
-            let date = LocalDateTime::at(0);
-            let res = date.to_instant().seconds();
-
-            assert_eq!(res, 0)
-        }
-
-        #[test]
-        fn test_1971() {
-            let date = LocalDateTime::at(86400);
-            let res = date.to_instant().seconds();
-
-            assert_eq!(res, 86400)
-        }
-
-        #[test]
-        fn test_1972() {
-            let date = LocalDateTime::at(86400 * 365 * 2);
-            let res = date.to_instant().seconds();
-
-            assert_eq!(0, 86400 * 365 * 2 - res)
-        }
-
-        #[test]
-        fn test_1973() {
-            let date = LocalDateTime::at(86400 * (365 * 3 + 1));
-            let res = date.to_instant().seconds();
-
-            assert_eq!(0, 86400 * (365 * 3 + 1) - res)
-        }
-
-        #[test]
-        fn some_date() {
-            let date = LocalDateTime::at(1234567890);
-            let res = date.to_instant().seconds();
-
-            assert_eq!(1234567890, res)
-        }
-
-        #[test]
-        fn far_far_future() {
-            let date = LocalDateTime::at(54321234567890);
-            let res = date.to_instant().seconds();
-
-            assert_eq!(54321234567890, res)
-        }
-
-        #[test]
-        fn the_distant_past() {
-            let date = LocalDateTime::at(-54321234567890);
-            let res = date.to_instant().seconds();
-
-            assert_eq!(-54321234567890, res)
-        }
     }
 
     mod debug {
@@ -1509,23 +1229,6 @@ mod test {
             let debugged = format!("{:?}", then);
 
             assert_eq!(debugged, "LocalDateTime(2009-02-13T23:31:30.000)");
-        }
-    }
-
-    mod arithmetic {
-        use super::*;
-        use duration::Duration;
-
-        #[test]
-        fn addition() {
-            let date = LocalDateTime::at(10000);
-            assert_eq!(LocalDateTime::at(10001), date + Duration::of(1))
-        }
-
-        #[test]
-        fn subtraction() {
-            let date = LocalDateTime::at(100000000);
-            assert_eq!(LocalDateTime::at(99999999), date - Duration::of(1))
         }
     }
 }
