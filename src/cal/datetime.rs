@@ -4,6 +4,7 @@ use std::cmp::{Ordering, PartialOrd};
 use std::error::Error as ErrorTrait;
 use std::fmt;
 use std::ops::{Add, Sub};
+use std::ops::Deref;
 use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
 use std::slice::Iter as SliceIter;
 
@@ -18,6 +19,9 @@ use self::Month::*;
 use self::Weekday::*;
 
 
+/// A single year.
+///
+/// This is just a wrapper around `i64` that performs year-related tests.
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Year(pub i64);
 
@@ -34,13 +38,24 @@ impl Year {
     /// assert_eq!(Year(1900).is_leap_year(), false);
     /// ```
     pub fn is_leap_year(&self) -> bool {
-        YMD { year: self.0, month: Month::January, day: 1 }
-            .leap_year_calculations()
-            .1
+        self.leap_year_calculations().1
     }
 
     /// Returns an iterator over a continuous span of months in this year,
     /// returning year-month pairs.
+    ///
+    /// This method takes one argument that can be of four different types,
+    /// depending on the months you wish to iterate over:
+    ///
+    /// - The `RangeFull` type (such as `..`), which iterates over every
+    ///   month;
+    /// - The `RangeFrom` type (such as `April ..`), which iterates over
+    ///   the months starting from the month given;
+    /// - The `RangeTo` type (such as `.. June`), which iterates over the
+    ///   months stopping at *but not including* the month given;
+    /// - The `Range` type (such as `April .. June`), which iterates over
+    ///   the months starting from the left one and stopping at *but not
+    ///   including* the right one.
     ///
     /// ### Examples
     ///
@@ -62,16 +77,60 @@ impl Year {
     }
 
     /// Returns a year-month, pairing this year with the given month.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use datetime::{Year, Month};
+    ///
+    /// let expiry_date = Year(2017).month(Month::February);
+    /// assert_eq!(*expiry_date.year, 2017);
+    /// assert_eq!(expiry_date.month, Month::February);
+    /// ```
     pub fn month(&self, month: Month) -> YearMonth {
         YearMonth {
             year: *self,
             month: month,
         }
     }
+
+    /// Performs two related calculations for leap years, returning the
+    /// results as a two-part tuple:
+    ///
+    /// 1. The number of leap years that have elapsed prior to this year;
+    /// 2. Whether this year is a leap year or not.
+    fn leap_year_calculations(&self) -> (i64, bool) {
+        let year = self.0 - 2000;
+
+        // This calculation is the reverse of LocalDate::from_days_since_epoch.
+        let (num_400y_cycles, mut remainder) = split_cycles(year, 400);
+
+        // Standard leap-year calculations, performed on the remainder
+        let currently_leap_year = remainder == 0 || (remainder % 100 != 0 && remainder % 4 == 0);
+
+        let num_100y_cycles = remainder / 100;
+        remainder -= num_100y_cycles * 100;
+
+        let leap_years_elapsed = remainder / 4
+            + 97 * num_400y_cycles  // There are 97 leap years in 400 years
+            + 24 * num_100y_cycles  // There are 24 leap years in 100 years
+            - if currently_leap_year { 1 } else { 0 };
+
+        (leap_years_elapsed, currently_leap_year)
+    }
 }
 
+impl Deref for Year {
+    type Target = i64;
+
+    fn deref<'a>(&'a self) -> &'a Self::Target {
+        &self.0
+    }
+}
 
 /// A span of months, which gets used to construct a `YearMonths` iterator.
+///
+/// See the `months` method of `Year` for more information.
 pub trait MonthSpan {
 
     /// Returns a static slice of `Month` values contained by this span.
@@ -147,8 +206,8 @@ impl fmt::Debug for YearMonths {
 /// A month-year pair.
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct YearMonth {
-    year: Year,
-    month: Month,
+    pub year: Year,
+    pub month: Month,
 }
 
 impl YearMonth {
@@ -452,13 +511,11 @@ impl LocalDate {
         let yearday = 7 * week + weekday.days_from_monday_as_one() as i64 - correction;
 
         if yearday <= 0 {
-            let (_, is_leap_year) = YMD { year: year - 1, month: January, day: 1 }.leap_year_calculations();
-            let days_in_year = if is_leap_year { 366 } else { 365 };
+            let days_in_year = if Year(year - 1).is_leap_year() { 366 } else { 365 };
             LocalDate::yd(year - 1, days_in_year + yearday)
         }
         else {
-            let (_, is_leap_year) = YMD { year: year, month: January, day: 1 }.leap_year_calculations();
-            let days_in_year = if is_leap_year { 366 } else { 365 };
+            let days_in_year = if Year(year).is_leap_year() { 366 } else { 365 };
 
             if yearday >= days_in_year {
                 LocalDate::yd(year + 1, yearday - days_in_year)
@@ -843,10 +900,10 @@ impl Sub<Duration> for LocalDateTime {
 /// free to create such an instance of YMD. For this reason, it is not
 /// exposed to implementors of this library.
 #[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Debug, Copy)]
-pub struct YMD {
-    pub year:    i64,
-    pub month:   Month,
-    pub day:     i8,
+struct YMD {
+    year:    i64,
+    month:   Month,
+    day:     i8,
 }
 
 impl YMD {
@@ -860,7 +917,7 @@ impl YMD {
     /// functions, so it makes more sense to only do them once.
     pub fn to_days_since_epoch(&self) -> Result<i64, Error> {
         let years = self.year - 2000;
-        let (leap_days_elapsed, is_leap_year) = self.leap_year_calculations();
+        let (leap_days_elapsed, is_leap_year) = Year(self.year).leap_year_calculations();
 
         if !self.is_valid(is_leap_year) {
             return Err(Error::OutOfRange);
@@ -901,31 +958,6 @@ impl YMD {
     /// calculating it afresh.
     pub fn is_valid(&self, is_leap_year: bool) -> bool {
         self.day >= 1 && self.day <= self.month.days_in_month(is_leap_year)
-    }
-
-    /// Performs two related calculations for leap years, returning the
-    /// results as a two-part tuple:
-    ///
-    /// 1. The number of leap years that have elapsed prior to this date;
-    /// 2. Whether the current year is a leap year or not.
-    pub fn leap_year_calculations(&self) -> (i64, bool) {
-        let year = self.year - 2000;
-
-        // This calculation is the reverse of LocalDate::from_days_since_epoch.
-        let (num_400y_cycles, mut remainder) = split_cycles(year, 400);
-
-        // Standard leap-year calculations, performed on the remainder
-        let currently_leap_year = remainder == 0 || (remainder % 100 != 0 && remainder % 4 == 0);
-
-        let num_100y_cycles = remainder / 100;
-        remainder -= num_100y_cycles * 100;
-
-        let leap_years_elapsed = remainder / 4
-            + 97 * num_400y_cycles  // There are 97 leap years in 400 years
-            + 24 * num_100y_cycles  // There are 24 leap years in 100 years
-            - if currently_leap_year { 1 } else { 0 };
-
-        (leap_years_elapsed, currently_leap_year)
     }
 }
 
@@ -1123,20 +1155,7 @@ mod test {
     pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, Year};
     pub use cal::DatePiece;
     pub use std::str::FromStr;
-    use super::YMD;
 
-
-    #[test]
-    fn leap_year_1600() {
-        let date = YMD { year: 1600, month: Month::January, day: 1 };
-        assert!(date.leap_year_calculations().1 == true)
-    }
-
-    #[test]
-    fn leap_year_1900() {
-        let date = YMD { year: 1900, month: Month::January, day: 1 };
-        assert!(date.leap_year_calculations().1 == false)
-    }
 
     #[test]
     fn some_leap_years() {
@@ -1177,13 +1196,6 @@ mod test {
                 LocalDate::from_days_since_epoch(
                     date.ymd.to_days_since_epoch().unwrap() - epoch_difference));
         }
-    }
-
-
-    #[test]
-    fn leap_year_2000() {
-        let date = YMD { year: 2000, month: Month::January, day: 1 };
-        assert!(date.leap_year_calculations().1 == true)
     }
 
     mod debug {
