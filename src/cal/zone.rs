@@ -392,250 +392,153 @@ pub mod runtime {
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    pub use super::*;
-    pub use cal::*;
-    pub use std::borrow::Cow;
+    use super::*;
+    use super::Surroundings;
+    use std::borrow::Cow;
 
-    mod zoneset {
-        use super::*;
-        use super::super::Surroundings;
-
-        const NONE: FixedTimespanSet<'static> = FixedTimespanSet {
-            first: FixedTimespan {
-                offset: 0,
-                is_dst: false,
-                name: Cow::Borrowed("ZONE_A"),
-            },
-            rest: &[],
-        };
-
-        #[test]
-        fn empty() {
-            assert_eq!(NONE.find_with_surroundings(1184000000), Surroundings {
-                previous: None,
-                current: &FixedTimespan {
-                    offset: 0,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_A"),
-                },
-                next: None,
-            })
-        }
-
-        const ONE: FixedTimespanSet<'static> = FixedTimespanSet {
-            first: FixedTimespan {
-                offset: 0,
-                is_dst: false,
-                name: Cow::Borrowed("ZONE_A"),
-            },
-            rest: &[
-                (1174784400, FixedTimespan {
-                    offset: 3600,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_B"),
-                }),
-            ],
-        };
-
-        #[test]
-        fn just_one_first() {
-            assert_eq!(ONE.find_with_surroundings(1184000000), Surroundings {
-                previous: Some((
-                    &FixedTimespan {
-                        offset: 0,
-                        is_dst: false,
-                        name: Cow::Borrowed("ZONE_A"),
-                    },
-                    1174784400,
-                )),
-                current: &FixedTimespan {
-                    offset: 3600,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_B"),
-                },
-                next: None,
-            });
-        }
-
-        #[test]
-        fn just_one_other() {
-            assert_eq!(ONE.find_with_surroundings(1174000000), Surroundings {
-                previous: None,
-                current: &FixedTimespan {
-                    offset: 0,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_A"),
-                },
-                next: Some(&(
-                    1174784400,
-                    FixedTimespan {
-                        offset: 3600,
-                        is_dst: false,
-                        name: Cow::Borrowed("ZONE_B"),
-                    },
-                )),
-            })
-        }
-
-        const MANY: FixedTimespanSet<'static> = FixedTimespanSet {
-            first: FixedTimespan {
-                offset: 0,
-                is_dst: false,
-                name: Cow::Borrowed("ZONE_A"),
-            },
-            rest: &[
-                (1174784400, FixedTimespan {
-                    offset: 3600,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_B"),
-                }),
-                (1193533200, FixedTimespan {
-                    offset: 0,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_C"),
-                }),
-            ],
-        };
-
-        #[test]
-        fn multiple_second() {
-            assert_eq!(MANY.find_with_surroundings(1184000000), Surroundings {
-                previous: Some((
-                    &FixedTimespan {
-                        offset: 0,
-                        is_dst: false,
-                        name: Cow::Borrowed("ZONE_A"),
-                    },
-                    1174784400,
-                )),
-                current: &FixedTimespan {
-                    offset: 3600,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_B"),
-                },
-                next: Some(&(
-                    1193533200,
-                    FixedTimespan {
-                        offset: 0,
-                        is_dst: false,
-                        name: Cow::Borrowed("ZONE_C"),
-                    }
-                )),
-            });
-        }
-
-        #[test]
-        fn multiple_last() {
-            assert_eq!(MANY.find_with_surroundings(1200000000), Surroundings {
-                previous: Some((
-                    &FixedTimespan {
-                        offset: 3600,
-                        is_dst: false,
-                        name: Cow::Borrowed("ZONE_B"),
-                    },
-                    1193533200,
-                )),
-                current: &FixedTimespan {
-                    offset: 0,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_C"),
-                },
-                next: None,
-            });
-        }
-    }
-
-    const TEST_ZONESET: &'static StaticTimeZone<'static> = &StaticTimeZone {
-        name: "Test Zoneset",
-        fixed_timespans: FixedTimespanSet {
-            first: FixedTimespan {
-                offset: 0,
-                is_dst: false,
-                name: Cow::Borrowed("ZONE_A"),
-            },
-            rest: &[
-                (1206838800, FixedTimespan {
-                    offset: 3600,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_B"),
-                }),
-                (1224982800, FixedTimespan {
-                    offset: 0,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_A"),
-                }),
-                (1238288400, FixedTimespan {
-                    offset: 3600,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_B"),
-                }),
-                (1256432400, FixedTimespan {
-                    offset: 0,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_A"),
-                }),
-                (1269738000, FixedTimespan {
-                    offset: 3600,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_B"),
-                }),
-                (1288486800, FixedTimespan {
-                    offset: 0,
-                    is_dst: false,
-                    name: Cow::Borrowed("ZONE_A"),
-                }),
-            ]
-        }
+    const NONE: FixedTimespanSet<'static> = FixedTimespanSet {
+        first: FixedTimespan {
+            offset: 0,
+            is_dst: false,
+            name: Cow::Borrowed("ZONE_A"),
+        },
+        rest: &[],
     };
 
     #[test]
-    fn construction() {
-        let test_date = LocalDateTime::new(
-            LocalDate::ymd(2010, Month::June, 9).unwrap(),
-            LocalTime::hms(15, 15, 0).unwrap(),
-        );
+    fn empty() {
+        assert_eq!(NONE.find_with_surroundings(1184000000), Surroundings {
+            previous: None,
+            current: &FixedTimespan {
+                offset: 0,
+                is_dst: false,
+                name: Cow::Borrowed("ZONE_A"),
+            },
+            next: None,
+        })
+    }
 
-        let zone = TimeZone(TimeZoneSource::Static(TEST_ZONESET));
-        assert_eq!(zone.offset(test_date), 3600);
+    const ONE: FixedTimespanSet<'static> = FixedTimespanSet {
+        first: FixedTimespan {
+            offset: 0,
+            is_dst: false,
+            name: Cow::Borrowed("ZONE_A"),
+        },
+        rest: &[
+            (1174784400, FixedTimespan {
+                offset: 3600,
+                is_dst: false,
+                name: Cow::Borrowed("ZONE_B"),
+            }),
+        ],
+    };
 
-        let zoned_date = zone.convert_local(test_date).unwrap_precise();
-        assert_eq!(zoned_date.year(), 2010);
-        assert_eq!(zoned_date.hour(), 15);
-
-        let instant = LocalDateTime::new(
-            LocalDate::ymd(2010, Month::June, 9).unwrap(),
-            LocalTime::hms(14, 15, 0).unwrap(),
-        ).to_instant();
-
-        assert_eq!(instant, zoned_date.to_instant());
+    #[test]
+    fn just_one_first() {
+        assert_eq!(ONE.find_with_surroundings(1184000000), Surroundings {
+            previous: Some((
+                &FixedTimespan {
+                    offset: 0,
+                    is_dst: false,
+                    name: Cow::Borrowed("ZONE_A"),
+                },
+                1174784400,
+            )),
+            current: &FixedTimespan {
+                offset: 3600,
+                is_dst: false,
+                name: Cow::Borrowed("ZONE_B"),
+            },
+            next: None,
+        });
     }
 
     #[test]
-    fn ambiguity() {
-        let test_date = LocalDateTime::new(
-            LocalDate::ymd(2010, Month::October, 31).unwrap(),
-            LocalTime::hms(1, 15, 0).unwrap(),
-        );
+    fn just_one_other() {
+        assert_eq!(ONE.find_with_surroundings(1174000000), Surroundings {
+            previous: None,
+            current: &FixedTimespan {
+                offset: 0,
+                is_dst: false,
+                name: Cow::Borrowed("ZONE_A"),
+            },
+            next: Some(&(
+                1174784400,
+                FixedTimespan {
+                    offset: 3600,
+                    is_dst: false,
+                    name: Cow::Borrowed("ZONE_B"),
+                },
+            )),
+        })
+    }
 
-        let zone = TimeZone(TimeZoneSource::Static(TEST_ZONESET));
-        let converted = zone.convert_local(test_date);
-        assert!(converted.is_ambiguous(),
-            "Local time {:?} should be ambiguous", converted);
+    const MANY: FixedTimespanSet<'static> = FixedTimespanSet {
+        first: FixedTimespan {
+            offset: 0,
+            is_dst: false,
+            name: Cow::Borrowed("ZONE_A"),
+        },
+        rest: &[
+            (1174784400, FixedTimespan {
+                offset: 3600,
+                is_dst: false,
+                name: Cow::Borrowed("ZONE_B"),
+            }),
+            (1193533200, FixedTimespan {
+                offset: 0,
+                is_dst: false,
+                name: Cow::Borrowed("ZONE_C"),
+            }),
+        ],
+    };
+
+    #[test]
+    fn multiple_second() {
+        assert_eq!(MANY.find_with_surroundings(1184000000), Surroundings {
+            previous: Some((
+                &FixedTimespan {
+                    offset: 0,
+                    is_dst: false,
+                    name: Cow::Borrowed("ZONE_A"),
+                },
+                1174784400,
+            )),
+            current: &FixedTimespan {
+                offset: 3600,
+                is_dst: false,
+                name: Cow::Borrowed("ZONE_B"),
+            },
+            next: Some(&(
+                1193533200,
+                FixedTimespan {
+                    offset: 0,
+                    is_dst: false,
+                    name: Cow::Borrowed("ZONE_C"),
+                }
+            )),
+        });
     }
 
     #[test]
-    fn impossible() {
-        let test_date = LocalDateTime::new(
-            LocalDate::ymd(2010, Month::March, 28).unwrap(),
-            LocalTime::hms(1, 15, 0).unwrap(),
-        );
-
-        let zone = TimeZone(TimeZoneSource::Static(TEST_ZONESET));
-        let converted = zone.convert_local(test_date);
-        assert!(converted.is_impossible(),
-            "Local time {:?} should be impossible", converted);
+    fn multiple_last() {
+        assert_eq!(MANY.find_with_surroundings(1200000000), Surroundings {
+            previous: Some((
+                &FixedTimespan {
+                    offset: 3600,
+                    is_dst: false,
+                    name: Cow::Borrowed("ZONE_B"),
+                },
+                1193533200,
+            )),
+            current: &FixedTimespan {
+                offset: 0,
+                is_dst: false,
+                name: Cow::Borrowed("ZONE_C"),
+            },
+            next: None,
+        });
     }
 }

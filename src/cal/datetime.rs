@@ -4,6 +4,8 @@ use std::cmp::{Ordering, PartialOrd};
 use std::error::Error as ErrorTrait;
 use std::fmt;
 use std::ops::{Add, Sub};
+use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
+use std::slice::Iter as SliceIter;
 
 use cal::{DatePiece, TimePiece};
 use cal::fmt::ISO;
@@ -14,6 +16,245 @@ use util::RangeExt;
 
 use self::Month::*;
 use self::Weekday::*;
+
+
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub struct Year(pub i64);
+
+impl Year {
+
+    /// Returns whether this year is a leap year.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use datetime::Year;
+    ///
+    /// assert_eq!(Year(2000).is_leap_year(), true);
+    /// assert_eq!(Year(1900).is_leap_year(), false);
+    /// ```
+    pub fn is_leap_year(&self) -> bool {
+        YMD { year: self.0, month: Month::January, day: 1 }
+            .leap_year_calculations()
+            .1
+    }
+
+    /// Returns an iterator over a continuous span of months in this year,
+    /// returning year-month pairs.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use datetime::Year;
+    /// use datetime::Month::{April, June};
+    ///
+    /// let year = Year(1999);
+    /// assert_eq!(year.months(..).count(), 12);
+    /// assert_eq!(year.months(April ..).count(), 9);
+    /// assert_eq!(year.months(April .. June).count(), 2);
+    /// assert_eq!(year.months(.. June).count(), 5);
+    /// ```
+    pub fn months<S: MonthSpan>(&self, span: S) -> YearMonths {
+        YearMonths {
+            year: *self,
+            iter: span.get_slice().iter(),
+        }
+    }
+
+    /// Returns a year-month, pairing this year with the given month.
+    pub fn month(&self, month: Month) -> YearMonth {
+        YearMonth {
+            year: *self,
+            month: month,
+        }
+    }
+}
+
+
+/// A span of months, which gets used to construct a `YearMonths` iterator.
+pub trait MonthSpan {
+
+    /// Returns a static slice of `Month` values contained by this span.
+    fn get_slice(&self) -> &'static [Month];
+}
+
+static MONTHS: &'static [Month] = &[
+    Month::January,  Month::February,  Month::March,
+    Month::April,    Month::May,       Month::June,
+    Month::July,     Month::August,    Month::September,
+    Month::October,  Month::November,  Month::December,
+];
+
+impl MonthSpan for RangeFull {
+    fn get_slice(&self) -> &'static [Month] {
+        MONTHS
+    }
+}
+
+impl MonthSpan for RangeFrom<Month> {
+    fn get_slice(&self) -> &'static [Month] {
+        &MONTHS[self.start.months_from_january() ..]
+    }
+}
+
+impl MonthSpan for RangeTo<Month> {
+    fn get_slice(&self) -> &'static [Month] {
+        &MONTHS[.. self.end.months_from_january()]
+    }
+}
+
+impl MonthSpan for Range<Month> {
+    fn get_slice(&self) -> &'static [Month] {
+        &MONTHS[self.start.months_from_january() .. self.end.months_from_january()]
+    }
+}
+
+
+/// An iterator over a continuous span of months in a year.
+///
+/// Use the `months` method on `Year` to create instances of this iterator.
+pub struct YearMonths {
+    year: Year,
+    iter: SliceIter<'static, Month>,
+}
+
+impl Iterator for YearMonths {
+    type Item = YearMonth;
+
+    fn next(&mut self) -> Option<YearMonth> {
+        self.iter.next().map(|m| YearMonth {
+            year: self.year,
+            month: *m,
+        })
+    }
+}
+
+impl DoubleEndedIterator for YearMonths {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back().map(|m| YearMonth {
+            year: self.year,
+            month: *m,
+        })
+    }
+}
+
+impl fmt::Debug for YearMonths {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "YearMonths({}, {:?})", self.year.0, self.iter.as_slice())
+    }
+}
+
+/// A month-year pair.
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub struct YearMonth {
+    year: Year,
+    month: Month,
+}
+
+impl YearMonth {
+
+    /// Returns the number of days in this month. This can be definitely
+    /// known, as the paired year determines whether it’s a leap year, so
+    /// there’s no chance of being caught out by February.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use datetime::Year;
+    /// use datetime::Month::February;
+    ///
+    /// assert_eq!(Year(2000).month(February).day_count(), 29);
+    /// assert_eq!(Year(1900).month(February).day_count(), 28);
+    /// ```
+    pub fn day_count(&self) -> i8 {
+        self.month.days_in_month(self.year.is_leap_year())
+    }
+
+    /// Returns an iterator over a continuous span of days in this month,
+    /// returning `LocalDate` values.
+    ///
+    /// ### Examples
+    ///
+    /// ```
+    /// use datetime::Year;
+    /// use datetime::Month::September;
+    ///
+    /// let ym = Year(1999).month(September);
+    /// assert_eq!(ym.days(..).count(), 30);
+    /// assert_eq!(ym.days(10 ..).count(), 21);
+    /// assert_eq!(ym.days(10 .. 20).count(), 10);
+    /// assert_eq!(ym.days(.. 20).count(), 19);
+    /// ```
+    pub fn days<S: DaySpan>(&self, span: S) -> MonthDays {
+        MonthDays {
+            ym: *self,
+            range: span.get_range(self)
+        }
+    }
+
+    /// Returns a `LocalDate` based on the day of this month.
+    ///
+    /// This is just a short-cut for the `LocalDate::ymd` constructor.
+    pub fn day(&self, day: i8) -> Result<LocalDate, Error> {
+        LocalDate::ymd(self.year.0, self.month, day)
+    }
+}
+
+
+/// A span of days, which gets used to construct a `MonthDays` iterator.
+pub trait DaySpan {
+
+    /// Returns a `Range` of the day numbers specified for the given year-month pair.
+    fn get_range(&self, ym: &YearMonth) -> Range<i8>;
+}
+
+impl DaySpan for RangeFull {
+    fn get_range(&self, ym: &YearMonth) -> Range<i8> {
+        1 .. ym.day_count() + 1
+    }
+}
+
+impl DaySpan for RangeFrom<i8> {
+    fn get_range(&self, ym: &YearMonth) -> Range<i8> {
+        self.start .. ym.day_count() + 1
+    }
+}
+
+impl DaySpan for RangeTo<i8> {
+    fn get_range(&self, _ym: &YearMonth) -> Range<i8> {
+        1 .. self.end
+    }
+}
+
+impl DaySpan for Range<i8> {
+    fn get_range(&self, _ym: &YearMonth) -> Range<i8> {
+        self.clone()
+    }
+}
+
+
+/// An iterator over a continuous span of days in a month.
+///
+/// Use the `days` method on `YearMonth` to create instances of this iterator.
+#[derive(PartialEq, Debug)]
+pub struct MonthDays {
+    ym: YearMonth,
+    range: Range<i8>,
+}
+
+impl Iterator for MonthDays {
+    type Item = LocalDate;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.range.next().and_then(|d| LocalDate::ymd(self.ym.year.0, self.ym.month, d).ok())
+    }
+}
+
+impl DoubleEndedIterator for MonthDays {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.range.next_back().and_then(|d| LocalDate::ymd(self.ym.year.0, self.ym.month, d).ok())
+    }
+}
 
 
 /// Number of days guaranteed to be in four years.
@@ -875,180 +1116,14 @@ impl Weekday {
     }
 }
 
+
+/// Misc tests that don’t seem to fit anywhere.
 #[cfg(test)]
 mod test {
-    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday};
-    pub use cal::iter::Year;
+    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, Year};
     pub use cal::DatePiece;
     pub use std::str::FromStr;
     use super::YMD;
-
-    mod seconds_to_datetimes {
-        pub use super::*;
-        use super::super::YMD;
-
-        #[test]
-        fn before_time() {
-            let date = LocalDateTime::at(-1_000_000_000_i64);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 1938, month: Month::April, day: 24, },
-                    weekday: Weekday::Sunday, yearday: 114,
-                },
-                time: LocalTime {
-                    hour: 22, minute: 13, second: 20, millisecond: 0,
-                },
-            };
-
-            assert_eq!(date, res)
-        }
-
-        #[test]
-        fn start_of_magic() {
-            let date = LocalDateTime::at(0_i64);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 1970, month: Month::January, day: 1, },
-                    weekday: Weekday::Thursday, yearday: 1,
-                },
-                time: LocalTime::midnight(),
-            };
-
-            assert_eq!(date, res)
-        }
-
-        #[test]
-        fn billennium() {
-            let date = LocalDateTime::at(1_000_000_000_i64);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 2001, month: Month::September, day: 9, },
-                    weekday: Weekday::Sunday, yearday: 252,
-                },
-                time: LocalTime {
-                    hour: 1, minute: 46, second: 40, millisecond: 0,
-                },
-            };
-
-            assert_eq!(date, res)
-        }
-
-        #[test]
-        fn numbers() {
-            let date = LocalDateTime::at(1_234_567_890_i64);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 2009, month: Month::February, day: 13, },
-                    weekday: Weekday::Friday, yearday: 44,
-                },
-                time: LocalTime {
-                    hour: 23, minute: 31, second: 30, millisecond: 0,
-                },
-            };
-
-            assert_eq!(date, res)
-        }
-
-        #[test]
-        fn year_2038_problem() {
-            let date = LocalDateTime::at(0x7FFF_FFFF_i64);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 2038, month: Month::January, day: 19, },
-                    weekday: Weekday::Tuesday, yearday: 19,
-                },
-                time: LocalTime {
-                    hour: 3, minute: 14, second: 7, millisecond: 0,
-                },
-            };
-
-            assert_eq!(date, res)
-        }
-
-        #[test]
-        fn the_end_of_time() {
-            let date = LocalDateTime::at(0x7FFF_FFFF_FFFF_FFFF_i64);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 292_277_026_596, month: Month::December, day: 4, },
-                    weekday: Weekday::Sunday, yearday: 339,
-                },
-                time: LocalTime {
-                    hour: 15, minute: 30, second: 7, millisecond: 0,
-                },
-            };
-
-            assert_eq!(date, res)
-        }
-
-        #[test]
-        fn just_another_date() {
-            let date = LocalDateTime::at(146096 * 86400);
-            let res = LocalDateTime {
-                date: LocalDate {
-                    ymd: YMD { year: 2369, month: Month::December, day: 31, },
-                    weekday: Weekday::Wednesday, yearday: 365,
-                },
-                time: LocalTime::midnight(),
-            };
-
-            assert_eq!(date, res)
-        }
-    }
-
-    mod ymd_to_datetimes {
-        use super::*;
-
-        #[test]
-        fn the_distant_past() {
-            let date = LocalDate::ymd(7, Month::April, 1).unwrap();
-            assert_eq!(7, date.year());
-            assert_eq!(Month::April, date.month());
-            assert_eq!(1, date.day());
-        }
-
-        #[test]
-        fn the_distant_present() {
-            let date = LocalDate::ymd(2015, Month::January, 16).unwrap();
-            assert_eq!(2015, date.year());
-            assert_eq!(Month::January, date.month());
-            assert_eq!(16, date.day());
-        }
-
-        #[test]
-        fn the_distant_future() {
-            let date = LocalDate::ymd(1048576, Month::October, 13).unwrap();
-            assert_eq!(1048576, date.year());
-            assert_eq!(Month::October, date.month());
-            assert_eq!(13, date.day());
-        }
-    }
-
-    #[test]
-    fn start_of_year_day() {
-        let date = LocalDate::ymd(2015, Month::January, 1).unwrap();
-        assert_eq!(date.yearday(), 1);
-    }
-
-    #[test]
-    fn end_of_year_day() {
-        let date = LocalDate::ymd(2015, Month::December, 31).unwrap();
-        assert_eq!(date.yearday(), 365);
-    }
-
-    #[test]
-    fn end_of_leap_year_day() {
-        let date = LocalDate::ymd(2016, Month::December, 31).unwrap();
-        assert_eq!(date.yearday(), 366);
-    }
-
-    #[test]
-    fn day_start_of_year() {
-        let date = LocalDate::yd(2015, 1).unwrap();
-        assert_eq!(2015, date.year());
-        assert_eq!(Month::January, date.month());
-        assert_eq!(1, date.day());
-    }
 
 
     #[test]
@@ -1072,17 +1147,6 @@ mod test {
         assert!(LocalDate::ymd(1600,Month::February,29).is_ok());
         assert!(LocalDate::ymd(1601,Month::February,29).is_err());
         assert!(LocalDate::ymd(1602,Month::February,29).is_err());
-    }
-
-
-    #[test]
-    fn parse_iso_ymd() {
-        let date_option = LocalDate::from_str("2015-06-26");
-        assert!(date_option.is_ok());
-        let date = date_option.unwrap();
-        assert!(date.year() == 2015);
-        assert!(date.month() == Month::June);
-        assert!(date.day() == 26);
     }
 
     #[test]
@@ -1115,115 +1179,11 @@ mod test {
         }
     }
 
-    #[test]
-    fn from_yearday() {
-        for date in vec![
-            //LocalDate::ymd(1970, 01 , 01).unwrap(),
-            LocalDate::ymd(1971, Month::from_one(01).unwrap(), 01).unwrap(),
-            LocalDate::ymd(1973, Month::from_one(01).unwrap(), 01).unwrap(),
-            LocalDate::ymd(1977, Month::from_one(01).unwrap(), 01).unwrap(),
-            LocalDate::ymd(1989, Month::from_one(11).unwrap(), 10).unwrap(),
-            LocalDate::ymd(1990, Month::from_one( 7).unwrap(),  8).unwrap(),
-            LocalDate::ymd(2014, Month::from_one( 7).unwrap(), 13).unwrap(),
-            LocalDate::ymd(2001, Month::from_one( 2).unwrap(), 03).unwrap(),
-        ]{
-            let new_date = LocalDate::yd(date.year(), date.yearday() as i64).unwrap();
-            assert_eq!(new_date, date);
-            assert!(LocalDate::yd(2002, 1).is_ok());
-
-            assert_eq!(new_date.yearday(), date.yearday());
-        }
-    }
-
-    #[test]
-    fn yearday() {
-        for year in 1..2058 {
-            assert_eq!( LocalDate::ymd(year, Month::from_one(01).unwrap(), 31).unwrap().yearday() + 1,
-                        LocalDate::ymd(year, Month::from_one(02).unwrap(), 01).unwrap().yearday());
-            assert_eq!( LocalDate::ymd(year, Month::from_one(03).unwrap(), 31).unwrap().yearday() + 1,
-                        LocalDate::ymd(year, Month::from_one(04).unwrap(), 01).unwrap().yearday());
-            assert_eq!( LocalDate::ymd(year, Month::from_one(04).unwrap(), 30).unwrap().yearday() + 1,
-                        LocalDate::ymd(year, Month::from_one(05).unwrap(), 01).unwrap().yearday());
-            assert!(    LocalDate::ymd(year, Month::from_one(12).unwrap(), 31).unwrap().yearday() > 0);
-        }
-        assert_eq!( LocalDate::ymd(1600, Month::from_one(02).unwrap(), 29).unwrap().yearday() + 1, // leap year
-                    LocalDate::ymd(1600, Month::from_one(03).unwrap(), 01).unwrap().yearday());
-        assert_eq!( LocalDate::ymd(1601, Month::from_one(02).unwrap(), 28).unwrap().yearday() + 1, // no leap year
-                    LocalDate::ymd(1601, Month::from_one(03).unwrap(), 01).unwrap().yearday());
-
-    }
-
-    #[test]
-    fn parse_month() {
-        assert_eq!( LocalDate::from_str("2015-01-26").unwrap().month(), Month::January);
-        assert_eq!( LocalDate::from_str("1970-01-26").unwrap().month(), Month::January);
-        assert_eq!( LocalDate::from_str("1969-01-26").unwrap().month(), Month::January);
-    }
 
     #[test]
     fn leap_year_2000() {
         let date = YMD { year: 2000, month: Month::January, day: 1 };
         assert!(date.leap_year_calculations().1 == true)
-    }
-
-    mod datetimes_to_seconds {
-        pub use super::*;
-
-        #[test]
-        fn test_1970() {
-            let date = LocalDateTime::at(0);
-            let res = date.to_instant().seconds();
-
-            assert_eq!(res, 0)
-        }
-
-        #[test]
-        fn test_1971() {
-            let date = LocalDateTime::at(86400);
-            let res = date.to_instant().seconds();
-
-            assert_eq!(res, 86400)
-        }
-
-        #[test]
-        fn test_1972() {
-            let date = LocalDateTime::at(86400 * 365 * 2);
-            let res = date.to_instant().seconds();
-
-            assert_eq!(0, 86400 * 365 * 2 - res)
-        }
-
-        #[test]
-        fn test_1973() {
-            let date = LocalDateTime::at(86400 * (365 * 3 + 1));
-            let res = date.to_instant().seconds();
-
-            assert_eq!(0, 86400 * (365 * 3 + 1) - res)
-        }
-
-        #[test]
-        fn some_date() {
-            let date = LocalDateTime::at(1234567890);
-            let res = date.to_instant().seconds();
-
-            assert_eq!(1234567890, res)
-        }
-
-        #[test]
-        fn far_far_future() {
-            let date = LocalDateTime::at(54321234567890);
-            let res = date.to_instant().seconds();
-
-            assert_eq!(54321234567890, res)
-        }
-
-        #[test]
-        fn the_distant_past() {
-            let date = LocalDateTime::at(-54321234567890);
-            let res = date.to_instant().seconds();
-
-            assert_eq!(-54321234567890, res)
-        }
     }
 
     mod debug {
@@ -1269,23 +1229,6 @@ mod test {
             let debugged = format!("{:?}", then);
 
             assert_eq!(debugged, "LocalDateTime(2009-02-13T23:31:30.000)");
-        }
-    }
-
-    mod arithmetic {
-        use super::*;
-        use duration::Duration;
-
-        #[test]
-        fn addition() {
-            let date = LocalDateTime::at(10000);
-            assert_eq!(LocalDateTime::at(10001), date + Duration::of(1))
-        }
-
-        #[test]
-        fn subtraction() {
-            let date = LocalDateTime::at(100000000);
-            assert_eq!(LocalDateTime::at(99999999), date - Duration::of(1))
         }
     }
 }

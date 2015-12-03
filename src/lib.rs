@@ -19,9 +19,9 @@ extern crate iso8601;
 
 mod cal;
 pub use cal::{DatePiece, TimePiece};
-pub use cal::datetime::{LocalDate, LocalTime, LocalDateTime, Month, Weekday};
+pub use cal::datetime::{LocalDate, LocalTime, LocalDateTime, Month, Weekday, Year, YearMonth};
 pub use cal::fmt::custom as fmt;
-pub use cal::iter as iter;
+pub use cal::fmt::ISO;  // TODO: replace this with just a 'fmt' import
 pub use cal::offset::{Offset, OffsetDateTime};
 pub use cal::zone::{TimeZone, ZonedDateTime};
 pub use cal::zone as zone;
