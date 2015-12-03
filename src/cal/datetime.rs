@@ -4,6 +4,7 @@ use std::cmp::{Ordering, PartialOrd};
 use std::error::Error as ErrorTrait;
 use std::fmt;
 use std::ops::{Add, Sub};
+use std::ops::Deref;
 use std::ops::{Range, RangeFrom, RangeTo, RangeFull};
 use std::slice::Iter as SliceIter;
 
@@ -83,7 +84,7 @@ impl Year {
     /// use datetime::{Year, Month};
     ///
     /// let expiry_date = Year(2017).month(Month::February);
-    /// assert_eq!(expiry_date.year, Year(2017));
+    /// assert_eq!(*expiry_date.year, 2017);
     /// assert_eq!(expiry_date.month, Month::February);
     /// ```
     pub fn month(&self, month: Month) -> YearMonth {
@@ -119,6 +120,13 @@ impl Year {
     }
 }
 
+impl Deref for Year {
+    type Target = i64;
+
+    fn deref<'a>(&'a self) -> &'a Self::Target {
+        &self.0
+    }
+}
 
 /// A span of months, which gets used to construct a `YearMonths` iterator.
 ///
