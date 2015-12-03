@@ -34,9 +34,7 @@ impl Year {
     /// assert_eq!(Year(1900).is_leap_year(), false);
     /// ```
     pub fn is_leap_year(&self) -> bool {
-        YMD { year: self.0, month: Month::January, day: 1 }
-            .leap_year_calculations()
-            .1
+        self.leap_year_calculations().1
     }
 
     /// Returns an iterator over a continuous span of months in this year,
@@ -67,6 +65,31 @@ impl Year {
             year: *self,
             month: month,
         }
+    }
+
+    /// Performs two related calculations for leap years, returning the
+    /// results as a two-part tuple:
+    ///
+    /// 1. The number of leap years that have elapsed prior to this year;
+    /// 2. Whether this year is a leap year or not.
+    fn leap_year_calculations(&self) -> (i64, bool) {
+        let year = self.0 - 2000;
+
+        // This calculation is the reverse of LocalDate::from_days_since_epoch.
+        let (num_400y_cycles, mut remainder) = split_cycles(year, 400);
+
+        // Standard leap-year calculations, performed on the remainder
+        let currently_leap_year = remainder == 0 || (remainder % 100 != 0 && remainder % 4 == 0);
+
+        let num_100y_cycles = remainder / 100;
+        remainder -= num_100y_cycles * 100;
+
+        let leap_years_elapsed = remainder / 4
+            + 97 * num_400y_cycles  // There are 97 leap years in 400 years
+            + 24 * num_100y_cycles  // There are 24 leap years in 100 years
+            - if currently_leap_year { 1 } else { 0 };
+
+        (leap_years_elapsed, currently_leap_year)
     }
 }
 
@@ -452,13 +475,11 @@ impl LocalDate {
         let yearday = 7 * week + weekday.days_from_monday_as_one() as i64 - correction;
 
         if yearday <= 0 {
-            let (_, is_leap_year) = YMD { year: year - 1, month: January, day: 1 }.leap_year_calculations();
-            let days_in_year = if is_leap_year { 366 } else { 365 };
+            let days_in_year = if Year(year - 1).is_leap_year() { 366 } else { 365 };
             LocalDate::yd(year - 1, days_in_year + yearday)
         }
         else {
-            let (_, is_leap_year) = YMD { year: year, month: January, day: 1 }.leap_year_calculations();
-            let days_in_year = if is_leap_year { 366 } else { 365 };
+            let days_in_year = if Year(year).is_leap_year() { 366 } else { 365 };
 
             if yearday >= days_in_year {
                 LocalDate::yd(year + 1, yearday - days_in_year)
@@ -843,10 +864,10 @@ impl Sub<Duration> for LocalDateTime {
 /// free to create such an instance of YMD. For this reason, it is not
 /// exposed to implementors of this library.
 #[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Debug, Copy)]
-pub struct YMD {
-    pub year:    i64,
-    pub month:   Month,
-    pub day:     i8,
+struct YMD {
+    year:    i64,
+    month:   Month,
+    day:     i8,
 }
 
 impl YMD {
@@ -860,7 +881,7 @@ impl YMD {
     /// functions, so it makes more sense to only do them once.
     pub fn to_days_since_epoch(&self) -> Result<i64, Error> {
         let years = self.year - 2000;
-        let (leap_days_elapsed, is_leap_year) = self.leap_year_calculations();
+        let (leap_days_elapsed, is_leap_year) = Year(self.year).leap_year_calculations();
 
         if !self.is_valid(is_leap_year) {
             return Err(Error::OutOfRange);
@@ -901,31 +922,6 @@ impl YMD {
     /// calculating it afresh.
     pub fn is_valid(&self, is_leap_year: bool) -> bool {
         self.day >= 1 && self.day <= self.month.days_in_month(is_leap_year)
-    }
-
-    /// Performs two related calculations for leap years, returning the
-    /// results as a two-part tuple:
-    ///
-    /// 1. The number of leap years that have elapsed prior to this date;
-    /// 2. Whether the current year is a leap year or not.
-    pub fn leap_year_calculations(&self) -> (i64, bool) {
-        let year = self.year - 2000;
-
-        // This calculation is the reverse of LocalDate::from_days_since_epoch.
-        let (num_400y_cycles, mut remainder) = split_cycles(year, 400);
-
-        // Standard leap-year calculations, performed on the remainder
-        let currently_leap_year = remainder == 0 || (remainder % 100 != 0 && remainder % 4 == 0);
-
-        let num_100y_cycles = remainder / 100;
-        remainder -= num_100y_cycles * 100;
-
-        let leap_years_elapsed = remainder / 4
-            + 97 * num_400y_cycles  // There are 97 leap years in 400 years
-            + 24 * num_100y_cycles  // There are 24 leap years in 100 years
-            - if currently_leap_year { 1 } else { 0 };
-
-        (leap_years_elapsed, currently_leap_year)
     }
 }
 
@@ -1123,20 +1119,7 @@ mod test {
     pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, Year};
     pub use cal::DatePiece;
     pub use std::str::FromStr;
-    use super::YMD;
 
-
-    #[test]
-    fn leap_year_1600() {
-        let date = YMD { year: 1600, month: Month::January, day: 1 };
-        assert!(date.leap_year_calculations().1 == true)
-    }
-
-    #[test]
-    fn leap_year_1900() {
-        let date = YMD { year: 1900, month: Month::January, day: 1 };
-        assert!(date.leap_year_calculations().1 == false)
-    }
 
     #[test]
     fn some_leap_years() {
@@ -1177,13 +1160,6 @@ mod test {
                 LocalDate::from_days_since_epoch(
                     date.ymd.to_days_since_epoch().unwrap() - epoch_difference));
         }
-    }
-
-
-    #[test]
-    fn leap_year_2000() {
-        let date = YMD { year: 2000, month: Month::January, day: 1 };
-        assert!(date.leap_year_calculations().1 == true)
     }
 
     mod debug {
