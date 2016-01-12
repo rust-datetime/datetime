@@ -12,7 +12,7 @@ pub trait ISO: Sized {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result;
 }
 
-struct ISOString<'a, T: 'a>(&'a T);
+pub struct ISOString<'a, T: 'a>(&'a T);
 
 impl<'a, T> fmt::Display for ISOString<'a, T>
 where T: ISO {
