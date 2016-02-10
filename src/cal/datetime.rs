@@ -138,10 +138,10 @@ pub trait MonthSpan {
 }
 
 static MONTHS: &'static [Month] = &[
-    Month::January,  Month::February,  Month::March,
-    Month::April,    Month::May,       Month::June,
-    Month::July,     Month::August,    Month::September,
-    Month::October,  Month::November,  Month::December,
+    January,  February,  March,
+    April,    May,       June,
+    July,     August,    September,
+    October,  November,  December,
 ];
 
 impl MonthSpan for RangeFull {
