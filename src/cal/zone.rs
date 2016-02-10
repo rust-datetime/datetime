@@ -11,6 +11,7 @@ use util::RangeExt;
 
 /// A **time zone**, which here is a list of timespans, each containing a
 /// fixed offset for the current location’s time from UTC.
+#[derive(Debug, Clone)]
 pub struct TimeZone(pub TimeZoneSource<'static>);
 
 #[derive(Debug, Clone)]
