@@ -3,6 +3,7 @@ use datetime::{LocalDate, Month};
 use datetime::DatePiece;
 
 
+#[test]
 fn start_of_year_day() {
     let date = LocalDate::ymd(2015, Month::January, 1).unwrap();
     assert_eq!(date.yearday(), 1);
