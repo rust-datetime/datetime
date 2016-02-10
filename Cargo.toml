@@ -7,13 +7,13 @@ documentation = "http://datetime.rustdocs.org/datetime/"
 homepage = "https://github.com/rust-datetime/datetime"
 license = "MIT"
 readme = "README.md"
-version = "0.4.1"
+version = "0.4.2"
 
 [lib]
 name = "datetime"
 
 [dependencies]
-locale = "0.1"
+locale = "0.2"
 num = "0.1"
 pad = "0.1"
 libc = "0.2"
