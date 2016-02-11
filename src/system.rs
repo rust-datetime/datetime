@@ -35,7 +35,7 @@ pub unsafe fn sys_time() -> (i64, i16) {
 pub unsafe fn sys_time() -> (i64, i16) {
     let mut tv = libc::timespec { tv_sec: 0, tv_nsec: 0 };
     clock_gettime(libc::CLOCK_REALTIME, &mut tv);
-    (tv.tv_sec, (tv.tv_nsec / 1000) as i16)
+    (tv.tv_sec as i64, (tv.tv_nsec / 1000) as i16)
 }
 
 
