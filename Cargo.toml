@@ -7,7 +7,7 @@ documentation = "https://docs.rs/datetime"
 homepage = "https://github.com/rust-datetime/datetime"
 license = "MIT"
 readme = "README.md"
-version = "0.4.3"
+version = "0.4.4"
 
 [lib]
 name = "datetime"
