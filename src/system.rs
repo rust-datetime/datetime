@@ -13,10 +13,7 @@ extern {
 }
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios")))]
-extern {
-    fn clock_gettime(clk_id: libc::c_int, tp: *mut libc::timespec) -> libc::c_int;
-}
-
+use libc::clock_gettime;
 
 /// Returns the system’s current time, as a tuple of seconds elapsed since
 /// the Unix epoch, and the millisecond of the second.
