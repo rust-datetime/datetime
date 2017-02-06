@@ -7,7 +7,7 @@ documentation = "https://docs.rs/datetime"
 homepage = "https://github.com/rust-datetime/datetime"
 license = "MIT"
 readme = "README.md"
-version = "0.4.3"
+version = "0.4.4"
 
 [lib]
 name = "datetime"
@@ -18,6 +18,10 @@ num = "0.1"
 pad = "0.1"
 libc = "0.2"
 iso8601 = "0.1.0"
+
+[target.'cfg(windows)'.dependencies]
+kernel32-sys = "0.2.2"
+winapi = "0.2.8"
 
 [dev-dependencies]
 rustc-serialize = "0.3"

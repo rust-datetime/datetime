@@ -6,7 +6,6 @@ use std::path::Path;
 
 extern crate libc;
 
-
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 extern {
     fn gettimeofday(tp: *mut libc::timeval, tzp: *mut libc::timezone) -> libc::c_int;
@@ -28,6 +27,42 @@ pub unsafe fn sys_time() -> (i64, i16) {
     let _ = gettimeofday(&mut tv, null_mut());
     (tv.tv_sec, (tv.tv_usec / 1000) as i16)
 }
+
+#[cfg(windows)] use winapi::minwindef::FILETIME;
+#[cfg(windows)] const HECTONANOSECS_IN_SEC: i64 = 10_000_000;
+#[cfg(windows)] const HECTONANOSEC_TO_UNIX_EPOCH: i64 = 11_644_473_600 * HECTONANOSECS_IN_SEC;
+
+/// Returns the system’s current time, as a tuple of seconds elapsed since
+/// the Unix epoch, and the millisecond of the second.
+#[cfg(any(target_os = "windows"))]
+pub unsafe fn sys_time() -> (i64, i16) {
+    use std::mem;
+    use kernel32::GetSystemTimeAsFileTime;
+    let mut ft = mem::zeroed();
+
+    GetSystemTimeAsFileTime(&mut ft);
+    (file_time_to_unix_seconds(&ft), (file_time_to_nsec(&ft) / 1000000) as i16)
+
+}
+
+#[cfg(any(target_os = "windows"))]
+fn file_time_to_nsec(ft: &FILETIME) -> i32 {
+    let t = file_time_as_u64(ft) as i64;
+    ((t % HECTONANOSECS_IN_SEC) * 100) as i32
+}
+
+#[cfg(any(target_os = "windows"))]
+fn file_time_to_unix_seconds(ft: &FILETIME) -> i64 {
+    let t = file_time_as_u64(ft) as i64;
+    ((t - HECTONANOSEC_TO_UNIX_EPOCH) / HECTONANOSECS_IN_SEC)
+}
+
+#[cfg(any(target_os = "windows"))]
+fn file_time_as_u64(ft: &FILETIME) -> u64 {
+    ((ft.dwHighDateTime as u64) << 32) | (ft.dwLowDateTime as u64)
+}
+
+
 
 /// Returns the system’s current time, as a tuple of seconds elapsed since
 /// the Unix epoch, and the millisecond of the second.
