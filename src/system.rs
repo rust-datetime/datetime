@@ -6,13 +6,16 @@ use std::path::Path;
 
 extern crate libc;
 
+#[cfg(target_os = "redox")]
+extern crate syscall as redox_syscall;
+
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 extern {
     fn gettimeofday(tp: *mut libc::timeval, tzp: *mut libc::timezone) -> libc::c_int;
 }
 
-#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios")))]
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "redox")))]
 extern {
     fn clock_gettime(clk_id: libc::c_int, tp: *mut libc::timespec) -> libc::c_int;
 }
@@ -31,13 +34,22 @@ pub unsafe fn sys_time() -> (i64, i16) {
 
 /// Returns the system’s current time, as a tuple of seconds elapsed since
 /// the Unix epoch, and the millisecond of the second.
-#[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "redox", windows)))]
 pub unsafe fn sys_time() -> (i64, i16) {
     let mut tv = libc::timespec { tv_sec: 0, tv_nsec: 0 };
     clock_gettime(libc::CLOCK_REALTIME, &mut tv);
     (tv.tv_sec as i64, (tv.tv_nsec / 1000) as i16)
 }
 
+/// Returns the system’s current time, as a tuple of seconds elapsed since
+/// the Unix epoch, and the millisecond of the second.
+#[cfg(target_os = "redox")]
+pub unsafe fn sys_time() -> (i64, i16) {
+   let mut ts = redox_syscall::TimeSpec::default();
+   let realtime_clock = redox_syscall::CLOCK_REALTIME;
+   let _ = redox_syscall::clock_gettime(realtime_clock, &mut ts);
+   (ts.tv_sec, (ts.tv_nsec / 1000) as i16)
+}
 
 /// Attempts to determine the system’s current time zone. There’s no
 /// guaranteed way to do this, so this function returns `None` if no
