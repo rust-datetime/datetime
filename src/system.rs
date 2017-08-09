@@ -37,14 +37,14 @@ pub unsafe fn sys_time() -> (i64, i16) {
 #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "redox", windows)))]
 pub unsafe fn sys_time() -> (i64, i16) {
     let mut tv = libc::timespec { tv_sec: 0, tv_nsec: 0 };
-    clock_gettime(libc::CLOCK_REALTIME, &mut tv);
-    (tv.tv_sec as i64, (tv.tv_nsec / 1000) as i16)
+    let _ = clock_gettime(libc::CLOCK_REALTIME, &mut tv);
+    (tv.tv_sec, (tv.tv_nsec / 1000) as i16)
 }
 
 /// Returns the system’s current time, as a tuple of seconds elapsed since
 /// the Unix epoch, and the millisecond of the second.
 #[cfg(target_os = "redox")]
-pub unsafe fn sys_time() -> (i64, i16) {
+pub fn sys_time() -> (i64, i16) {
    let mut ts = redox_syscall::TimeSpec::default();
    let realtime_clock = redox_syscall::CLOCK_REALTIME;
    let _ = redox_syscall::clock_gettime(realtime_clock, &mut ts);
