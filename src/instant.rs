@@ -36,6 +36,7 @@ impl Instant {
     }
 
     /// Creates a new Instant set to the computer’s current time.
+    #[cfg_attr(target_os = "redox", allow(unused_unsafe))]
     pub fn now() -> Instant {
         let (s, ms) = unsafe { sys_time() };
         Instant { seconds: s, milliseconds: ms }
