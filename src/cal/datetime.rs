@@ -837,6 +837,7 @@ impl LocalDateTime {
     }
 
     /// Creates a new date-time stamp set to the current time.
+    #[cfg_attr(target_os = "redox", allow(unused_unsafe))]
     pub fn now() -> LocalDateTime {
         let (s, ms) = unsafe { sys_time() };
         LocalDateTime::at_ms(s, ms)
