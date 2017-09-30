@@ -16,6 +16,9 @@ extern crate num;
 extern crate pad;
 extern crate iso8601;
 
+#[cfg(windows)] extern crate kernel32;
+#[cfg(windows)] extern crate winapi;
+
 
 mod cal;
 pub use cal::{DatePiece, TimePiece};
