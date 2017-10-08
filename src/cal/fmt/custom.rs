@@ -1,7 +1,5 @@
 //! Datetime-to-string routines.
 
-use num::Integer;
-
 use std::fmt::Display;
 use std::io;
 use std::io::Write;
@@ -10,6 +8,7 @@ use std::str::CharIndices;
 use cal::{DatePiece, TimePiece};
 
 use locale;
+use num_traits::PrimInt;
 use pad::{PadStr, Alignment};
 
 
@@ -147,7 +146,7 @@ impl NumArguments {
         NumArguments(Arguments::empty())
     }
 
-    fn format<N: Integer + Display>(self, w: &mut Vec<u8>, number: N) -> io::Result<()> {
+    fn format<N: PrimInt + Display>(self, w: &mut Vec<u8>, number: N) -> io::Result<()> {
         self.0.format(w, &number.to_string())
     }
 }

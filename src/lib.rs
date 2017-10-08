@@ -12,7 +12,7 @@
 
 extern crate locale;
 extern crate libc;
-extern crate num;
+extern crate num_traits;
 extern crate pad;
 extern crate iso8601;
 
