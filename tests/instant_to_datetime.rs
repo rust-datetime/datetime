@@ -92,3 +92,27 @@ fn just_some_date() {
     assert_eq!(date.minute(), 00);
     assert_eq!(date.second(), 00);
 }
+
+#[test]
+fn leap_year_some_date() {
+    let date = LocalDateTime::at(1459468800);
+
+    assert_eq!(date.year(),   2016);
+    assert_eq!(date.month(),  Month::April);
+    assert_eq!(date.day(),    1);
+    assert_eq!(date.hour(),   00);
+    assert_eq!(date.minute(), 00);
+    assert_eq!(date.second(), 00);
+}
+
+#[test]
+fn leap_year_29th_feb() {
+    let date = LocalDateTime::at(1456704000);
+
+    assert_eq!(date.year(),   2016);
+    assert_eq!(date.month(),  Month::February);
+    assert_eq!(date.day(),    29);
+    assert_eq!(date.hour(),   00);
+    assert_eq!(date.minute(), 00);
+    assert_eq!(date.second(), 00);
+}

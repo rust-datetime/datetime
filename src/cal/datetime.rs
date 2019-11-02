@@ -572,7 +572,7 @@ impl LocalDate {
         let num_4y_cycles = remainder / DAYS_IN_4Y;
         remainder -= num_4y_cycles * DAYS_IN_4Y;  // remainder is now days left in this 4-year cycle
 
-        let mut years = remainder / 365;
+        let mut years = std::cmp::min(remainder / 365, 3);
         remainder -= years * 365;  // remainder is now days left in this year
 
         // Leap year calculation goes thusly:
