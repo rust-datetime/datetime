@@ -14,7 +14,7 @@ name = "datetime"
 
 [dependencies]
 locale = "0.2"
-num-traits = "0.1.35"
+num-traits = "0.2"
 pad = "0.1"
 libc = "0.2"
 iso8601 = "0.3.0"
