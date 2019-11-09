@@ -41,10 +41,7 @@ impl Offset {
         || (hours.is_negative() && minutes.is_positive()) {
             Err(Error::SignMismatch)
         }
-        else if hours <= -24 || hours >= 24 {
-            Err(Error::OutOfRange)
-        }
-        else if minutes <= -60 || minutes >= 60 {
+        else if hours <= -24 || hours >= 24 || minutes <= -60 || minutes >= 60 {
             Err(Error::OutOfRange)
         }
         else {
@@ -54,10 +51,10 @@ impl Offset {
         }
     }
 
-    pub fn transform_date(&self, local: LocalDateTime) -> OffsetDateTime {
+    pub fn transform_date(self, local: LocalDateTime) -> OffsetDateTime {
         OffsetDateTime {
-            local: local,
-            offset: self.clone(),
+            local,
+            offset: self,
         }
     }
 

@@ -95,15 +95,15 @@ impl Arguments {
 
     pub fn update_width(&mut self, width: Width, open_pos: Pos) -> Result<(), FormatError> {
         match self.width {
-            None => Ok({ self.width = Some(width); }),
-            Some(existing) => Err(FormatError::DoubleWidth { open_pos: open_pos, current_width: existing }),
+            None => { self.width = Some(width); Ok(())},
+            Some(existing) => Err(FormatError::DoubleWidth { open_pos, current_width: existing }),
         }
     }
 
     pub fn update_alignment(&mut self, alignment: Alignment, open_pos: Pos) -> Result<(), FormatError> {
         match self.alignment {
-            None => Ok({ self.alignment = Some(alignment); }),
-            Some(existing) => Err(FormatError::DoubleAlignment { open_pos: open_pos, current_alignment: existing }),
+            None => { self.alignment = Some(alignment); Ok(())},
+            Some(existing) => Err(FormatError::DoubleAlignment { open_pos, current_alignment: existing }),
         }
     }
 
@@ -186,7 +186,7 @@ impl<'a> FormatParser<'a> {
         FormatParser {
             iter:   input.char_indices(),
             fields: Vec::new(),
-            input:  input,
+            input,
             anchor: None,
             peekee: None,
         }
@@ -236,7 +236,7 @@ impl<'a> FormatParser<'a> {
                     if let Some((_, '}')) = self.next() {
                         self.collect_up_to_anchor(Some(new_pos));
 
-                        let field = Field::Literal(&self.input[new_pos .. new_pos + 1]);
+                        let field = Field::Literal(&self.input[new_pos ..=new_pos]);
                         self.fields.push(field);
                     }
                     else {
@@ -299,7 +299,7 @@ impl<'a> FormatParser<'a> {
 
         loop {
             match self.next() {
-                Some((pos, '{')) if first => return Ok(Field::Literal(&self.input[pos .. pos + 1])),
+                Some((pos, '{')) if first => return Ok(Field::Literal(&self.input[pos ..=pos])),
                 Some((_, '<')) => { args.update_alignment(Alignment::Left, open_pos)?; continue },
                 Some((_, '^')) => { args.update_alignment(Alignment::Middle, open_pos)?; continue },
                 Some((_, '>')) => { args.update_alignment(Alignment::Right, open_pos)?; continue },
@@ -316,15 +316,15 @@ impl<'a> FormatParser<'a> {
                         Some((_, 'h')) => Field::Hour(NumArguments(args)),
                         Some((_, 'm')) => Field::Minute(NumArguments(args)),
                         Some((_, 's')) => Field::Second(NumArguments(args)),
-                        Some((pos, c)) => return Err(FormatError::InvalidChar { c: c, colon: true, pos: pos }),
-                        None => return Err(FormatError::OpenCurlyBrace { open_pos: open_pos }),
+                        Some((pos, c)) => return Err(FormatError::InvalidChar { c, colon: true, pos }),
+                        None => return Err(FormatError::OpenCurlyBrace { open_pos }),
                     };
 
                     bit = Some(bitlet);
                 },
                 Some((pos, '}')) => { close_pos = pos; break; },
-                Some((pos, c)) => return Err(FormatError::InvalidChar { c: c, colon: false, pos: pos }),
-                None => return Err(FormatError::OpenCurlyBrace { open_pos: open_pos }),
+                Some((pos, c)) => return Err(FormatError::InvalidChar { c, colon: false, pos }),
+                None => return Err(FormatError::OpenCurlyBrace { open_pos }),
             };
 
             first = false;
@@ -332,7 +332,7 @@ impl<'a> FormatParser<'a> {
 
         match bit {
             Some(b) => Ok(b),
-            None    => Err(FormatError::MissingField { open_pos: open_pos, close_pos: close_pos }),
+            None    => Err(FormatError::MissingField { open_pos, close_pos }),
         }
     }
 }

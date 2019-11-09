@@ -9,6 +9,7 @@
 #![warn(trivial_casts, trivial_numeric_casts)]
 #![warn(unused_qualifications)]
 #![warn(unused_results)]
+#![allow(clippy::trivially_copy_pass_by_ref, clippy::missing_safety_doc)]
 
 extern crate locale;
 extern crate libc;
