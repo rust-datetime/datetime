@@ -457,7 +457,7 @@ impl LocalDate {
     pub fn yd(year: i64, yearday: i64) -> Result<LocalDate, Error> {
         if yearday.is_within(0..367) {
             let jan_1 = YMD { year: year, month: January, day: 1 };
-            let days = try!(jan_1.to_days_since_epoch());
+            let days = jan_1.to_days_since_epoch()?;
             Ok(LocalDate::from_days_since_epoch(days + yearday - 1 - EPOCH_DIFFERENCE))
         }
         else {

@@ -119,7 +119,7 @@ impl ErrorTrait for Error {
         }
     }
 
-    fn cause(&self) -> Option<&ErrorTrait> {
+    fn cause(&self) -> Option<&dyn ErrorTrait> {
         if let Error::Date(ref e) = *self {
             Some(e)
         }

@@ -166,7 +166,7 @@ impl<'a> DateFormat<'a> {
 
     pub fn parse(input: &'a str) -> Result<DateFormat<'a>, FormatError> {
         let mut parser = FormatParser::new(input);
-        try! { parser.parse_format_string() };
+        parser.parse_format_string()?;
 
         Ok(DateFormat { fields: parser.fields })
     }
@@ -229,7 +229,7 @@ impl<'a> FormatParser<'a> {
                 Some((new_pos, '{')) => {
                     self.collect_up_to_anchor(Some(new_pos)	);
 
-                    let field = try! { self.parse_a_thing(new_pos) };
+                    let field = self.parse_a_thing(new_pos)?;
                     self.fields.push(field);
                 },
                 Some((new_pos, '}')) => {
@@ -300,11 +300,11 @@ impl<'a> FormatParser<'a> {
         loop {
             match self.next() {
                 Some((pos, '{')) if first => return Ok(Field::Literal(&self.input[pos .. pos + 1])),
-                Some((_, '<')) => { try! { args.update_alignment(Alignment::Left, open_pos) }; continue },
-                Some((_, '^')) => { try! { args.update_alignment(Alignment::Middle, open_pos) }; continue },
-                Some((_, '>')) => { try! { args.update_alignment(Alignment::Right, open_pos) }; continue },
+                Some((_, '<')) => { args.update_alignment(Alignment::Left, open_pos)?; continue },
+                Some((_, '^')) => { args.update_alignment(Alignment::Middle, open_pos)?; continue },
+                Some((_, '>')) => { args.update_alignment(Alignment::Right, open_pos)?; continue },
                 Some((_, '0')) => { args.pad_char = Some('0'); continue },
-                Some((_, n)) if n.is_digit(10) => { try! { args.update_width(self.parse_number(n), open_pos) }; continue },
+                Some((_, n)) if n.is_digit(10) => { args.update_width(self.parse_number(n), open_pos)?; continue },
                 Some((_, '_')) => { long = true; },
                 Some((_, ':')) => {
                     let bitlet = match self.next() {
