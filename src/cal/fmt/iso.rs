@@ -42,8 +42,8 @@ impl ISO for LocalTime {
 
 impl ISO for LocalDateTime {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        try!(self.date().fmt(f));
-        try!(write!(f, "T"));
+        self.date().fmt(f)?;
+        write!(f, "T")?;
         self.time().fmt(f)
     }
 }
@@ -54,7 +54,7 @@ impl ISO for Offset {
             write!(f, "Z")
         }
         else {
-            try!(f.write_str(if self.is_negative() { "-" } else { "+" }));
+            f.write_str(if self.is_negative() { "-" } else { "+" })?;
 
             match (self.hours(), self.minutes(), self.seconds()) {
                 (h, 0, 0) => write!(f, "{:02}", h.abs()),

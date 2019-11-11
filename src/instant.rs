@@ -32,14 +32,14 @@ impl Instant {
     /// Unix epoch, along with the number of milliseconds so far this
     /// second.
     pub fn at_ms(seconds: i64, milliseconds: i16) -> Instant {
-        Instant { seconds: seconds, milliseconds: milliseconds }
+        Instant { seconds, milliseconds }
     }
 
     /// Creates a new Instant set to the computer’s current time.
     #[cfg_attr(target_os = "redox", allow(unused_unsafe))]
     pub fn now() -> Instant {
-        let (s, ms) = unsafe { sys_time() };
-        Instant { seconds: s, milliseconds: ms }
+        let (seconds, milliseconds) = unsafe { sys_time() };
+        Instant { seconds, milliseconds }
     }
 
     /// Creates a new Instant set to the Unix epoch.
