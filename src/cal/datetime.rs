@@ -90,7 +90,7 @@ impl Year {
     pub fn month(&self, month: Month) -> YearMonth {
         YearMonth {
             year: *self,
-            month: month,
+            month,
         }
     }
 
@@ -123,7 +123,7 @@ impl Year {
 impl Deref for Year {
     type Target = i64;
 
-    fn deref<'a>(&'a self) -> &'a Self::Target {
+    fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
@@ -137,7 +137,7 @@ pub trait MonthSpan {
     fn get_slice(&self) -> &'static [Month];
 }
 
-static MONTHS: &'static [Month] = &[
+static MONTHS: &[Month] = &[
     January,  February,  March,
     April,    May,       June,
     July,     August,    September,
@@ -363,7 +363,7 @@ const EPOCH_DIFFERENCE: i64 = (30 * 365      // 30 years between 2000 and 1970..
 /// This rather strange triangle is an array of the number of days elapsed
 /// at the end of each month, starting at the beginning of March (the first
 /// month after the EPOCH above), going backwards, ignoring February.
-const TIME_TRIANGLE: &'static [i64; 11] =
+const TIME_TRIANGLE: &[i64; 11] =
     &[31 + 30 + 31 + 30 + 31 + 31 + 30 + 31 + 30 + 31 + 31,  // January
       31 + 30 + 31 + 30 + 31 + 31 + 30 + 31 + 30 + 31,  // December
       31 + 30 + 31 + 30 + 31 + 31 + 30 + 31 + 30,  // November
@@ -430,7 +430,7 @@ impl LocalDate {
     /// assert!(LocalDate::ymd(2100, Month::February, 29).is_err());
     /// ```
     pub fn ymd(year: i64, month: Month, day: i8) -> Result<LocalDate, Error> {
-        YMD { year: year, month: month, day: day }
+        YMD { year, month, day }
             .to_days_since_epoch()
             .map(|days| LocalDate::from_days_since_epoch(days - EPOCH_DIFFERENCE))
     }
@@ -456,8 +456,8 @@ impl LocalDate {
     /// ```
     pub fn yd(year: i64, yearday: i64) -> Result<LocalDate, Error> {
         if yearday.is_within(0..367) {
-            let jan_1 = YMD { year: year, month: January, day: 1 };
-            let days = try!(jan_1.to_days_since_epoch());
+            let jan_1 = YMD { year, month: January, day: 1 };
+            let days = jan_1.to_days_since_epoch()?;
             Ok(LocalDate::from_days_since_epoch(days + yearday - 1 - EPOCH_DIFFERENCE))
         }
         else {
@@ -505,7 +505,7 @@ impl LocalDate {
     /// assert_eq!(date.weekday(), Weekday::Sunday);
     /// ```
     pub fn ywd(year: i64, week: i64, weekday: Weekday) -> Result<LocalDate, Error> {
-        let jan_4 = YMD { year: year, month: January, day: 4 };
+        let jan_4 = YMD { year, month: January, day: 4 };
         let correction = days_to_weekday(jan_4.to_days_since_epoch().unwrap() - EPOCH_DIFFERENCE).days_from_monday_as_one() as i64 + 3;
 
         let yearday = 7 * week + weekday.days_from_monday_as_one() as i64 - correction;
@@ -572,7 +572,7 @@ impl LocalDate {
         let num_4y_cycles = remainder / DAYS_IN_4Y;
         remainder -= num_4y_cycles * DAYS_IN_4Y;  // remainder is now days left in this 4-year cycle
 
-        let mut years = remainder / 365;
+        let mut years = std::cmp::min(remainder / 365, 3);
         remainder -= years * 365;  // remainder is now days left in this year
 
         // Leap year calculation goes thusly:
@@ -653,9 +653,9 @@ impl LocalDate {
     /// (technically) uses unsafe components.
     pub unsafe fn _new_with_prefilled_values(year: i64, month: Month, day: i8, weekday: Weekday, yearday: i16) -> LocalDate {
         LocalDate {
-            ymd: YMD { year: year, month: month, day: day },
-            weekday: weekday,
-            yearday: yearday,
+            ymd: YMD { year, month, day },
+            weekday,
+            yearday,
         }
     }
 
@@ -727,7 +727,7 @@ impl LocalTime {
     pub fn hm(hour: i8, minute: i8) -> Result<LocalTime, Error> {
         if (hour.is_within(0..24) && minute.is_within(0..60))
         || (hour == 24 && minute == 00) {
-            Ok(LocalTime { hour: hour, minute: minute, second: 0, millisecond: 0 })
+            Ok(LocalTime { hour, minute, second: 0, millisecond: 0 })
         }
         else {
             Err(Error::OutOfRange)
@@ -742,7 +742,7 @@ impl LocalTime {
     pub fn hms(hour: i8, minute: i8, second: i8) -> Result<LocalTime, Error> {
         if (hour.is_within(0..24) && minute.is_within(0..60) && second.is_within(0..60))
         || (hour == 24 && minute == 00 && second == 00) {
-            Ok(LocalTime { hour: hour, minute: minute, second: second, millisecond: 0 })
+            Ok(LocalTime { hour, minute, second, millisecond: 0 })
         }
         else {
             Err(Error::OutOfRange)
@@ -758,7 +758,7 @@ impl LocalTime {
         if hour.is_within(0..24)   && minute.is_within(0..60)
         && second.is_within(0..60) && millisecond.is_within(0..1000)
         {
-            Ok(LocalTime { hour: hour, minute: minute, second: second, millisecond: millisecond })
+            Ok(LocalTime { hour, minute, second, millisecond })
         }
         else {
             Err(Error::OutOfRange)
@@ -821,8 +821,8 @@ impl LocalDateTime {
     /// Creates a new local date time from a local date and a local time.
     pub fn new(date: LocalDate, time: LocalTime) -> LocalDateTime {
         LocalDateTime {
-            date: date,
-            time: time,
+            date,
+            time,
         }
     }
 

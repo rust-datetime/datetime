@@ -20,14 +20,14 @@ impl Duration {
 
     /// Create a new duration that’s the given number of seconds long.
     pub fn of(seconds: i64) -> Duration {
-        Duration { seconds: seconds, milliseconds: 0 }
+        Duration { seconds, milliseconds: 0 }
     }
 
     /// Create a new duration that’s the given number of seconds and
     /// milliseconds long.
     pub fn of_ms(seconds: i64, milliseconds: i16) -> Duration {
         assert!(milliseconds >= 0 && milliseconds <= 999);  // TODO: replace assert with returning Result
-        Duration { seconds: seconds, milliseconds: milliseconds }
+        Duration { seconds, milliseconds }
     }
 
     /// Return the seconds and milliseconds portions of the duration as

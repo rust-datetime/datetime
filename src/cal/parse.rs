@@ -39,8 +39,8 @@ impl FromStr for LocalDateTime {
             Err(e)      => return Err(Error::Parse(e)),
         };
 
-        let date = try!(fields_to_date(fields.date).map_err(Error::Date));
-        let time = try!(fields_to_time(fields.time).map_err(Error::Date));
+        let date = fields_to_date(fields.date).map_err(Error::Date)?;
+        let time = fields_to_time(fields.time).map_err(Error::Date)?;
         Ok(LocalDateTime::new(date, time))
     }
 }
@@ -54,9 +54,9 @@ impl FromStr for OffsetDateTime {
             Err(e)      => return Err(Error::Parse(e)),
         };
 
-        let date   = try!(fields_to_date(fields.date).map_err(|e| Error::Date(OffsetError::Date(e))));
-        let time   = try!(fields_to_time(fields.time).map_err(|e| Error::Date(OffsetError::Date(e))));
-        let offset = try!(Offset::of_hours_and_minutes(fields.time.tz_offset_hours as i8, fields.time.tz_offset_minutes as i8).map_err(Error::Date));
+        let date   = fields_to_date(fields.date).map_err(|e| Error::Date(OffsetError::Date(e)))?;
+        let time   = fields_to_time(fields.time).map_err(|e| Error::Date(OffsetError::Date(e)))?;
+        let offset = Offset::of_hours_and_minutes(fields.time.tz_offset_hours as i8, fields.time.tz_offset_minutes as i8).map_err(Error::Date)?;
         Ok(offset.transform_date(LocalDateTime::new(date, time)))
     }
 }
@@ -64,11 +64,11 @@ impl FromStr for OffsetDateTime {
 
 fn fields_to_date(fields: iso8601::Date) -> Result<LocalDate, DateTimeError> {
     if let iso8601::Date::YMD { year, month, day } = fields {
-        let month_variant = try!(Month::from_one(month as i8));
+        let month_variant = Month::from_one(month as i8)?;
         LocalDate::ymd(year as i64, month_variant, day as i8)
     }
     else if let iso8601::Date::Week { year, ww, d } = fields {
-        let weekday_variant = try!(Weekday::from_one(d as i8));
+        let weekday_variant = Weekday::from_one(d as i8)?;
         LocalDate::ywd(year as i64, ww as i64, weekday_variant)
     }
     else if let iso8601::Date::Ordinal { year, ddd } = fields {
@@ -112,7 +112,7 @@ impl<E: ErrorTrait> ErrorTrait for Error<E> {
         }
     }
 
-    fn cause(&self) -> Option<&ErrorTrait> {
+    fn cause(&self) -> Option<&dyn ErrorTrait> {
         match *self {
             Error::Date(ref error)   => Some(error),
             Error::Parse(_)          => None,
