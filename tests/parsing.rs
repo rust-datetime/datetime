@@ -1,6 +1,5 @@
 extern crate datetime;
 use datetime::{LocalDateTime, Weekday, Month, LocalDate};
-extern crate regex;
 
 extern crate rustc_serialize;
 use rustc_serialize::json::Json;

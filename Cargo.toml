@@ -30,4 +30,3 @@ redox_syscall = "0.1.29"
 
 [dev-dependencies]
 rustc-serialize = "0.3"
-regex = "1.3"
