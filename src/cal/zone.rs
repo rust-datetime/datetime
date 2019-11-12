@@ -96,8 +96,8 @@ impl TimeZone {
     /// to watch out for.
     pub fn convert_local(&self, local: LocalDateTime) -> LocalTimes {
         match self.0 {
-            TimeZoneSource::Static(ref tz)   => tz.fixed_timespans.convert_local(local, self.0.clone()),
-            TimeZoneSource::Runtime(ref arc) => arc.fixed_timespans.borrow().convert_local(local, self.0.clone()),
+            TimeZoneSource::Static(ref tz)   => tz.fixed_timespans.convert_local(local, &self.0),
+            TimeZoneSource::Runtime(ref arc) => arc.fixed_timespans.borrow().convert_local(local, &self.0),
         }
     }
 }
@@ -162,7 +162,7 @@ impl<'a> FixedTimespanSet<'a> {
         self.rest.is_empty()
     }
 
-    fn convert_local(&self, local: LocalDateTime, source: TimeZoneSource<'a>) -> LocalTimes<'a> {
+    fn convert_local(&self, local: LocalDateTime, source: &TimeZoneSource<'a>) -> LocalTimes<'a> {
         let unix_timestamp = local.to_instant().seconds();
 
         let zonify = |offset| ZonedDateTime {
