@@ -1025,6 +1025,7 @@ pub enum Month {
     October = 10, November = 11, December  = 12,
 }
 
+#[allow(clippy::match_same_arms)]
 impl Month {
 
     /// Returns the number of days in this month, depending on whether it’s

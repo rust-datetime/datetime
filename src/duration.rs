@@ -43,6 +43,7 @@ impl Duration {
     // way, it’s clear that there are two separate values being returned.
 }
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Add<Duration> for Duration {
     type Output = Self;
 
@@ -57,6 +58,7 @@ impl Add<Duration> for Duration {
     }
 }
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Sub<Duration> for Duration {
     type Output = Self;
 
@@ -71,6 +73,7 @@ impl Sub<Duration> for Duration {
     }
 }
 
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Mul<i64> for Duration {
     type Output = Self;
 
