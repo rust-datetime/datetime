@@ -891,14 +891,14 @@ impl Sub<Duration> for LocalDateTime {
 }
 
 
-/// A **YMD** is an implementation detail of LocalDate. It provides
-/// helper methods relating to the construction of LocalDate instances.
+/// A **YMD** is an implementation detail of `LocalDate`. It provides
+/// helper methods relating to the construction of `LocalDate` instances.
 ///
-/// The main difference is that while all LocalDates get checked for
-/// validity before they are used, there is no such check for YMD. The
-/// interface to LocalDate ensures that it should be impossible to
+/// The main difference is that while all `LocalDate` values get checked
+/// for validity before they are used, there is no such check for `YMD`.
+/// The interface to `LocalDate` ensures that it should be impossible to
 /// create an instance of the 74th of March, for example, but you’re
-/// free to create such an instance of YMD. For this reason, it is not
+/// free to create such an instance of `YMD`. For this reason, it is not
 /// exposed to implementors of this library.
 #[derive(PartialEq, PartialOrd, Eq, Ord, Clone, Debug, Copy)]
 struct YMD {
@@ -1099,16 +1099,16 @@ impl Month {
 
 
 /// A named day of the week.
-///
-/// Sunday is Day 0. This seems to be a North American thing? It’s pretty
-/// much an arbitrary choice, and as you can’t use the from_zero method,
-/// it won’t affect you at all. If you want to change it, the only thing
-/// that should be affected is LocalDate::days_to_weekday.
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum Weekday {
     Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday,
 }
 
+// Sunday is Day 0. This seems to be a North American thing? It’s pretty
+// much an arbitrary choice, and as you can’t use the `from_zero` method,
+// it won’t affect you at all. If you want to change it, the only thing
+// that should be affected is `LocalDate::days_to_weekday`.
+//
 // I’m not going to give weekdays an Ord instance because there’s no
 // real standard as to whether Sunday should come before Monday, or the
 // other way around. Luckily, they don’t need one, as the field is
@@ -1117,9 +1117,9 @@ pub enum Weekday {
 impl Weekday {
     fn days_from_monday_as_one(&self) -> i8 {
         match *self {
-            Sunday => 7,   Monday => 1,
-            Tuesday => 2,  Wednesday => 3,
-            Thursday => 4, Friday => 5,
+            Sunday   => 7,  Monday    => 1,
+            Tuesday  => 2,  Wednesday => 3,
+            Thursday => 4,  Friday    => 5,
             Saturday => 6,
         }
     }
