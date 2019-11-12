@@ -429,10 +429,10 @@ impl LocalDate {
     ///
     /// assert!(LocalDate::ymd(2100, Month::February, 29).is_err());
     /// ```
-    pub fn ymd(year: i64, month: Month, day: i8) -> Result<LocalDate, Error> {
+    pub fn ymd(year: i64, month: Month, day: i8) -> Result<Self, Error> {
         YMD { year, month, day }
             .to_days_since_epoch()
-            .map(|days| LocalDate::from_days_since_epoch(days - EPOCH_DIFFERENCE))
+            .map(|days| Self::from_days_since_epoch(days - EPOCH_DIFFERENCE))
     }
 
     /// Creates a new local date instance from the given year and day-of-year
@@ -454,11 +454,11 @@ impl LocalDate {
     /// assert_eq!(date.month(), Month::September);
     /// assert_eq!(date.day(), 13);
     /// ```
-    pub fn yd(year: i64, yearday: i64) -> Result<LocalDate, Error> {
+    pub fn yd(year: i64, yearday: i64) -> Result<Self, Error> {
         if yearday.is_within(0..367) {
             let jan_1 = YMD { year, month: January, day: 1 };
             let days = jan_1.to_days_since_epoch()?;
-            Ok(LocalDate::from_days_since_epoch(days + yearday - 1 - EPOCH_DIFFERENCE))
+            Ok(Self::from_days_since_epoch(days + yearday - 1 - EPOCH_DIFFERENCE))
         }
         else {
             Err(Error::OutOfRange)
@@ -504,7 +504,7 @@ impl LocalDate {
     /// assert_eq!(date.day(), 3);
     /// assert_eq!(date.weekday(), Weekday::Sunday);
     /// ```
-    pub fn ywd(year: i64, week: i64, weekday: Weekday) -> Result<LocalDate, Error> {
+    pub fn ywd(year: i64, week: i64, weekday: Weekday) -> Result<Self, Error> {
         let jan_4 = YMD { year, month: January, day: 4 };
         let correction = days_to_weekday(jan_4.to_days_since_epoch().unwrap() - EPOCH_DIFFERENCE).days_from_monday_as_one() as i64 + 3;
 
@@ -512,16 +512,16 @@ impl LocalDate {
 
         if yearday <= 0 {
             let days_in_year = if Year(year - 1).is_leap_year() { 366 } else { 365 };
-            LocalDate::yd(year - 1, days_in_year + yearday)
+            Self::yd(year - 1, days_in_year + yearday)
         }
         else {
             let days_in_year = if Year(year).is_leap_year() { 366 } else { 365 };
 
             if yearday >= days_in_year {
-                LocalDate::yd(year + 1, yearday - days_in_year)
+                Self::yd(year + 1, yearday - days_in_year)
             }
             else {
-                LocalDate::yd(year, yearday)
+                Self::yd(year, yearday)
             }
         }
     }
@@ -553,7 +553,7 @@ impl LocalDate {
     /// assert_eq!(date.month(), Month::September);
     /// assert_eq!(date.day(), 24);  // not the 25th!
     /// ```
-    fn from_days_since_epoch(days: i64) -> LocalDate {
+    fn from_days_since_epoch(days: i64) -> Self {
 
         // The Gregorian calendar works in 400-year cycles, which repeat
         // themselves ever after.
@@ -629,7 +629,7 @@ impl LocalDate {
         // Finally, adjust the day numbers for human reasons: the first day
         // of the month is the 1st, rather than the 0th, and the year needs
         // to be adjusted relative to the EPOCH.
-        LocalDate {
+        Self {
             yearday: (day_of_year + 1) as i16,
             weekday: days_to_weekday(days),
             ymd: YMD {
@@ -651,8 +651,8 @@ impl LocalDate {
     ///
     /// For this reason, the function is marked as `unsafe`, even though it
     /// (technically) uses unsafe components.
-    pub unsafe fn _new_with_prefilled_values(year: i64, month: Month, day: i8, weekday: Weekday, yearday: i16) -> LocalDate {
-        LocalDate {
+    pub unsafe fn _new_with_prefilled_values(year: i64, month: Month, day: i8, weekday: Weekday, yearday: i16) -> Self {
+        Self {
             ymd: YMD { year, month, day },
             weekday,
             yearday,
@@ -678,19 +678,19 @@ impl fmt::Debug for LocalDate {
 }
 
 impl PartialEq for LocalDate {
-    fn eq(&self, other: &LocalDate) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.ymd == other.ymd
     }
 }
 
 impl PartialOrd for LocalDate {
-    fn partial_cmp(&self, other: &LocalDate) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.ymd.partial_cmp(&other.ymd)
     }
 }
 
 impl Ord for LocalDate {
-    fn cmp(&self, other: &LocalDate) -> Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         self.ymd.cmp(&other.ymd)
     }
 }
@@ -699,14 +699,14 @@ impl LocalTime {
 
     /// Computes the number of hours, minutes, and seconds, based on the
     /// number of seconds that have elapsed since midnight.
-    pub fn from_seconds_since_midnight(seconds: i64) -> LocalTime {
-        LocalTime::from_seconds_and_milliseconds_since_midnight(seconds, 0)
+    pub fn from_seconds_since_midnight(seconds: i64) -> Self {
+        Self::from_seconds_and_milliseconds_since_midnight(seconds, 0)
     }
 
     /// Computes the number of hours, minutes, and seconds, based on the
     /// number of seconds that have elapsed since midnight.
-    pub fn from_seconds_and_milliseconds_since_midnight(seconds: i64, millisecond_of_second: i16) -> LocalTime {
-        LocalTime {
+    pub fn from_seconds_and_milliseconds_since_midnight(seconds: i64, millisecond_of_second: i16) -> Self {
+        Self {
             hour:   (seconds / 60 / 60) as i8,
             minute: (seconds / 60 % 60) as i8,
             second: (seconds % 60) as i8,
@@ -715,8 +715,8 @@ impl LocalTime {
     }
 
     /// Returns the time at midnight, with all fields initialised to 0.
-    pub fn midnight() -> LocalTime {
-        LocalTime { hour: 0, minute: 0, second: 0, millisecond: 0 }
+    pub fn midnight() -> Self {
+        Self { hour: 0, minute: 0, second: 0, millisecond: 0 }
     }
 
     /// Creates a new timestamp instance with the given hour and minute
@@ -724,10 +724,10 @@ impl LocalTime {
     ///
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return an `Err`.
-    pub fn hm(hour: i8, minute: i8) -> Result<LocalTime, Error> {
+    pub fn hm(hour: i8, minute: i8) -> Result<Self, Error> {
         if (hour.is_within(0..24) && minute.is_within(0..60))
         || (hour == 24 && minute == 00) {
-            Ok(LocalTime { hour, minute, second: 0, millisecond: 0 })
+            Ok(Self { hour, minute, second: 0, millisecond: 0 })
         }
         else {
             Err(Error::OutOfRange)
@@ -739,10 +739,10 @@ impl LocalTime {
     ///
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return an `Err`.
-    pub fn hms(hour: i8, minute: i8, second: i8) -> Result<LocalTime, Error> {
+    pub fn hms(hour: i8, minute: i8, second: i8) -> Result<Self, Error> {
         if (hour.is_within(0..24) && minute.is_within(0..60) && second.is_within(0..60))
         || (hour == 24 && minute == 00 && second == 00) {
-            Ok(LocalTime { hour, minute, second, millisecond: 0 })
+            Ok(Self { hour, minute, second, millisecond: 0 })
         }
         else {
             Err(Error::OutOfRange)
@@ -754,11 +754,11 @@ impl LocalTime {
     ///
     /// The values are checked for validity before instantiation, and
     /// passing in values out of range will return an `Err`.
-    pub fn hms_ms(hour: i8, minute: i8, second: i8, millisecond: i16) -> Result<LocalTime, Error> {
+    pub fn hms_ms(hour: i8, minute: i8, second: i8, millisecond: i16) -> Result<Self, Error> {
         if hour.is_within(0..24)   && minute.is_within(0..60)
         && second.is_within(0..60) && millisecond.is_within(0..1000)
         {
-            Ok(LocalTime { hour, minute, second, millisecond })
+            Ok(Self { hour, minute, second, millisecond })
         }
         else {
             Err(Error::OutOfRange)
@@ -792,35 +792,35 @@ impl LocalDateTime {
 
     /// Computes a complete date-time based on the values in the given
     /// Instant parameter.
-    pub fn from_instant(instant: Instant) -> LocalDateTime {
-        LocalDateTime::at_ms(instant.seconds(), instant.milliseconds())
+    pub fn from_instant(instant: Instant) -> Self {
+        Self::at_ms(instant.seconds(), instant.milliseconds())
     }
 
     /// Computes a complete date-time based on the number of seconds that
     /// have elapsed since **midnight, 1st January, 1970**, setting the
     /// number of milliseconds to 0.
-    pub fn at(seconds_since_1970_epoch: i64) -> LocalDateTime {
-        LocalDateTime::at_ms(seconds_since_1970_epoch, 0)
+    pub fn at(seconds_since_1970_epoch: i64) -> Self {
+        Self::at_ms(seconds_since_1970_epoch, 0)
     }
 
     /// Computes a complete date-time based on the number of seconds that
     /// have elapsed since **midnight, 1st January, 1970**,
-    pub fn at_ms(seconds_since_1970_epoch: i64, millisecond_of_second: i16) -> LocalDateTime {
+    pub fn at_ms(seconds_since_1970_epoch: i64, millisecond_of_second: i16) -> Self {
         let seconds = seconds_since_1970_epoch - EPOCH_DIFFERENCE * SECONDS_IN_DAY;
 
         // Just split the input value into days and seconds, and let
         // LocalDate and LocalTime do all the hard work.
         let (days, secs) = split_cycles(seconds, SECONDS_IN_DAY);
 
-        LocalDateTime {
+        Self {
             date: LocalDate::from_days_since_epoch(days),
             time: LocalTime::from_seconds_and_milliseconds_since_midnight(secs, millisecond_of_second),
         }
     }
 
     /// Creates a new local date time from a local date and a local time.
-    pub fn new(date: LocalDate, time: LocalTime) -> LocalDateTime {
-        LocalDateTime {
+    pub fn new(date: LocalDate, time: LocalTime) -> Self {
+        Self {
             date,
             time,
         }
@@ -838,9 +838,9 @@ impl LocalDateTime {
 
     /// Creates a new date-time stamp set to the current time.
     #[cfg_attr(target_os = "redox", allow(unused_unsafe))]
-    pub fn now() -> LocalDateTime {
+    pub fn now() -> Self {
         let (s, ms) = unsafe { sys_time() };
-        LocalDateTime::at_ms(s, ms)
+        Self::at_ms(s, ms)
     }
 
     pub fn to_instant(&self) -> Instant {
@@ -848,7 +848,7 @@ impl LocalDateTime {
         Instant::at_ms(seconds, self.time.millisecond)
     }
 
-    pub fn add_seconds(&self, seconds: i64) -> LocalDateTime {
+    pub fn add_seconds(&self, seconds: i64) -> Self {
         Self::from_instant(self.to_instant() + Duration::of(seconds))
     }
 }
@@ -875,18 +875,18 @@ impl fmt::Debug for LocalDateTime {
 }
 
 impl Add<Duration> for LocalDateTime {
-    type Output = LocalDateTime;
+    type Output = Self;
 
-    fn add(self, duration: Duration) -> LocalDateTime {
-        LocalDateTime::from_instant(self.to_instant() + duration)
+    fn add(self, duration: Duration) -> Self {
+        Self::from_instant(self.to_instant() + duration)
     }
 }
 
 impl Sub<Duration> for LocalDateTime {
-    type Output = LocalDateTime;
+    type Output = Self;
 
-    fn sub(self, duration: Duration) -> LocalDateTime {
-        LocalDateTime::from_instant(self.to_instant() - duration)
+    fn sub(self, duration: Duration) -> Self {
+        Self::from_instant(self.to_instant() - duration)
     }
 }
 
@@ -1068,7 +1068,7 @@ impl Month {
     /// assert_eq!(Month::from_one(5), Ok(Month::May));
     /// assert!(Month::from_one(0).is_err());
     /// ```
-    pub fn from_one(month: i8) -> Result<Month, Error> {
+    pub fn from_one(month: i8) -> Result<Self, Error> {
         Ok(match month {
              1 => January,   2 => February,   3 => March,
              4 => April,     5 => May,        6 => June,
@@ -1086,7 +1086,7 @@ impl Month {
     /// assert_eq!(Month::from_zero(5), Ok(Month::June));
     /// assert!(Month::from_zero(12).is_err());
     /// ```
-    pub fn from_zero(month: i8) -> Result<Month, Error> {
+    pub fn from_zero(month: i8) -> Result<Self, Error> {
         Ok(match month {
             0 => January,   1 => February,   2 => March,
             3 => April,     4 => May,        5 => June,
@@ -1132,7 +1132,7 @@ impl Weekday {
     /// assert_eq!(Weekday::from_zero(4), Ok(Weekday::Thursday));
     /// assert!(Weekday::from_zero(7).is_err());
     /// ```
-    pub fn from_zero(weekday: i8) -> Result<Weekday, Error> {
+    pub fn from_zero(weekday: i8) -> Result<Self, Error> {
         Ok(match weekday {
             0 => Sunday,     1 => Monday,    2 => Tuesday,
             3 => Wednesday,  4 => Thursday,  5 => Friday,
@@ -1140,7 +1140,7 @@ impl Weekday {
         })
     }
 
-    pub fn from_one(weekday: i8) -> Result<Weekday, Error> {
+    pub fn from_one(weekday: i8) -> Result<Self, Error> {
         Ok(match weekday {
             7 => Sunday,     1 => Monday,    2 => Tuesday,
             3 => Wednesday,  4 => Thursday,  5 => Friday,

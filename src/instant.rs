@@ -24,27 +24,27 @@ impl Instant {
 
     /// Creates a new Instant set to the number of seconds since the Unix
     /// epoch, and zero milliseconds.
-    pub fn at(seconds: i64) -> Instant {
-        Instant::at_ms(seconds, 0)
+    pub fn at(seconds: i64) -> Self {
+        Self::at_ms(seconds, 0)
     }
 
     /// Creates a new Instant set to the number of seconds since the
     /// Unix epoch, along with the number of milliseconds so far this
     /// second.
-    pub fn at_ms(seconds: i64, milliseconds: i16) -> Instant {
-        Instant { seconds, milliseconds }
+    pub fn at_ms(seconds: i64, milliseconds: i16) -> Self {
+        Self { seconds, milliseconds }
     }
 
     /// Creates a new Instant set to the computer’s current time.
     #[cfg_attr(target_os = "redox", allow(unused_unsafe))]
-    pub fn now() -> Instant {
+    pub fn now() -> Self {
         let (seconds, milliseconds) = unsafe { sys_time() };
-        Instant { seconds, milliseconds }
+        Self { seconds, milliseconds }
     }
 
     /// Creates a new Instant set to the Unix epoch.
-    pub fn at_epoch() -> Instant {
-        Instant::at(0)
+    pub fn at_epoch() -> Self {
+        Self::at(0)
     }
 
     /// Returns the number of seconds at this instant
@@ -65,11 +65,11 @@ impl fmt::Debug for Instant {
 }
 
 impl Add<Duration> for Instant {
-    type Output = Instant;
+    type Output = Self;
 
-    fn add(self, duration: Duration) -> Instant {
+    fn add(self, duration: Duration) -> Self {
         let (seconds, milliseconds) = duration.lengths();
-        Instant {
+        Self {
             seconds: self.seconds + seconds,
             milliseconds: self.milliseconds + milliseconds,
         }
@@ -77,11 +77,11 @@ impl Add<Duration> for Instant {
 }
 
 impl Sub<Duration> for Instant {
-    type Output = Instant;
+    type Output = Self;
 
-    fn sub(self, duration: Duration) -> Instant {
+    fn sub(self, duration: Duration) -> Self {
         let (seconds, milliseconds) = duration.lengths();
-        Instant {
+        Self {
             seconds: self.seconds - seconds,
             milliseconds: self.milliseconds - milliseconds,
         }

@@ -22,7 +22,7 @@ impl FromStr for LocalDate {
 impl FromStr for LocalTime {
     type Err = Error<DateTimeError>;
 
-    fn from_str(input: &str) -> Result<LocalTime, Self::Err> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         match iso8601::time(input) {
             Ok(fields)  => fields_to_time(fields).map_err(Error::Date),
             Err(e)      => Err(Error::Parse(e)),
@@ -33,7 +33,7 @@ impl FromStr for LocalTime {
 impl FromStr for LocalDateTime {
     type Err = Error<DateTimeError>;
 
-    fn from_str(input: &str) -> Result<LocalDateTime, Self::Err> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         let fields = match iso8601::datetime(input) {
             Ok(fields)  => fields,
             Err(e)      => return Err(Error::Parse(e)),
@@ -41,14 +41,14 @@ impl FromStr for LocalDateTime {
 
         let date = fields_to_date(fields.date).map_err(Error::Date)?;
         let time = fields_to_time(fields.time).map_err(Error::Date)?;
-        Ok(LocalDateTime::new(date, time))
+        Ok(Self::new(date, time))
     }
 }
 
 impl FromStr for OffsetDateTime {
     type Err = Error<OffsetError>;
 
-    fn from_str(input: &str) -> Result<OffsetDateTime, Self::Err> {
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
         let fields = match iso8601::datetime(input) {
             Ok(fields)  => fields,
             Err(e)      => return Err(Error::Parse(e)),
@@ -98,8 +98,8 @@ pub enum Error<E: ErrorTrait> {
 impl<E: ErrorTrait> fmt::Display for Error<E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::Date(ref error)   => write!(f, "{}: {}", self.description(), error),
-            Error::Parse(ref string) => write!(f, "{}: {}", self.description(), string),
+            Self::Date(ref error)    => write!(f, "{}: {}", self.description(), error),
+            Self::Parse(ref string)  => write!(f, "{}: {}", self.description(), string),
         }
     }
 }
@@ -107,15 +107,15 @@ impl<E: ErrorTrait> fmt::Display for Error<E> {
 impl<E: ErrorTrait> ErrorTrait for Error<E> {
     fn description(&self) -> &str {
         match *self {
-            Error::Date(_)     => "parsing resulted in an invalid date",
-            Error::Parse(_)    => "parse error",
+            Self::Date(_)   => "parsing resulted in an invalid date",
+            Self::Parse(_)  => "parse error",
         }
     }
 
     fn cause(&self) -> Option<&dyn ErrorTrait> {
         match *self {
-            Error::Date(ref error)   => Some(error),
-            Error::Parse(_)          => None,
+            Self::Date(ref error)  => Some(error),
+            Self::Parse(_)         => None,
         }
     }
 }

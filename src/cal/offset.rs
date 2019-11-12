@@ -23,20 +23,20 @@ impl Offset {
         }
     }
 
-    pub fn utc() -> Offset {
-        Offset { offset_seconds: None }
+    pub fn utc() -> Self {
+        Self { offset_seconds: None }
     }
 
-    pub fn of_seconds(seconds: i32) -> Result<Offset, Error> {
+    pub fn of_seconds(seconds: i32) -> Result<Self, Error> {
         if seconds.is_within(-86400..86401) {
-            Ok(Offset { offset_seconds: Some(seconds) })
+            Ok(Self { offset_seconds: Some(seconds) })
         }
         else {
             Err(Error::OutOfRange)
         }
     }
 
-    pub fn of_hours_and_minutes(hours: i8, minutes: i8) -> Result<Offset, Error> {
+    pub fn of_hours_and_minutes(hours: i8, minutes: i8) -> Result<Self, Error> {
         if (hours.is_positive() && minutes.is_negative())
         || (hours.is_negative() && minutes.is_positive()) {
             Err(Error::SignMismatch)
@@ -47,7 +47,7 @@ impl Offset {
         else {
             let hours = hours as i32;
             let minutes = minutes as i32;
-            Offset::of_seconds(hours * (60 * 60) + minutes * 60)
+            Self::of_seconds(hours * (60 * 60) + minutes * 60)
         }
     }
 
@@ -110,14 +110,14 @@ impl fmt::Display for Error {
 impl ErrorTrait for Error {
     fn description(&self) -> &str {
         match *self {
-            Error::OutOfRange    => "offset field out of range",
-            Error::SignMismatch  => "sign mismatch",
-            Error::Date(_)       => "datetime field out of range",
+            Self::OutOfRange    => "offset field out of range",
+            Self::SignMismatch  => "sign mismatch",
+            Self::Date(_)       => "datetime field out of range",
         }
     }
 
     fn cause(&self) -> Option<&dyn ErrorTrait> {
-        if let Error::Date(ref e) = *self {
+        if let Self::Date(ref e) = *self {
             Some(e)
         }
         else {

@@ -75,20 +75,20 @@ pub struct Arguments {
 }
 
 impl Arguments {
-    pub fn empty() -> Arguments {
-        Arguments {
+    pub fn empty() -> Self {
+        Self {
             alignment: None,
             width:     None,
             pad_char:  None,
         }
     }
 
-    pub fn set_width(&mut self, width: Width) -> Arguments {
+    pub fn set_width(&mut self, width: Width) -> Self {
         self.width = Some(width);
         *self
     }
 
-    pub fn set_alignment(&mut self, alignment: Alignment) -> Arguments {
+    pub fn set_alignment(&mut self, alignment: Alignment) -> Self {
         self.alignment = Some(alignment);
         *self
     }

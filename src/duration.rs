@@ -14,20 +14,20 @@ pub struct Duration {
 impl Duration {
 
     /// Create a new zero-length duration.
-    pub fn zero() -> Duration {
-        Duration { seconds: 0, milliseconds: 0 }
+    pub fn zero() -> Self {
+        Self { seconds: 0, milliseconds: 0 }
     }
 
     /// Create a new duration that’s the given number of seconds long.
-    pub fn of(seconds: i64) -> Duration {
-        Duration { seconds, milliseconds: 0 }
+    pub fn of(seconds: i64) -> Self {
+        Self { seconds, milliseconds: 0 }
     }
 
     /// Create a new duration that’s the given number of seconds and
     /// milliseconds long.
-    pub fn of_ms(seconds: i64, milliseconds: i16) -> Duration {
+    pub fn of_ms(seconds: i64, milliseconds: i16) -> Self {
         assert!(milliseconds >= 0 && milliseconds <= 999);  // TODO: replace assert with returning Result
-        Duration { seconds, milliseconds }
+        Self { seconds, milliseconds }
     }
 
     /// Return the seconds and milliseconds portions of the duration as
@@ -44,38 +44,38 @@ impl Duration {
 }
 
 impl Add<Duration> for Duration {
-    type Output = Duration;
+    type Output = Self;
 
-    fn add(self, rhs: Duration) -> Duration {
+    fn add(self, rhs: Self) -> Self {
         let ms = self.milliseconds + rhs.milliseconds;
         if ms >= 1000 {
-            Duration::of_ms(self.seconds + rhs.seconds + 1, ms - 1000)
+            Self::of_ms(self.seconds + rhs.seconds + 1, ms - 1000)
         }
         else {
-            Duration::of_ms(self.seconds + rhs.seconds, ms)
+            Self::of_ms(self.seconds + rhs.seconds, ms)
         }
     }
 }
 
 impl Sub<Duration> for Duration {
-    type Output = Duration;
+    type Output = Self;
 
-    fn sub(self, rhs: Duration) -> Duration {
+    fn sub(self, rhs: Self) -> Self {
         let ms = self.milliseconds - rhs.milliseconds;
         if ms < 0 {
-            Duration::of_ms(self.seconds - rhs.seconds - 1, ms + 1000)
+            Self::of_ms(self.seconds - rhs.seconds - 1, ms + 1000)
         }
         else {
-            Duration::of_ms(self.seconds - rhs.seconds, ms)
+            Self::of_ms(self.seconds - rhs.seconds, ms)
         }
     }
 }
 
 impl Mul<i64> for Duration {
-    type Output = Duration;
+    type Output = Self;
 
-    fn mul(self, amount: i64) -> Duration {
+    fn mul(self, amount: i64) -> Self {
         let ms = self.milliseconds as i64 * amount;
-        Duration::of_ms(self.seconds * amount + ms / 1000, (ms % 1000) as i16)
+        Self::of_ms(self.seconds * amount + ms / 1000, (ms % 1000) as i16)
     }
 }
