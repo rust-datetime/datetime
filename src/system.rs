@@ -31,7 +31,7 @@ pub unsafe fn sys_time() -> (i64, i16) {
     (tv.tv_sec, (tv.tv_usec / 1000) as i16)
 }
 
-#[cfg(windows)] use winapi::minwindef::FILETIME;
+#[cfg(windows)] use winapi::shared::minwindef::FILETIME;
 #[cfg(windows)] const HECTONANOSECS_IN_SEC: i64 = 10_000_000;
 #[cfg(windows)] const HECTONANOSEC_TO_UNIX_EPOCH: i64 = 11_644_473_600 * HECTONANOSECS_IN_SEC;
 
@@ -40,7 +40,7 @@ pub unsafe fn sys_time() -> (i64, i16) {
 #[cfg(any(target_os = "windows"))]
 pub unsafe fn sys_time() -> (i64, i16) {
     use std::mem;
-    use kernel32::GetSystemTimeAsFileTime;
+    use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
     let mut ft = mem::zeroed();
 
     GetSystemTimeAsFileTime(&mut ft);
