@@ -10,6 +10,9 @@ extern crate num_traits;
 extern crate pad;
 extern crate iso8601;
 
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "redox")))]
+extern crate libc;  // used in the system module
+
 #[cfg(windows)] extern crate winapi;
 
 
