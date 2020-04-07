@@ -23,7 +23,7 @@ use libc::clock_gettime;
 /// Returns the system’s current time, as a tuple of seconds elapsed since
 /// the Unix epoch, and the millisecond of the second.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-pub unsafe fn sys_time() -> (i64, i16) {
+pub(crate) unsafe fn sys_time() -> (i64, i16) {
     use std::ptr::null_mut;
 
     let mut tv = libc::timeval { tv_sec: 0, tv_usec: 0 };
@@ -38,7 +38,7 @@ pub unsafe fn sys_time() -> (i64, i16) {
 /// Returns the system’s current time, as a tuple of seconds elapsed since
 /// the Unix epoch, and the millisecond of the second.
 #[cfg(any(target_os = "windows"))]
-pub unsafe fn sys_time() -> (i64, i16) {
+pub(crate) unsafe fn sys_time() -> (i64, i16) {
     use std::mem;
     use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
     let mut ft = mem::zeroed();

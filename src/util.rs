@@ -3,7 +3,7 @@
 use std::ops::Range;
 
 
-pub trait RangeExt {
+pub(crate) trait RangeExt {
 
     /// Returns whether this value exists within the given range of values.
     fn is_within(&self, range: Range<Self>) -> bool where Self: Sized;

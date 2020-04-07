@@ -916,7 +916,7 @@ impl YMD {
     /// This method returns a Result instead of exposing is_valid to
     /// the user, because the leap year calculations are used in both
     /// functions, so it makes more sense to only do them once.
-    pub fn to_days_since_epoch(&self) -> Result<i64, Error> {
+    fn to_days_since_epoch(&self) -> Result<i64, Error> {
         let years = self.year - 2000;
         let (leap_days_elapsed, is_leap_year) = Year(self.year).leap_year_calculations();
 
@@ -957,7 +957,7 @@ impl YMD {
     /// Whether the current year is a leap year should already have been
     /// calculated at this point, so the value is passed in rather than
     /// calculating it afresh.
-    pub fn is_valid(&self, is_leap_year: bool) -> bool {
+    fn is_valid(&self, is_leap_year: bool) -> bool {
         self.day >= 1 && self.day <= self.month.days_in_month(is_leap_year)
     }
 }
@@ -1154,9 +1154,7 @@ impl Weekday {
 /// Misc tests that don’t seem to fit anywhere.
 #[cfg(test)]
 mod test {
-    pub use super::{LocalDateTime, LocalDate, LocalTime, Month, Weekday, Year};
-    pub use cal::DatePiece;
-    pub use std::str::FromStr;
+    pub(crate) use super::{LocalDateTime, LocalDate, LocalTime, Month};
 
 
     #[test]

@@ -1,16 +1,16 @@
 //! ISO-8601 date and time calculations, which use years, months, days,
 //! hours, minutes, and seconds.
 
-pub mod datetime;
-pub mod fmt;
-pub mod offset;
-pub mod parse;
+pub(crate) mod datetime;
+pub(crate) mod fmt;
+pub(crate) mod offset;
+pub(crate) mod parse;
 pub mod zone;
 pub mod convenience;
 
-pub use self::datetime::{LocalDate, LocalTime, LocalDateTime, Weekday, Month};
-pub use self::datetime::{YearMonth, Year};
-pub use self::offset::{Offset, OffsetDateTime};
+use self::datetime::{LocalDate, LocalTime, LocalDateTime, Weekday, Month};
+use self::offset::{Offset, OffsetDateTime};
+
 
 /// The **date piece** trait is used for date and time values that have
 /// date components of years, months, and days.

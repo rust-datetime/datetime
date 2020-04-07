@@ -340,13 +340,12 @@ impl<'a> FormatParser<'a> {
 
 #[cfg(test)]
 mod test {
-    pub use super::{DateFormat, FormatError, Field, Arguments, NumArguments, TextArguments};
-    pub use super::Field::*;
-
-    pub use pad::Alignment;
+    pub(crate) use super::{DateFormat, FormatError, Arguments, NumArguments, TextArguments};
+    pub(crate) use super::Field::*;
+    pub(crate) use pad::Alignment;
 
     mod parse {
-        pub use super::*;
+        use super::*;
 
         macro_rules! test {
             ($name: ident: $input: expr => $result: expr) => {
