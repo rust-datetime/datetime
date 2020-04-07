@@ -37,7 +37,7 @@ impl Year {
     /// assert_eq!(Year(2000).is_leap_year(), true);
     /// assert_eq!(Year(1900).is_leap_year(), false);
     /// ```
-    pub fn is_leap_year(&self) -> bool {
+    pub fn is_leap_year(self) -> bool {
         self.leap_year_calculations().1
     }
 
@@ -69,9 +69,9 @@ impl Year {
     /// assert_eq!(year.months(April .. June).count(), 2);
     /// assert_eq!(year.months(.. June).count(), 5);
     /// ```
-    pub fn months<S: MonthSpan>(&self, span: S) -> YearMonths {
+    pub fn months<S: MonthSpan>(self, span: S) -> YearMonths {
         YearMonths {
-            year: *self,
+            year: self,
             iter: span.get_slice().iter(),
         }
     }
@@ -87,9 +87,9 @@ impl Year {
     /// assert_eq!(*expiry_date.year, 2017);
     /// assert_eq!(expiry_date.month, Month::February);
     /// ```
-    pub fn month(&self, month: Month) -> YearMonth {
+    pub fn month(self, month: Month) -> YearMonth {
         YearMonth {
-            year: *self,
+            year: self,
             month,
         }
     }
@@ -99,7 +99,7 @@ impl Year {
     ///
     /// 1. The number of leap years that have elapsed prior to this year;
     /// 2. Whether this year is a leap year or not.
-    fn leap_year_calculations(&self) -> (i64, bool) {
+    fn leap_year_calculations(self) -> (i64, bool) {
         let year = self.0 - 2000;
 
         // This calculation is the reverse of LocalDate::from_days_since_epoch.
@@ -767,7 +767,7 @@ impl LocalTime {
 
     /// Calculate the number of seconds since midnight this time is at,
     /// ignoring milliseconds.
-    pub fn to_seconds(&self) -> i64 {
+    pub fn to_seconds(self) -> i64 {
         self.hour as i64 * 3600
             + self.minute as i64 * 60
             + self.second as i64
@@ -1027,8 +1027,8 @@ impl Month {
 
     /// Returns the number of days in this month, depending on whether it’s
     /// a leap year or not.
-    pub fn days_in_month(&self, leap_year: bool) -> i8 {
-        match *self {
+    pub fn days_in_month(self, leap_year: bool) -> i8 {
+        match self {
             January   => 31, February  => if leap_year { 29 } else { 28 },
             March     => 31, April     => 30,
             May       => 31, June      => 30,
@@ -1040,8 +1040,8 @@ impl Month {
 
     /// Returns the number of days that have elapsed in a year *before* this
     /// month begins, with no leap year check.
-    fn days_before_start(&self) -> i16 {
-        match *self {
+    fn days_before_start(self) -> i16 {
+        match self {
             January =>   0, February =>  31, March     =>  59,
             April   =>  90, May      => 120, June      => 151,
             July    => 181, August   => 212, September => 243,
@@ -1049,8 +1049,8 @@ impl Month {
         }
     }
 
-    pub fn months_from_january(&self) -> usize {
-        match *self {
+    pub fn months_from_january(self) -> usize {
+        match self {
             January =>   0, February =>   1, March     =>  2,
             April   =>   3, May      =>   4, June      =>  5,
             July    =>   6, August   =>   7, September =>  8,
@@ -1113,8 +1113,8 @@ pub enum Weekday {
 // ignored when comparing LocalDates.
 
 impl Weekday {
-    fn days_from_monday_as_one(&self) -> i8 {
-        match *self {
+    fn days_from_monday_as_one(self) -> i8 {
+        match self {
             Sunday   => 7,  Monday    => 1,
             Tuesday  => 2,  Wednesday => 3,
             Thursday => 4,  Friday    => 5,

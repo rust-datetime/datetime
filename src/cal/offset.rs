@@ -16,7 +16,7 @@ pub struct Offset {
 }
 
 impl Offset {
-    fn adjust(&self, local: LocalDateTime) -> LocalDateTime {
+    fn adjust(self, local: LocalDateTime) -> LocalDateTime {
         match self.offset_seconds {
             Some(s) => local + Duration::of(s as i64),
             None    => local,
@@ -58,29 +58,29 @@ impl Offset {
         }
     }
 
-    pub fn is_utc(&self) -> bool {
+    pub fn is_utc(self) -> bool {
         self.offset_seconds.is_none()
     }
 
-    pub fn is_negative(&self) -> bool {
+    pub fn is_negative(self) -> bool {
         self.hours().is_negative() || self.minutes().is_negative() || self.seconds().is_negative()
     }
 
-    pub fn hours(&self) -> i8 {
+    pub fn hours(self) -> i8 {
         match self.offset_seconds {
             Some(s) => (s / 60 / 60) as i8,
             None => 0,
         }
     }
 
-    pub fn minutes(&self) -> i8 {
+    pub fn minutes(self) -> i8 {
         match self.offset_seconds {
             Some(s) => (s / 60 % 60) as i8,
             None => 0,
         }
     }
 
-    pub fn seconds(&self) -> i8 {
+    pub fn seconds(self) -> i8 {
         match self.offset_seconds {
             Some(s) => (s % 60) as i8,
             None => 0,
