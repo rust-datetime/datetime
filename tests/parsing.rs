@@ -4,7 +4,6 @@ use datetime::{LocalDateTime, Weekday, Month, LocalDate};
 extern crate rustc_serialize;
 use rustc_serialize::json::Json;
 
-use std::error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
@@ -17,13 +16,13 @@ fn open_test_file() -> String {
 
     // Open the path in read-only mode, returns `io::Result<File>`
     let mut file = match File::open(&path) {
-        Err(why) => panic!("couldn't open {}: {}", display, error::Error::description(&why)),
+        Err(why) => panic!("couldn't open {}: {}", display, why),
         Ok(file) => file
     };
 
     let mut s = String::new();
     let file_content = match file.read_to_string(&mut s) {
-        Err(why) => panic!("couldn't read {}: {}", display, error::Error::description(&why)),
+        Err(why) => panic!("couldn't read {}: {}", display, why),
         Ok(_)    => s
     };
 
