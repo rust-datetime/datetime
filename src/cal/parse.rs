@@ -98,8 +98,8 @@ pub enum Error<E: ErrorTrait> {
 impl<E: ErrorTrait> fmt::Display for Error<E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Self::Date(ref error)    => write!(f, "{}: {}", self.description(), error),
-            Self::Parse(ref string)  => write!(f, "{}: {}", self.description(), string),
+            Error::Date(ref error)    => write!(f, "{}: {}", self.description(), error),
+            Error::Parse(ref string)  => write!(f, "{}: {}", self.description(), string),
         }
     }
 }
@@ -107,15 +107,15 @@ impl<E: ErrorTrait> fmt::Display for Error<E> {
 impl<E: ErrorTrait> ErrorTrait for Error<E> {
     fn description(&self) -> &str {
         match *self {
-            Self::Date(_)   => "parsing resulted in an invalid date",
-            Self::Parse(_)  => "parse error",
+            Error::Date(_)   => "parsing resulted in an invalid date",
+            Error::Parse(_)  => "parse error",
         }
     }
 
     fn cause(&self) -> Option<&dyn ErrorTrait> {
         match *self {
-            Self::Date(ref error)  => Some(error),
-            Self::Parse(_)         => None,
+            Error::Date(ref error)  => Some(error),
+            Error::Parse(_)         => None,
         }
     }
 }

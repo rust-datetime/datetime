@@ -110,14 +110,14 @@ impl fmt::Display for Error {
 impl ErrorTrait for Error {
     fn description(&self) -> &str {
         match *self {
-            Self::OutOfRange    => "offset field out of range",
-            Self::SignMismatch  => "sign mismatch",
-            Self::Date(_)       => "datetime field out of range",
+            Error::OutOfRange    => "offset field out of range",
+            Error::SignMismatch  => "sign mismatch",
+            Error::Date(_)       => "datetime field out of range",
         }
     }
 
     fn cause(&self) -> Option<&dyn ErrorTrait> {
-        if let Self::Date(ref e) = *self {
+        if let Error::Date(ref e) = *self {
             Some(e)
         }
         else {
