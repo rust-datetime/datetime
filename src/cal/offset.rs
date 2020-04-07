@@ -103,19 +103,15 @@ pub enum Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.description())
+        match *self {
+            Error::OutOfRange    => write!(f, "offset field out of range"),
+            Error::SignMismatch  => write!(f, "sign mismatch"),
+            Error::Date(_)       => write!(f, "datetime field out of range"),
+        }
     }
 }
 
 impl ErrorTrait for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::OutOfRange    => "offset field out of range",
-            Error::SignMismatch  => "sign mismatch",
-            Error::Date(_)       => "datetime field out of range",
-        }
-    }
-
     fn cause(&self) -> Option<&dyn ErrorTrait> {
         if let Error::Date(ref e) = *self {
             Some(e)
