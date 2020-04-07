@@ -8,7 +8,7 @@ exclude = ["/README.md", "/LICENCE", "/.rustfmt.toml", "/.travis.yml"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/rust-datetime/datetime"
-version = "0.4.7"
+version = "0.5.0"
 
 [lib]
 name = "datetime"
