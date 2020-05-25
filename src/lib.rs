@@ -5,10 +5,10 @@
 #![warn(unreachable_pub)]
 #![warn(unused)]
 
-extern crate locale;
-extern crate num_traits;
-extern crate pad;
-extern crate iso8601;
+#[cfg(feature="format")] extern crate locale;
+#[cfg(feature="format")] extern crate num_traits;
+#[cfg(feature="format")] extern crate pad;
+#[cfg(feature="parse")]  extern crate iso8601;
 
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "redox")))]
 extern crate libc;  // used in the system module
@@ -19,7 +19,7 @@ extern crate libc;  // used in the system module
 mod cal;
 pub use cal::{DatePiece, TimePiece};
 pub use cal::datetime::{LocalDate, LocalTime, LocalDateTime, Month, Weekday, Year, YearMonth};
-pub use cal::fmt::custom as fmt;
+#[cfg(feature="format")] pub use cal::fmt::custom as fmt;
 pub use cal::fmt::iso::ISO;  // TODO: replace this with just a 'fmt' import
 pub use cal::offset::{Offset, OffsetDateTime};
 pub use cal::zone::{TimeZone, ZonedDateTime};

@@ -4,7 +4,7 @@
 pub(crate) mod datetime;
 pub(crate) mod fmt;
 pub(crate) mod offset;
-pub(crate) mod parse;
+#[cfg(feature="parse")] pub(crate) mod parse;
 pub mod zone;
 pub mod convenience;
 
