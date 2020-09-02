@@ -4,7 +4,7 @@ description = "Library for date and time formatting and arithmetic"
 
 authors = [ "Benjamin Sago <ogham@bsago.me>", "Hendrik Sollich <hendrik@hoodie.de>" ]
 documentation = "https://docs.rs/datetime"
-exclude = ["/README.md", "/LICENCE", "/.rustfmt.toml", "/.travis.yml"]
+exclude = ["/.rustfmt.toml", "/.travis.yml"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/rust-datetime/datetime"
