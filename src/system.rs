@@ -69,7 +69,7 @@ fn file_time_as_u64(ft: &FILETIME) -> u64 {
 
 /// Returns the system’s current time, as a tuple of seconds elapsed since
 /// the Unix epoch, and the millisecond of the second.
-#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "redox", windows)))]
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "redox", target_os = "wasi", windows)))]
 pub unsafe fn sys_time() -> (i64, i16) {
     let mut tv = libc::timespec { tv_sec: 0, tv_nsec: 0 };
     let _ = clock_gettime(libc::CLOCK_REALTIME, &mut tv);
@@ -84,6 +84,17 @@ pub fn sys_time() -> (i64, i16) {
    let realtime_clock = redox_syscall::CLOCK_REALTIME;
    let _ = redox_syscall::clock_gettime(realtime_clock, &mut ts);
    (ts.tv_sec, (ts.tv_nsec / 1000) as i16)
+}
+
+/// Returns the system’s current time, as a tuple of seconds elapsed since
+/// the Unix epoch, and the millisecond of the second.
+///
+/// This may panic if the clock was not made available
+#[cfg(target_os = "wasi")]
+pub unsafe fn sys_time() -> (i64, i16) {
+    let ns = wasi::clock_time_get(wasi::CLOCKID_REALTIME, 1_000_000)
+        .expect("WASI clock unavailable");
+    ((ns / 1_000_000_000) as i64, (ns / 1_000_000 % 1000) as i16)
 }
 
 /// Attempts to determine the system’s current time zone. There’s no
