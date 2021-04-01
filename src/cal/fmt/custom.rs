@@ -8,7 +8,6 @@ use std::str::CharIndices;
 use cal::{DatePiece, TimePiece};
 
 use locale;
-use num_traits::PrimInt;
 use pad::{PadStr, Alignment};
 
 
@@ -146,7 +145,7 @@ impl NumArguments {
         NumArguments(Arguments::empty())
     }
 
-    fn format<N: PrimInt + Display>(self, w: &mut Vec<u8>, number: N) -> io::Result<()> {
+    fn format<N: Display>(self, w: &mut Vec<u8>, number: N) -> io::Result<()> {
         self.0.format(w, &number.to_string())
     }
 }

@@ -6,7 +6,6 @@
 #![warn(unused)]
 
 #[cfg(feature="format")] extern crate locale;
-#[cfg(feature="format")] extern crate num_traits;
 #[cfg(feature="format")] extern crate pad;
 #[cfg(feature="parse")]  extern crate iso8601;
 
