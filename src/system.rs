@@ -73,7 +73,7 @@ fn file_time_as_u64(ft: &FILETIME) -> u64 {
 pub unsafe fn sys_time() -> (i64, i16) {
     let mut tv = libc::timespec { tv_sec: 0, tv_nsec: 0 };
     let _ = clock_gettime(libc::CLOCK_REALTIME, &mut tv);
-    (tv.tv_sec as i64, (tv.tv_nsec / 1000) as i16)
+    (tv.tv_sec as i64, (tv.tv_nsec / 1000_000) as i16)
 }
 
 /// Returns the system’s current time, as a tuple of seconds elapsed since
@@ -83,7 +83,7 @@ pub fn sys_time() -> (i64, i16) {
    let mut ts = redox_syscall::TimeSpec::default();
    let realtime_clock = redox_syscall::CLOCK_REALTIME;
    let _ = redox_syscall::clock_gettime(realtime_clock, &mut ts);
-   (ts.tv_sec, (ts.tv_nsec / 1000) as i16)
+   (ts.tv_sec, (ts.tv_nsec / 1000_000) as i16)
 }
 
 /// Attempts to determine the system’s current time zone. There’s no
