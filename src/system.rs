@@ -16,7 +16,7 @@ extern {
     fn gettimeofday(tp: *mut libc::timeval, tzp: *mut libc::timezone) -> libc::c_int;
 }
 
-#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "redox")))]
+#[cfg(all(any(unix, target_os = "wasi"), not(target_os = "macos"), not(target_os = "ios"), not(target_os = "redox")))]
 use libc::clock_gettime;
 
 
