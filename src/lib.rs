@@ -9,7 +9,7 @@
 #[cfg(feature="format")] extern crate pad;
 #[cfg(feature="parse")]  extern crate iso8601;
 
-#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "redox")))]
+#[cfg(all(any(unix, target_os = "wasi"), not(target_os = "macos"), not(target_os = "ios"), not(target_os = "redox")))]
 extern crate libc;  // used in the system module
 
 #[cfg(windows)] extern crate winapi;
